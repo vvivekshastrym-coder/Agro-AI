@@ -1,0 +1,1006 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<title>Agro AI — Kisan GPT</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --forest:#1F4D2B;
+    --forest-dark:#153A20;
+    --saffron:#E58A2D;
+    --saffron-light:#FBEBD8;
+    --cream:#FFF8EC;
+    --leaf:#3F7A3F;
+    --ink:#1A1A1A;
+    --ink-soft:#5B5A54;
+    --line:#EAE1CE;
+    --white:#FFFFFF;
+    --shadow-soft: 0 2px 10px rgba(31,77,43,0.07), 0 10px 24px rgba(31,77,43,0.06);
+    --danger:#B4432E;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:#EDE7D6;
+    font-family:'Inter',sans-serif;
+    color:var(--ink);
+    -webkit-font-smoothing:antialiased;
+  }
+  h1,h2,h3,.display{font-family:'Fraunces',serif;}
+  .app-shell{
+    max-width:428px;
+    margin:0 auto;
+    min-height:100vh;
+    background:var(--cream);
+    position:relative;
+    box-shadow:0 0 60px rgba(0,0,0,0.15);
+    display:flex;
+    flex-direction:column;
+  }
+  /* ---- Top bar ---- */
+  .topbar{
+    position:sticky; top:0; z-index:30;
+    display:flex; align-items:center; justify-content:space-between;
+    padding:16px 18px 10px;
+    background:linear-gradient(180deg, var(--cream) 70%, rgba(255,248,236,0));
+  }
+  .brand{ display:flex; align-items:center; gap:9px; }
+  .brand-mark{
+    width:34px;height:34px;border-radius:10px;
+    background:var(--forest);
+    display:flex;align-items:center;justify-content:center;
+    color:var(--saffron); font-size:18px;
+  }
+  .brand-name{ font-family:'Fraunces',serif; font-weight:600; font-size:19px; color:var(--forest); letter-spacing:-0.01em;}
+  .lang-btn{
+    display:flex; align-items:center; gap:6px;
+    background:var(--white); border:1px solid var(--line); color:var(--forest);
+    padding:7px 12px; border-radius:999px; font-size:13px; font-weight:600;
+    cursor:pointer;
+  }
+
+  /* ---- Views ---- */
+  main{ flex:1; overflow-y:auto; padding-bottom:96px; }
+  .view{ display:none; padding:4px 18px 18px; animation:fadein .25s ease; }
+  .view.active{ display:block; }
+  @keyframes fadein{ from{opacity:0; transform:translateY(6px);} to{opacity:1; transform:none;} }
+
+  /* ---- Cards ---- */
+  .card{
+    background:var(--white);
+    border-radius:22px;
+    border:1px solid var(--line);
+    box-shadow:var(--shadow-soft);
+    padding:18px;
+  }
+  .pill{
+    display:inline-flex; align-items:center; gap:6px;
+    padding:6px 13px; border-radius:999px; font-size:12.5px; font-weight:600;
+  }
+  .pill-forest{ background:#E7F0E8; color:var(--forest); }
+  .pill-saffron{ background:var(--saffron-light); color:#A85E12; }
+  .pill-danger{ background:#F7E4DF; color:var(--danger); }
+  .btn{
+    border:none; cursor:pointer; font-family:'Inter',sans-serif; font-weight:600;
+    border-radius:999px; padding:13px 20px; font-size:14.5px;
+    display:inline-flex; align-items:center; justify-content:center; gap:8px;
+  }
+  .btn-primary{ background:var(--forest); color:var(--white); }
+  .btn-primary:active{ background:var(--forest-dark); }
+  .btn-outline{ background:transparent; border:1.5px solid var(--forest); color:var(--forest); }
+  .btn-saffron{ background:var(--saffron); color:var(--white); }
+  .btn-block{ width:100%; }
+  .btn:disabled{ opacity:0.5; cursor:default; }
+
+  /* ---- Hero greeting ---- */
+  .hero{
+    background:var(--forest);
+    border-radius:26px;
+    padding:22px 20px;
+    color:var(--white);
+    margin-bottom:16px;
+    position:relative;
+    overflow:hidden;
+  }
+  .hero::after{
+    content:"";
+    position:absolute; right:-30px; bottom:-40px;
+    width:150px; height:150px; border-radius:50%;
+    background:rgba(255,255,255,0.06);
+  }
+  .hero-eyebrow{ color:#BFE0C4; font-size:13px; margin:0 0 4px; }
+  .hero-title{ font-size:23px; margin:0 0 12px; font-weight:600; line-height:1.25; }
+  .hero-advisory{
+    background:rgba(255,255,255,0.1);
+    border-radius:14px; padding:11px 14px; font-size:13.5px; display:flex; gap:9px; align-items:flex-start;
+  }
+
+  /* ---- Quick actions grid ---- */
+  .grid2{ display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:16px; }
+  .action-tile{
+    background:var(--white); border:1px solid var(--line); border-radius:20px;
+    padding:15px; cursor:pointer; text-align:left;
+  }
+  .action-tile:active{ background:var(--saffron-light); }
+  .action-emoji{ font-size:22px; display:block; margin-bottom:8px; }
+  .action-label{ font-weight:600; font-size:14px; color:var(--ink); }
+  .action-sub{ font-size:12px; color:var(--ink-soft); margin-top:2px; }
+
+  .section-title{ font-size:15px; font-weight:700; color:var(--forest); margin:22px 0 10px; }
+
+  /* ---- Bottom nav ---- */
+  .bottom-nav{
+    position:absolute; left:0; right:0; bottom:0; z-index:40;
+    background:var(--white); border-top:1px solid var(--line);
+    display:flex; padding:8px 6px calc(8px + env(safe-area-inset-bottom));
+    max-width:428px; margin:0 auto;
+  }
+  .nav-item{
+    flex:1; display:flex; flex-direction:column; align-items:center; gap:3px;
+    background:none; border:none; color:#9C978A; font-family:'Inter'; font-size:11px; font-weight:600;
+    padding:6px 0; cursor:pointer;
+  }
+  .nav-item .icon{ font-size:19px; }
+  .nav-item.active{ color:var(--forest); }
+
+  /* ---- Language pill bar ---- */
+  .pillbar{ display:flex; gap:8px; overflow-x:auto; padding:2px 0 12px; scrollbar-width:none; }
+  .pillbar::-webkit-scrollbar{ display:none; }
+  .lang-pill{
+    flex:0 0 auto; padding:7px 14px; border-radius:999px; border:1.5px solid var(--line);
+    background:var(--white); font-size:13px; font-weight:600; color:var(--ink-soft); cursor:pointer; white-space:nowrap;
+  }
+  .lang-pill.active{ background:var(--forest); border-color:var(--forest); color:var(--white); }
+
+  /* ---- Chat ---- */
+  .chat-scroll{ display:flex; flex-direction:column; gap:10px; padding-bottom:8px; }
+  .bubble{ max-width:82%; padding:11px 15px; border-radius:18px; font-size:14px; line-height:1.45; }
+  .bubble-user{ align-self:flex-end; background:var(--forest); color:var(--white); border-bottom-right-radius:5px; }
+  .bubble-ai{ align-self:flex-start; background:var(--white); border:1px solid var(--line); color:var(--ink); border-bottom-left-radius:5px; }
+  .typing{ align-self:flex-start; background:var(--white); border:1px solid var(--line); border-radius:18px; border-bottom-left-radius:5px; padding:10px 15px; font-size:13px; color:var(--ink-soft); font-style:italic; }
+  .suggest-chip{
+    flex:0 0 auto; padding:8px 13px; border-radius:999px; background:var(--saffron-light); color:#A85E12;
+    font-size:12.5px; font-weight:600; border:none; cursor:pointer; white-space:nowrap;
+  }
+  .chat-input-row{
+    position:sticky; bottom:0; display:flex; gap:8px; align-items:center;
+    background:var(--cream); padding:10px 0 2px;
+  }
+  .chat-input{
+    flex:1; border:1.5px solid var(--line); border-radius:999px; padding:12px 16px;
+    font-size:14px; font-family:'Inter'; background:var(--white); outline:none;
+  }
+  .chat-input:focus{ border-color:var(--forest); }
+  .icon-btn{
+    width:44px; height:44px; border-radius:50%; border:none; cursor:pointer;
+    display:flex; align-items:center; justify-content:center; font-size:17px; flex:0 0 auto;
+  }
+  .icon-btn.mic{ background:var(--saffron-light); color:#A85E12; }
+  .icon-btn.send{ background:var(--forest); color:var(--white); }
+  .icon-btn.mic.recording{ background:var(--danger); color:var(--white); }
+
+  /* ---- Diagnose ---- */
+  .upload-zone{
+    border:2px dashed var(--line); border-radius:22px; padding:30px 18px; text-align:center;
+    background:var(--white); margin-bottom:14px;
+  }
+  .upload-zone img{ max-width:100%; border-radius:16px; max-height:220px; object-fit:cover; }
+  .skeleton{
+    height:14px; border-radius:8px; background:linear-gradient(90deg,#EFE9D8 25%,#F7F2E6 37%,#EFE9D8 63%);
+    background-size:400% 100%; animation:shimmer 1.4s infinite;
+  }
+  @keyframes shimmer{ 0%{background-position:100% 0;} 100%{background-position:-100% 0;} }
+  .tabs{ display:flex; gap:8px; margin:14px 0 10px; }
+  .tab-btn{
+    flex:1; padding:10px; border-radius:14px; border:1.5px solid var(--line); background:var(--white);
+    font-weight:600; font-size:13px; color:var(--ink-soft); cursor:pointer;
+  }
+  .tab-btn.active{ background:var(--forest); color:var(--white); border-color:var(--forest); }
+  .treat-item{ display:flex; gap:10px; padding:10px 0; border-bottom:1px solid var(--line); font-size:13.5px; }
+  .treat-item:last-child{ border-bottom:none; }
+
+  /* ---- Weather ---- */
+  .weather-hero{ background:linear-gradient(135deg,#2E5F3B,var(--forest)); border-radius:24px; padding:22px; color:white; margin-bottom:14px; }
+  .day-strip{ display:flex; gap:10px; overflow-x:auto; padding-bottom:6px; margin-bottom:16px; scrollbar-width:none; }
+  .day-strip::-webkit-scrollbar{ display:none; }
+  .day-card{ flex:0 0 68px; background:var(--white); border:1px solid var(--line); border-radius:16px; padding:10px 6px; text-align:center; }
+  .advisory-card{ display:flex; gap:12px; align-items:flex-start; padding:13px; border-radius:16px; background:var(--white); border:1px solid var(--line); margin-bottom:10px; }
+
+  /* ---- Market ---- */
+  .select-row{ display:flex; gap:10px; margin-bottom:12px; }
+  select{
+    flex:1; padding:12px 14px; border-radius:14px; border:1.5px solid var(--line); background:var(--white);
+    font-family:'Inter'; font-size:14px; color:var(--ink);
+  }
+  .price-big{ font-family:'Fraunces',serif; font-size:38px; font-weight:600; color:var(--saffron); }
+
+  /* ---- More sheet ---- */
+  .more-list{ display:flex; flex-direction:column; gap:8px; }
+  .more-row{
+    display:flex; align-items:center; gap:13px; padding:13px 14px; background:var(--white);
+    border:1px solid var(--line); border-radius:16px; cursor:pointer;
+  }
+  .more-row .emoji{ font-size:19px; width:28px; text-align:center; }
+  .more-row .txt{ flex:1; }
+  .more-row .txt .t{ font-weight:600; font-size:14px; }
+  .more-row .txt .s{ font-size:12px; color:var(--ink-soft); }
+  .stub-banner{ background:var(--saffron-light); border-radius:14px; padding:12px 14px; font-size:13px; color:#8A5A17; margin-bottom:14px; }
+
+  .toast{
+    position:absolute; left:50%; bottom:100px; transform:translateX(-50%);
+    background:var(--ink); color:white; padding:11px 18px; border-radius:999px; font-size:13px;
+    opacity:0; pointer-events:none; transition:opacity .25s, bottom .25s; z-index:60; white-space:nowrap;
+  }
+  .toast.show{ opacity:1; bottom:112px; }
+  .backlink{ display:flex; align-items:center; gap:6px; color:var(--forest); font-weight:600; font-size:13.5px; margin-bottom:12px; cursor:pointer; background:none; border:none; padding:0; }
+  .muted{ color:var(--ink-soft); font-size:13px; line-height:1.5; }
+
+  /* ---- Auth ---- */
+  body.authing .topbar, body.authing .bottom-nav{ display:none; }
+  body.authing main{ padding-bottom:24px; display:flex; }
+  .auth-view{ display:none; flex:1; flex-direction:column; justify-content:center; padding:34px 22px; min-height:calc(100vh - 24px); }
+  .auth-view.active{ display:flex; }
+  .auth-logo{ width:64px;height:64px;border-radius:18px;background:var(--forest);display:flex;align-items:center;justify-content:center;font-size:32px;color:var(--saffron);margin:0 auto 18px; }
+  .auth-title{ text-align:center; font-size:24px; margin:0 0 6px; }
+  .auth-sub{ text-align:center; color:var(--ink-soft); font-size:14px; margin:0 0 30px; line-height:1.5; }
+  .google-btn{
+    display:flex; align-items:center; justify-content:center; gap:10px; width:100%;
+    background:var(--white); border:1.5px solid var(--line); border-radius:999px; padding:14px;
+    font-weight:600; font-size:14.5px; color:var(--ink); cursor:pointer;
+  }
+  .google-g{
+    width:20px;height:20px;border-radius:50%;background:conic-gradient(#EA4335 0 25%,#4285F4 25% 50%,#34A853 50% 75%,#FBBC05 75% 100%);
+    display:inline-block; position:relative;
+  }
+  .google-g::after{ content:"G"; position:absolute; inset:0; display:flex; align-items:center; justify-content:center; color:white; font-size:11px; font-weight:700; font-family:'Inter'; }
+  .auth-divider{ display:flex; align-items:center; gap:12px; margin:22px 0; color:var(--ink-soft); font-size:12.5px; }
+  .auth-divider::before,.auth-divider::after{ content:""; flex:1; height:1px; background:var(--line); }
+  .phone-row{ display:flex; gap:8px; margin-bottom:16px; }
+  .cc-box{ width:64px; border:1.5px solid var(--line); border-radius:14px; padding:12px 10px; text-align:center; font-weight:600; background:var(--white); color:var(--ink-soft); }
+  .field-input{ width:100%; border:1.5px solid var(--line); border-radius:14px; padding:13px 15px; font-size:15px; font-family:'Inter'; background:var(--white); outline:none; }
+  .field-input:focus{ border-color:var(--forest); }
+  .field-label{ font-size:12.5px; font-weight:600; color:var(--ink-soft); margin:0 0 6px; display:block; }
+  .otp-input{ width:100%; border:1.5px solid var(--line); border-radius:14px; padding:15px; font-size:22px; letter-spacing:10px; text-align:center; font-family:'Inter'; font-weight:700; background:var(--white); outline:none; }
+  .otp-input:focus{ border-color:var(--forest); }
+  .resend-line{ text-align:center; font-size:13px; color:var(--ink-soft); margin-top:16px; }
+  .resend-line a{ color:var(--forest); font-weight:600; cursor:pointer; text-decoration:none; }
+  .fine-print{ text-align:center; font-size:11.5px; color:var(--ink-soft); margin-top:22px; line-height:1.6; }
+  .role-toggle{ display:flex; gap:8px; margin-bottom:20px; }
+  .role-opt{ flex:1; text-align:center; padding:11px; border-radius:14px; border:1.5px solid var(--line); font-weight:600; font-size:13px; color:var(--ink-soft); cursor:pointer; background:var(--white); }
+  .role-opt.active{ border-color:var(--forest); background:#E7F0E8; color:var(--forest); }
+  .lang-grid{ display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin-bottom:20px; }
+  .lang-grid .lang-pill{ text-align:center; }
+  .kv-row{ display:flex; justify-content:space-between; padding:12px 0; border-bottom:1px solid var(--line); font-size:13.5px; }
+  .kv-row:last-child{ border-bottom:none; }
+  .kv-row .k{ color:var(--ink-soft); }
+  .kv-row .v{ font-weight:600; }
+  .avatar-circle{ width:52px;height:52px;border-radius:50%;background:var(--forest);color:var(--saffron);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:19px;font-family:'Fraunces'; }
+</style>
+</head>
+<body class="authing">
+<div class="app-shell">
+
+  <div class="topbar">
+    <div class="brand">
+      <div class="brand-mark">🌾</div>
+      <div class="brand-name">Agro AI</div>
+    </div>
+    <div style="display:flex;gap:8px;">
+      <button class="lang-btn" onclick="openLangSheet()">🌐 <span id="topLangLabel">EN</span></button>
+      <button class="lang-btn" onclick="go('account')" style="padding:7px 10px;" title="Account">👤</button>
+    </div>
+  </div>
+
+  <main id="main">
+
+    <!-- ============ AUTH: WELCOME ============ -->
+    <section class="auth-view active" data-view="auth-welcome">
+      <div class="auth-logo">🌾</div>
+      <h1 class="auth-title display">Agro AI</h1>
+      <p class="auth-sub">The AI operating system for your farm — weather, mandi prices, crop diagnosis and more, in your language.</p>
+
+      <div class="role-toggle">
+        <div class="role-opt active" id="roleFarmer" onclick="setRole('farmer')">🌾 I'm a Farmer</div>
+        <div class="role-opt" id="roleDriver" onclick="setRole('driver')">🚚 I'm a Driver</div>
+      </div>
+
+      <button class="google-btn" onclick="continueWithGoogle()" id="googleBtn">
+        <span class="google-g"></span> Continue with Google
+      </button>
+
+      <div class="auth-divider">or continue with phone</div>
+
+      <span class="field-label">Mobile number</span>
+      <div class="phone-row">
+        <div class="cc-box">+91</div>
+        <input class="field-input" id="phoneInput" type="tel" maxlength="10" placeholder="98765 43210" inputmode="numeric" oninput="this.value=this.value.replace(/\D/g,'')">
+      </div>
+      <button class="btn btn-primary btn-block" onclick="sendOtp()">Send OTP</button>
+
+      <p class="fine-print">By continuing, you agree to Agro AI's Terms of Service and Privacy Policy.<br>We never share your farm data without your consent.</p>
+    </section>
+
+    <!-- ============ AUTH: OTP ============ -->
+    <section class="auth-view" data-view="auth-otp">
+      <button class="backlink" onclick="go('auth-welcome')" style="margin:0 0 20px;">← Back</button>
+      <h1 class="auth-title display" style="font-size:21px;">Verify your number</h1>
+      <p class="auth-sub" id="otpSubText">Enter the 6-digit code sent to +91 98765 43210</p>
+      <input class="otp-input" id="otpInput" type="tel" maxlength="6" inputmode="numeric" placeholder="••••••" oninput="this.value=this.value.replace(/\D/g,'')">
+      <div style="height:16px;"></div>
+      <button class="btn btn-primary btn-block" onclick="verifyOtp()">Verify &amp; continue</button>
+      <div class="resend-line" id="resendLine">Resend OTP in <span id="resendTimer">00:30</span></div>
+    </section>
+
+    <!-- ============ AUTH: PROFILE SETUP ============ -->
+    <section class="auth-view" data-view="auth-profile">
+      <h1 class="auth-title display" style="font-size:21px;">Set up your profile</h1>
+      <p class="auth-sub">Takes 30 seconds — this helps Kisan GPT give advice that's actually relevant to your farm.</p>
+
+      <span class="field-label">Full name</span>
+      <input class="field-input" id="profName" placeholder="Your name" style="margin-bottom:14px;">
+
+      <span class="field-label">State</span>
+      <select class="field-input" id="profState" style="margin-bottom:14px;">
+        <option>Karnataka</option><option>Maharashtra</option><option>Punjab</option><option>Uttar Pradesh</option><option>Tamil Nadu</option>
+      </select>
+
+      <span class="field-label">Village / district</span>
+      <input class="field-input" id="profVillage" placeholder="e.g. Mandya" style="margin-bottom:14px;">
+
+      <span class="field-label">Land size (acres)</span>
+      <input class="field-input" id="profLand" type="number" placeholder="e.g. 3.5" style="margin-bottom:14px;">
+
+      <span class="field-label">Primary crop</span>
+      <select class="field-input" id="profCrop" style="margin-bottom:18px;">
+        <option>Wheat</option><option>Rice / Paddy</option><option>Cotton</option><option>Tomato</option><option>Sugarcane</option><option>Maize</option>
+      </select>
+
+      <span class="field-label">Preferred language</span>
+      <div class="lang-grid" id="profLangGrid"></div>
+
+      <button class="btn btn-primary btn-block" onclick="completeProfile()">Get started</button>
+      <div class="resend-line"><a onclick="completeProfile(true)">Skip for now</a></div>
+    </section>
+
+    <!-- ============ HOME ============ -->
+    <section class="view" data-view="home">
+      <div class="hero">
+        <p class="hero-eyebrow" id="homeGreetTime">Good morning, Farmer</p>
+        <h1 class="hero-title" id="homeGreetMain">What's happening on your farm today?</h1>
+        <div class="hero-advisory">
+          <span>🌦️</span>
+          <span id="homeAdvisoryText">Rain expected in 36 hrs near your village — hold off on spraying until Thursday.</span>
+        </div>
+      </div>
+
+      <div class="grid2">
+        <button class="action-tile" onclick="go('diagnose')">
+          <span class="action-emoji">🩺</span>
+          <div class="action-label">Diagnose crop</div>
+          <div class="action-sub">Photo → instant analysis</div>
+        </button>
+        <button class="action-tile" onclick="go('kisangpt')">
+          <span class="action-emoji">💬</span>
+          <div class="action-label">Ask Kisan GPT</div>
+          <div class="action-sub">Voice or text, 15 languages</div>
+        </button>
+        <button class="action-tile" onclick="go('weather')">
+          <span class="action-emoji">⛅</span>
+          <div class="action-label">Weather</div>
+          <div class="action-sub">7-day village forecast</div>
+        </button>
+        <button class="action-tile" onclick="go('market')">
+          <span class="action-emoji">📈</span>
+          <div class="action-label">Mandi prices</div>
+          <div class="action-sub">Today + 30-day trend</div>
+        </button>
+      </div>
+
+      <div class="section-title">More services</div>
+      <div class="grid2">
+        <button class="action-tile" onclick="openMoreItem('pest')"><span class="action-emoji">🦗</span><div class="action-label">Pest Radar</div><div class="action-sub">Outbreak risk nearby</div></button>
+        <button class="action-tile" onclick="openMoreItem('logistics')"><span class="action-emoji">🚚</span><div class="action-label">Logistics</div><div class="action-sub">Book verified transport</div></button>
+        <button class="action-tile" onclick="openMoreItem('drone')"><span class="action-emoji">🛸</span><div class="action-label">Drone</div><div class="action-sub">Spray / scout booking</div></button>
+        <button class="action-tile" onclick="openMoreItem('inputs')"><span class="action-emoji">🛒</span><div class="action-label">Inputs</div><div class="action-sub">Compare shop prices</div></button>
+      </div>
+
+      <div class="section-title">Your reports</div>
+      <div class="card">
+        <div class="muted" id="reportsEmptyText">No diagnosis reports yet. Run a crop diagnosis to start building your farm history — it will show up here and inside Kisan GPT.</div>
+      </div>
+    </section>
+
+    <!-- ============ DIAGNOSE ============ -->
+    <section class="view" data-view="diagnose">
+      <h2 class="display" style="font-size:22px;margin:6px 0 4px;">Diagnose your crop</h2>
+      <p class="muted" style="margin:0 0 14px;">Take a clear, well-lit photo of the affected leaf or plant.</p>
+
+      <div class="upload-zone" id="uploadZone">
+        <div id="uploadInner">
+          <div style="font-size:34px;margin-bottom:8px;">📷</div>
+          <div style="font-weight:600;margin-bottom:4px;">Upload or capture a photo</div>
+          <div class="muted">JPG or PNG, one leaf per photo works best</div>
+        </div>
+      </div>
+      <input type="file" id="fileInput" accept="image/*" capture="environment" style="display:none" onchange="handleUpload(event)">
+
+      <div class="select-row">
+        <select id="cropHint">
+          <option value="">Crop (optional — AI will detect)</option>
+          <option>Wheat</option><option>Rice / Paddy</option><option>Cotton</option>
+          <option>Tomato</option><option>Sugarcane</option><option>Maize</option>
+        </select>
+      </div>
+
+      <div style="display:flex;gap:10px;">
+        <button class="btn btn-outline" style="flex:1" onclick="triggerUpload()">📁 Choose photo</button>
+        <button class="btn btn-primary" style="flex:1" id="analyzeBtn" onclick="runDiagnosis()" disabled>Analyze</button>
+      </div>
+
+      <div id="diagnoseResultArea"></div>
+    </section>
+
+    <!-- ============ KISAN GPT ============ -->
+    <section class="view" data-view="kisangpt" style="display:none;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin:4px 0 10px;">
+        <h2 class="display" style="font-size:20px;margin:0;">Kisan GPT</h2>
+        <button class="pill pill-forest" style="border:none;cursor:pointer;" onclick="showToast('Dialing 1800-KISAN…')">📞 1800-KISAN</button>
+      </div>
+      <div class="pillbar" id="gptLangBar"></div>
+      <div class="chat-scroll" id="chatScroll"></div>
+      <div class="pillbar" id="suggestChips"></div>
+      <div class="chat-input-row">
+        <button class="icon-btn mic" id="micBtn" onclick="toggleMic()">🎙️</button>
+        <input class="chat-input" id="chatInput" placeholder="Type your question…" onkeydown="if(event.key==='Enter')sendChat()">
+        <button class="icon-btn send" onclick="sendChat()">➤</button>
+      </div>
+    </section>
+
+    <!-- ============ WEATHER ============ -->
+    <section class="view" data-view="weather" style="display:none;">
+      <div class="weather-hero">
+        <div style="font-size:13px;opacity:0.85;margin-bottom:2px;" id="weatherLoc">Your village · detecting location…</div>
+        <div style="display:flex;align-items:flex-end;gap:12px;">
+          <div style="font-family:'Fraunces';font-size:52px;font-weight:600;">28°</div>
+          <div style="padding-bottom:10px;">
+            <div style="font-weight:600;">Partly cloudy</div>
+            <div style="font-size:13px;opacity:0.85;">Feels like 31° · Humidity 68%</div>
+          </div>
+        </div>
+      </div>
+      <div class="section-title" style="margin-top:0;">7-day forecast</div>
+      <div class="day-strip" id="dayStrip"></div>
+      <div class="section-title">Advisories for you</div>
+      <div class="advisory-card">
+        <span>🌧️</span>
+        <div>
+          <div style="font-weight:600;font-size:13.5px;margin-bottom:6px;">Heavy rain expected Thursday</div>
+          <div class="muted" style="margin-bottom:8px;">Postpone any pesticide or fungicide spraying until after the rain clears.</div>
+          <span class="pill pill-saffron">Postpone spray</span>
+        </div>
+      </div>
+      <div class="advisory-card">
+        <span>🌡️</span>
+        <div>
+          <div style="font-weight:600;font-size:13.5px;margin-bottom:6px;">Mild heat stretch, Sat–Sun</div>
+          <div class="muted" style="margin-bottom:8px;">Consider shade nets for young seedlings during peak afternoon hours.</div>
+          <span class="pill pill-saffron">Shade nets</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ MARKET ============ -->
+    <section class="view" data-view="market" style="display:none;">
+      <h2 class="display" style="font-size:22px;margin:6px 0 14px;">Mandi Market</h2>
+      <div class="select-row">
+        <select id="cropSel">
+          <option>Wheat</option><option>Onion</option><option>Tomato</option><option>Cotton</option><option>Paddy</option>
+        </select>
+        <select id="stateSel">
+          <option>Karnataka</option><option>Maharashtra</option><option>Punjab</option><option>Uttar Pradesh</option>
+        </select>
+      </div>
+      <button class="btn btn-primary btn-block" onclick="runForecast()">Forecast price</button>
+      <div id="marketResultArea"></div>
+    </section>
+
+    <!-- ============ MORE ============ -->
+    <section class="view" data-view="more" style="display:none;">
+      <h2 class="display" style="font-size:22px;margin:6px 0 14px;">More services</h2>
+      <div class="more-list" id="moreList"></div>
+    </section>
+
+    <!-- ============ ACCOUNT & SECURITY ============ -->
+    <section class="view" data-view="account" style="display:none;">
+      <button class="backlink" onclick="go('home')">← Back</button>
+      <div style="display:flex;align-items:center;gap:14px;margin-bottom:18px;">
+        <div class="avatar-circle" id="acctAvatar">F</div>
+        <div>
+          <div style="font-weight:700;font-size:16px;" id="acctName">Farmer</div>
+          <div class="muted" id="acctMeta">+91 •••• •• ••90 · Signed in</div>
+        </div>
+      </div>
+
+      <div class="section-title" style="margin-top:0;">Farm profile</div>
+      <div class="card" style="margin-bottom:16px;">
+        <div class="kv-row"><span class="k">Village / district</span><span class="v" id="acctVillage">—</span></div>
+        <div class="kv-row"><span class="k">State</span><span class="v" id="acctState">—</span></div>
+        <div class="kv-row"><span class="k">Land size</span><span class="v" id="acctLand">—</span></div>
+        <div class="kv-row"><span class="k">Primary crop</span><span class="v" id="acctCrop">—</span></div>
+        <div class="kv-row"><span class="k">Language</span><span class="v" id="acctLangRow">English</span></div>
+      </div>
+
+      <div class="section-title" style="margin-top:0;">Login & security</div>
+      <div class="card" style="margin-bottom:16px;">
+        <div class="kv-row"><span class="k">Sign-in method</span><span class="v" id="acctMethod">Phone OTP</span></div>
+        <div class="kv-row"><span class="k">Two-factor verification</span><span class="v pill pill-forest">Enabled</span></div>
+        <div class="kv-row"><span class="k">Active sessions</span><span class="v">1 device</span></div>
+        <div style="display:flex;gap:10px;margin-top:14px;">
+          <button class="btn btn-outline" style="flex:1" onclick="showToast('Preparing your data export — link sent on WhatsApp')">⬇ Export my data</button>
+          <button class="btn btn-outline" style="flex:1;border-color:var(--danger);color:var(--danger);" onclick="requestDeleteAccount()">Delete account</button>
+        </div>
+      </div>
+
+      <button class="btn btn-block" style="background:#F1EDE1;color:var(--ink);" onclick="signOut()">Sign out</button>
+      <p class="fine-print">Your farm data is encrypted in transit and at rest, and is never sold to third parties. Location data is only used to power the features you open.</p>
+    </section>
+
+    <!-- ============ GENERIC STUB ============ -->
+    <section class="view" data-view="stub" style="display:none;">
+      <button class="backlink" onclick="go('more')">← Back</button>
+      <h2 class="display" id="stubTitle" style="font-size:21px;margin:0 0 10px;"></h2>
+      <div class="stub-banner" id="stubBanner"></div>
+      <div class="card">
+        <div class="muted" id="stubBody"></div>
+      </div>
+    </section>
+
+  </main>
+
+  <nav class="bottom-nav">
+    <button class="nav-item active" data-nav="home" onclick="go('home')"><span class="icon">🏠</span>Home</button>
+    <button class="nav-item" data-nav="diagnose" onclick="go('diagnose')"><span class="icon">🩺</span>Diagnose</button>
+    <button class="nav-item" data-nav="kisangpt" onclick="go('kisangpt')"><span class="icon">💬</span>Kisan GPT</button>
+    <button class="nav-item" data-nav="weather" onclick="go('weather')"><span class="icon">⛅</span>Weather</button>
+    <button class="nav-item" data-nav="more" onclick="go('more')"><span class="icon">☰</span>More</button>
+  </nav>
+
+  <div class="toast" id="toast"></div>
+</div>
+
+<script>
+/* ================= DATA ================= */
+const LANGS = [
+  {code:'en',label:'English'},{code:'hi',label:'हिंदी'},{code:'kn',label:'ಕನ್ನಡ'},
+  {code:'te',label:'తెలుగు'},{code:'ta',label:'தமிழ்'},{code:'mr',label:'मराठी'},
+  {code:'bn',label:'বাংলা'},{code:'gu',label:'ગુજરાતી'},{code:'pa',label:'ਪੰਜਾਬੀ'},
+];
+let currentLang = 'en';
+
+const GREETINGS = {
+  en:{time:"Good morning, Farmer", main:"What's happening on your farm today?", adv:"Rain expected in 36 hrs near your village — hold off on spraying until Thursday."},
+  hi:{time:"नमस्ते, किसान जी", main:"आज आपके खेत में क्या हो रहा है?", adv:"आपके गांव में 36 घंटे में बारिश की संभावना है — गुरुवार तक छिड़काव न करें।"},
+  kn:{time:"ನಮಸ್ಕಾರ, ರೈತರೇ", main:"ಇಂದು ನಿಮ್ಮ ಹೊಲದಲ್ಲಿ ಏನಾಗುತ್ತಿದೆ?", adv:"ನಿಮ್ಮ ಗ್ರಾಮದಲ್ಲಿ 36 ಗಂಟೆಗಳಲ್ಲಿ ಮಳೆ ನಿರೀಕ್ಷಿಸಲಾಗಿದೆ — ಗುರುವಾರದವರೆಗೆ ಸಿಂಪಡಣೆ ಮಾಡಬೇಡಿ."},
+};
+function t(lang){ return GREETINGS[lang] || GREETINGS.en; }
+
+const SUGGESTIONS = [
+  "Show today's weather","Diagnose my crop","Today's mandi price","Book a drone","What fertilizer should I buy?"
+];
+
+const CHAT_REPLIES = {
+  weather:{
+    en:"It's 28°C and partly cloudy right now. Rain is expected in about 36 hours — I'd hold off on spraying until Thursday.",
+    hi:"अभी 28°C है और आंशिक रूप से बादल छाए हैं। लगभग 36 घंटे में बारिश की संभावना है — गुरुवार तक छिड़काव न करें।",
+    kn:"ಇದೀಗ 28°C ಮತ್ತು ಸ್ವಲ್ಪ ಮೋಡ ಕವಿದಿದೆ. ಸುಮಾರು 36 ಗಂಟೆಗಳಲ್ಲಿ ಮಳೆ ನಿರೀಕ್ಷಿಸಲಾಗಿದೆ — ಗುರುವಾರದವರೆಗೆ ಸಿಂಪಡಣೆ ಮಾಡಬೇಡಿ."
+  },
+  mandi:{
+    en:"Wheat is trading at ₹2,140/quintal in your nearest mandi today, up 3% from last week. Prices are forecast to rise slightly through next month — open the Market tab for the full 30-day view.",
+    hi:"आज आपकी नज़दीकी मंडी में गेहूं ₹2,140/क्विंटल पर बिक रहा है, पिछले हफ्ते से 3% ज़्यादा। अगले महीने कीमतों में थोड़ी बढ़ोतरी का अनुमान है।",
+    kn:"ಇಂದು ನಿಮ್ಮ ಹತ್ತಿರದ ಮಂಡಿಯಲ್ಲಿ ಗೋಧಿ ₹2,140/ಕ್ವಿಂಟಲ್‌ಗೆ ಮಾರಾಟವಾಗುತ್ತಿದೆ, ಕಳೆದ ವಾರಕ್ಕಿಂತ 3% ಹೆಚ್ಚು."
+  },
+  diagnose:{
+    en:"Sure — open the Diagnose tab and upload a clear photo of the affected leaf. I'll identify the disease, how severe it is, and exactly what to treat it with.",
+    hi:"ज़रूर — डायग्नोज़ टैब खोलें और प्रभावित पत्ते की स्पष्ट फोटो अपलोड करें। मैं बीमारी और उसका इलाज बताऊंगा।",
+    kn:"ಖಂಡಿತ — ಡಯಾಗ್ನೋಸ್ ಟ್ಯಾಬ್ ತೆರೆದು ಬಾಧಿತ ಎಲೆಯ ಸ್ಪಷ್ಟ ಫೋಟೋ ಅಪ್‌ಲೋಡ್ ಮಾಡಿ."
+  },
+  drone:{
+    en:"I can look for verified drone operators near you for spraying or field scouting. Which service do you need — spray, scout, or NDVI mapping?",
+    hi:"मैं छिड़काव या स्कैनिंग के लिए आपके पास सत्यापित ड्रोन ऑपरेटर ढूंढ सकता हूं। आपको कौन सी सेवा चाहिए?",
+    kn:"ಸಿಂಪಡಣೆ ಅಥವಾ ಸ್ಕೌಟಿಂಗ್‌ಗಾಗಿ ನಿಮ್ಮ ಬಳಿ ಪರಿಶೀಲಿಸಿದ ಡ್ರೋನ್ ಆಪರೇಟರ್‌ಗಳನ್ನು ನಾನು ಹುಡುಕಬಲ್ಲೆ."
+  },
+  fertilizer:{
+    en:"That depends on your crop stage and the last soil test — I don't have your soil data yet. Add a soil test under Farm Passport, or tell me your crop and I'll give general guidance.",
+    hi:"यह आपकी फ़सल की अवस्था और आखिरी मिट्टी परीक्षण पर निर्भर करता है — मेरे पास अभी आपका मिट्टी डेटा नहीं है।",
+    kn:"ಇದು ನಿಮ್ಮ ಬೆಳೆಯ ಹಂತ ಮತ್ತು ಕೊನೆಯ ಮಣ್ಣಿನ ಪರೀಕ್ಷೆಯ ಮೇಲೆ ಅವಲಂಬಿತವಾಗಿದೆ."
+  },
+  default:{
+    en:"I noted that down. Right now I can help with weather, mandi prices, crop diagnosis, drone booking, and finding inputs — what would you like to check?",
+    hi:"मैंने इसे नोट कर लिया। अभी मैं मौसम, मंडी भाव, फसल निदान, ड्रोन बुकिंग और खरीद में मदद कर सकता हूं।",
+    kn:"ನಾನು ಅದನ್ನು ಗಮನಿಸಿದೆ. ಈಗ ನಾನು ಹವಾಮಾನ, ಮಂಡಿ ಬೆಲೆ, ಬೆಳೆ ರೋಗನಿರ್ಣಯದಲ್ಲಿ ಸಹಾಯ ಮಾಡಬಲ್ಲೆ."
+  }
+};
+
+const MORE_ITEMS = [
+  {id:'account', emoji:'👤', t:'Account & Security', s:'Profile, login method, sign out'},
+  {id:'pest', emoji:'🦗', t:'Pest Radar', s:'Village-level outbreak risk', body:"Pest Radar analyses nearby farmer reports to flag outbreak risk in your area. Real detection requires reports from verified farmers near your village — as your area's report count grows, this will show live risk levels instead of a placeholder."},
+  {id:'inputs', emoji:'🛒', t:'Inputs Compare', s:'Seed, fertilizer, pesticide prices', body:"Compares prices for seeds, fertilizer and pesticide across nearby verified shops. Connect your location to see real vendor prices — until a shop is verified in your area, no price or availability will be shown."},
+  {id:'logistics', emoji:'🚚', t:'Logistics', s:'Book verified transport', body:"Matches you with a verified nearby truck or tractor for harvest transport, with real GPS tracking and road-network ETA. If no verified driver is online in your area right now, you'll see that honestly rather than a fake match."},
+  {id:'drone', emoji:'🛸', t:'Drone Marketplace', s:'Spray, scout, or NDVI mapping', body:"Connects you with verified drone operators near your field for spraying, scouting or NDVI mapping. If there are no verified operators in your area yet, Agro AI will say so and let you request a quote instead of inventing a listing."},
+  {id:'satellite', emoji:'🛰️', t:'Satellite Twin', s:'Digital twin of your field', body:"Builds a live satellite view of your field using Sentinel-2 imagery, tracking crop health (NDVI) over time and flagging stress 14 days before it's visible. Requires your field boundary to be mapped first."},
+  {id:'carbon', emoji:'🌍', t:'Carbon Credits', s:'Passive income for low-input farming', body:"Tracks verified reductions in chemical/water use and estimates carbon credit income. This is a Year-2 feature — payouts depend on real, audited practice data, not estimates alone."},
+  {id:'insurance', emoji:'🛡️', t:'Auto Insurance', s:'Weather-triggered, zero paperwork', body:"Parametric crop insurance that pays out automatically when verified weather/satellite conditions confirm damage — no surveyor visit needed. Partner integration (PMFBY) required before real policies can be issued."},
+  {id:'soildna', emoji:'🧪', t:'Soil DNA Lab', s:'Mail-in microbiome test', body:"Order a soil test kit, courier your sample back, and get a biofertilizer recommendation from DNA sequencing of your soil's bacteria and fungi. Results are only shown once your physical sample has been lab-processed."},
+  {id:'passport', emoji:'🪪', t:'Farm Passport', s:'Your farm\'s permanent record', body:"A blockchain-backed record of your farm: soil history, diagnosis history, inputs used, and harvests. Buyers can scan a QR code on your produce to see this verified history and pay a premium for transparency."},
+  {id:'schemes', emoji:'🏛️', t:'Government Schemes', s:'PM-KISAN, NABARD, PMFBY alerts', body:"Matches your farmer profile against live government scheme announcements and tells you what you're eligible for. Requires your profile (land size, crop, state) to be filled in for accurate matching."},
+  {id:'credit', emoji:'💳', t:'Alternative Credit', s:'Credit score for the unbanked', body:"Builds a credit score from your real UPI history, satellite-measured farm size, and yield history — usable to apply for loans with partner NBFCs even without formal credit history."},
+  {id:'reports', emoji:'📄', t:'My Reports', s:'Diagnosis & service history', body:"All your past diagnosis reports, weather alerts, and service bookings in one place. Nothing to show yet — this fills in as you use Agro AI."},
+];
+
+/* ================= NAV ================= */
+function go(view){
+  document.querySelectorAll('.view').forEach(v=>{ v.style.display = (v.dataset.view===view)?'block':'none'; });
+  document.querySelectorAll('.nav-item').forEach(n=>{ n.classList.toggle('active', n.dataset.nav===view); });
+  if(view==='more') renderMoreList();
+  if(view==='account') renderAccount();
+  window.scrollTo(0,0);
+}
+function goAuth(step){
+  document.querySelectorAll('.auth-view').forEach(v=>v.classList.toggle('active', v.dataset.view===step));
+  window.scrollTo(0,0);
+}
+
+/* ================= AUTH STATE ================= */
+let session = { signedIn:false, role:'farmer', method:null, phone:null, google:null };
+let farmerProfile = null;
+let resendTimerHandle = null;
+
+function setRole(role){
+  session.role = role;
+  document.getElementById('roleFarmer').classList.toggle('active', role==='farmer');
+  document.getElementById('roleDriver').classList.toggle('active', role==='driver');
+}
+
+function continueWithGoogle(){
+  const btn = document.getElementById('googleBtn');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="google-g"></span> Connecting to Google…';
+  setTimeout(()=>{
+    session.signedIn = true;
+    session.method = 'Google';
+    session.google = { name:'Vivek S', email:'vivek@gmail.com' };
+    btn.disabled = false;
+    btn.innerHTML = '<span class="google-g"></span> Continue with Google';
+    document.getElementById('profName').value = session.google.name;
+    enterProfileSetup();
+  }, 1200);
+}
+
+function sendOtp(){
+  const phone = document.getElementById('phoneInput').value.trim();
+  if(phone.length !== 10){ showToast('Enter a valid 10-digit mobile number'); return; }
+  session.phone = phone;
+  session.method = 'Phone OTP';
+  document.getElementById('otpSubText').textContent = `Enter the 6-digit code sent to +91 ${phone.slice(0,5)} ${phone.slice(5)}`;
+  goAuth('auth-otp');
+  startResendTimer();
+  showToast('OTP sent via SMS');
+}
+
+function startResendTimer(){
+  let seconds = 30;
+  const line = document.getElementById('resendLine');
+  clearInterval(resendTimerHandle);
+  resendTimerHandle = setInterval(()=>{
+    seconds--;
+    if(seconds <= 0){
+      clearInterval(resendTimerHandle);
+      line.innerHTML = `<a onclick="startResendTimer(); showToast('OTP resent')">Resend OTP</a>`;
+    } else {
+      const m = String(Math.floor(seconds/60)).padStart(2,'0');
+      const s = String(seconds%60).padStart(2,'0');
+      line.innerHTML = `Resend OTP in <span>${m}:${s}</span>`;
+    }
+  }, 1000);
+}
+
+function verifyOtp(){
+  const code = document.getElementById('otpInput').value.trim();
+  if(code.length !== 6){ showToast('Enter the 6-digit code'); return; }
+  clearInterval(resendTimerHandle);
+  session.signedIn = true;
+  enterProfileSetup();
+}
+
+function enterProfileSetup(){
+  renderProfLangGrid();
+  goAuth('auth-profile');
+}
+function renderProfLangGrid(){
+  document.getElementById('profLangGrid').innerHTML = LANGS.slice(0,9).map(l=>
+    `<button type="button" class="lang-pill ${l.code===currentLang?'active':''}" onclick="pickProfLang('${l.code}')">${l.label}</button>`).join('');
+}
+function pickProfLang(code){
+  currentLang = code;
+  renderProfLangGrid();
+}
+
+function completeProfile(skip){
+  if(!skip){
+    farmerProfile = {
+      name: document.getElementById('profName').value.trim() || (session.google ? session.google.name : 'Farmer'),
+      state: document.getElementById('profState').value,
+      village: document.getElementById('profVillage').value.trim() || 'Not set',
+      land: document.getElementById('profLand').value || '—',
+      crop: document.getElementById('profCrop').value,
+    };
+  } else {
+    farmerProfile = { name: session.google ? session.google.name : 'Farmer', state:'—', village:'—', land:'—', crop:'—' };
+  }
+  document.body.classList.remove('authing');
+  setLang(currentLang);
+  const g = t(currentLang);
+  document.getElementById('homeGreetTime').textContent = `${g.time.split(',')[0]}, ${farmerProfile.name.split(' ')[0]}`;
+  go('home');
+  showToast(`Welcome, ${farmerProfile.name.split(' ')[0]}!`);
+}
+
+function renderAccount(){
+  if(!farmerProfile) return;
+  document.getElementById('acctAvatar').textContent = farmerProfile.name.charAt(0).toUpperCase();
+  document.getElementById('acctName').textContent = farmerProfile.name;
+  document.getElementById('acctMeta').textContent = session.method === 'Google'
+    ? `${session.google.email} · Signed in`
+    : `+91 ${session.phone ? session.phone.slice(0,5)+' '+session.phone.slice(5) : '—'} · Signed in`;
+  document.getElementById('acctVillage').textContent = farmerProfile.village;
+  document.getElementById('acctState').textContent = farmerProfile.state;
+  document.getElementById('acctLand').textContent = farmerProfile.land + ' acres';
+  document.getElementById('acctCrop').textContent = farmerProfile.crop;
+  document.getElementById('acctLangRow').textContent = (LANGS.find(l=>l.code===currentLang)||{}).label || 'English';
+  document.getElementById('acctMethod').textContent = session.method || 'Phone OTP';
+}
+
+function signOut(){
+  if(!confirm('Sign out of Agro AI on this device?')) return;
+  session = { signedIn:false, role:'farmer', method:null, phone:null, google:null };
+  farmerProfile = null;
+  chatHistory = [];
+  document.getElementById('phoneInput').value = '';
+  document.getElementById('otpInput').value = '';
+  document.body.classList.add('authing');
+  goAuth('auth-welcome');
+}
+
+function requestDeleteAccount(){
+  if(!confirm('This will permanently delete your Agro AI account and farm data. Continue?')) return;
+  showToast('Deletion request submitted — processed within 30 days');
+}
+
+function showToast(msg){
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  setTimeout(()=>el.classList.remove('show'), 2200);
+}
+
+/* ================= LANGUAGE ================= */
+function openLangSheet(){
+  const choice = prompt("Choose language code (en, hi, kn, te, ta, mr, bn, gu, pa):", currentLang);
+  if(choice && LANGS.some(l=>l.code===choice)) setLang(choice);
+}
+function setLang(code){
+  currentLang = code;
+  document.getElementById('topLangLabel').textContent = code.toUpperCase();
+  const g = t(code);
+  document.getElementById('homeGreetTime').textContent = g.time;
+  document.getElementById('homeGreetMain').textContent = g.main;
+  document.getElementById('homeAdvisoryText').textContent = g.adv;
+  renderGptLangBar();
+}
+function renderGptLangBar(){
+  const bar = document.getElementById('gptLangBar');
+  bar.innerHTML = LANGS.map(l=>`<button class="lang-pill ${l.code===currentLang?'active':''}" onclick="setLang('${l.code}')">${l.label}</button>`).join('');
+}
+
+/* ================= DIAGNOSE ================= */
+let uploadedImg = null;
+function triggerUpload(){ document.getElementById('fileInput').click(); }
+function handleUpload(e){
+  const file = e.target.files[0];
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = function(ev){
+    uploadedImg = ev.target.result;
+    document.getElementById('uploadInner').innerHTML = `<img src="${uploadedImg}" alt="uploaded leaf">`;
+    document.getElementById('analyzeBtn').disabled = false;
+  };
+  reader.readAsDataURL(file);
+}
+function runDiagnosis(){
+  const area = document.getElementById('diagnoseResultArea');
+  area.innerHTML = `
+    <div class="card" style="margin-top:16px;">
+      <div class="skeleton" style="width:60%;height:18px;margin-bottom:12px;"></div>
+      <div class="skeleton" style="width:100%;margin-bottom:8px;"></div>
+      <div class="skeleton" style="width:90%;margin-bottom:8px;"></div>
+      <div class="skeleton" style="width:70%;"></div>
+    </div>`;
+  document.getElementById('analyzeBtn').disabled = true;
+  setTimeout(()=>{
+    const cropHint = document.getElementById('cropHint').value || 'Tomato';
+    area.innerHTML = `
+      <div class="card" style="margin-top:16px;">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px;">
+          <div>
+            <div style="font-weight:700;font-size:16px;">${cropHint} — Early Blight</div>
+            <div class="muted">Alternaria solani</div>
+          </div>
+          <span class="pill pill-saffron">Moderate</span>
+        </div>
+        <div style="display:flex;gap:10px;margin-bottom:14px;">
+          <span class="pill pill-forest">78% confidence</span>
+          <span class="pill" style="background:#F1EDE1;color:var(--ink-soft);">Not a lab-confirmed diagnosis</span>
+        </div>
+        <div class="muted" style="margin-bottom:6px;"><strong style="color:var(--ink);">Why:</strong> Concentric brown rings on lower leaves with yellowing margins are the classic early blight pattern, consistent with current humid, warm conditions.</div>
+
+        <div class="tabs">
+          <button class="tab-btn active" onclick="switchTreat(this,'organic')">Organic</button>
+          <button class="tab-btn" onclick="switchTreat(this,'chemical')">Chemical</button>
+        </div>
+        <div id="treatOrganic">
+          <div class="treat-item">🌿 <div>Neem oil spray, 5ml/litre water, every 5 days for 2 weeks</div></div>
+          <div class="treat-item">🌿 <div>Remove and destroy infected lower leaves</div></div>
+          <div class="treat-item">🌿 <div>Improve airflow — increase plant spacing next season</div></div>
+        </div>
+        <div id="treatChemical" style="display:none;">
+          <div class="treat-item">🧪 <div>Mancozeb 75% WP — 2.5g/litre water, per-acre: 600–800g</div></div>
+          <div class="treat-item">🧪 <div>Spray in early morning or evening, avoid midday heat</div></div>
+        </div>
+
+        <div class="section-title" style="margin-top:16px;">Prevention</div>
+        <div class="muted">Rotate crops each season · avoid overhead watering · mulch to reduce soil splash onto leaves</div>
+
+        <div style="display:flex;gap:10px;margin-top:16px;">
+          <span class="pill pill-forest">Spray window: early morning</span>
+          <span class="pill pill-forest">Recovery: 10–14 days</span>
+        </div>
+
+        <div style="display:flex;gap:10px;margin-top:16px;">
+          <button class="btn btn-outline" style="flex:1" onclick="showToast('Saved to your reports')">💾 Save report</button>
+          <button class="btn btn-primary" style="flex:1" onclick="showToast('Shared to WhatsApp')">📤 Send on WhatsApp</button>
+        </div>
+      </div>`;
+  }, 1400);
+}
+function switchTreat(btn, kind){
+  document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('treatOrganic').style.display = kind==='organic' ? 'block':'none';
+  document.getElementById('treatChemical').style.display = kind==='chemical' ? 'block':'none';
+}
+
+/* ================= KISAN GPT ================= */
+let chatHistory = [];
+function renderChat(){
+  const scroll = document.getElementById('chatScroll');
+  scroll.innerHTML = chatHistory.map(m=>`<div class="bubble ${m.role==='user'?'bubble-user':'bubble-ai'}">${m.text}</div>`).join('');
+  scroll.scrollTop = scroll.scrollHeight;
+}
+function renderSuggestChips(){
+  document.getElementById('suggestChips').innerHTML = SUGGESTIONS.map(s=>`<button class="suggest-chip" onclick="sendChat('${s.replace(/'/g,"\\'")}')">${s}</button>`).join('');
+}
+function sendChat(preset){
+  const input = document.getElementById('chatInput');
+  const msg = preset || input.value.trim();
+  if(!msg) return;
+  chatHistory.push({role:'user', text: msg});
+  input.value = '';
+  renderChat();
+  const scroll = document.getElementById('chatScroll');
+  scroll.insertAdjacentHTML('beforeend', `<div class="typing" id="typingIndicator">Soch raha hoon…</div>`);
+  scroll.scrollTop = scroll.scrollHeight;
+  setTimeout(()=>{
+    document.getElementById('typingIndicator')?.remove();
+    chatHistory.push({role:'ai', text: pickReply(msg)});
+    renderChat();
+  }, 1100);
+}
+function pickReply(msg){
+  const m = msg.toLowerCase();
+  let key = 'default';
+  if(m.includes('weather')||m.includes('rain')) key='weather';
+  else if(m.includes('mandi')||m.includes('price')) key='mandi';
+  else if(m.includes('diagnos')||m.includes('crop')) key='diagnose';
+  else if(m.includes('drone')) key='drone';
+  else if(m.includes('fertilizer')) key='fertilizer';
+  const set = CHAT_REPLIES[key];
+  return set[currentLang] || set.en;
+}
+let micRecording = false;
+function toggleMic(){
+  micRecording = !micRecording;
+  const btn = document.getElementById('micBtn');
+  btn.classList.toggle('recording', micRecording);
+  if(micRecording){ showToast('Listening…'); }
+  else{
+    showToast('Got it');
+    document.getElementById('chatInput').value = "What's today's mandi price?";
+  }
+}
+function initChat(){
+  if(chatHistory.length===0){
+    chatHistory.push({role:'ai', text:"Namaste! I'm Kisan GPT, your farm assistant. Ask me about weather, mandi prices, crop problems, or say 'book a drone'."});
+  }
+  renderChat();
+  renderSuggestChips();
+  renderGptLangBar();
+}
+
+/* ================= WEATHER ================= */
+function renderDayStrip(){
+  const days = ['Today','Thu','Fri','Sat','Sun','Mon','Tue'];
+  const icons = ['⛅','🌧️','🌧️','☀️','☀️','⛅','☀️'];
+  const temps = [28,26,25,30,31,29,30];
+  document.getElementById('dayStrip').innerHTML = days.map((d,i)=>`
+    <div class="day-card">
+      <div style="font-size:11px;color:var(--ink-soft);font-weight:600;">${d}</div>
+      <div style="font-size:20px;margin:4px 0;">${icons[i]}</div>
+      <div style="font-weight:700;font-size:13px;">${temps[i]}°</div>
+    </div>`).join('');
+  document.getElementById('weatherLoc').textContent = "Mandya district · location detected";
+}
+
+/* ================= MARKET ================= */
+function runForecast(){
+  const crop = document.getElementById('cropSel').value;
+  const state = document.getElementById('stateSel').value;
+  const area = document.getElementById('marketResultArea');
+  area.innerHTML = `<div class="card" style="margin-top:16px;"><div class="skeleton" style="width:50%;height:32px;margin-bottom:12px;"></div><div class="skeleton" style="width:100%;"></div></div>`;
+  setTimeout(()=>{
+    area.innerHTML = `
+      <div class="card" style="margin-top:16px;">
+        <div class="muted" style="margin-bottom:4px;">${crop} · ${state} today</div>
+        <div class="price-big">₹2,140<span style="font-size:15px;color:var(--ink-soft);font-family:'Inter';">/quintal</span></div>
+        <div style="margin:6px 0 14px;"><span class="pill pill-forest">▲ 3% vs last week</span></div>
+        <svg viewBox="0 0 300 70" width="100%" height="70">
+          <polyline fill="none" stroke="#E58A2D" stroke-width="3" points="0,50 40,45 80,52 120,38 160,42 200,25 240,30 300,15"/>
+        </svg>
+        <div class="muted" style="margin:10px 0 14px;">30-day forecast: gradual rise, expected to peak late next month before harvest season pressure brings it back down.</div>
+        <div class="pill pill-saffron" style="margin-bottom:14px;">📍 Best mandi: Mandya APMC — ₹2,180/quintal</div>
+        <div style="display:flex;gap:8px;">
+          <input class="chat-input" placeholder="Phone number for price alerts" style="flex:1;">
+          <button class="btn btn-primary" onclick="showToast('Alert set — you will be notified on WhatsApp')">Set alert</button>
+        </div>
+      </div>`;
+  }, 1000);
+}
+
+/* ================= MORE ================= */
+function renderMoreList(){
+  document.getElementById('moreList').innerHTML = MORE_ITEMS.map(m=>`
+    <div class="more-row" onclick="openMoreItem('${m.id}')">
+      <div class="emoji">${m.emoji}</div>
+      <div class="txt"><div class="t">${m.t}</div><div class="s">${m.s}</div></div>
+      <div style="color:var(--ink-soft);">›</div>
+    </div>`).join('');
+}
+function openMoreItem(id){
+  if(id === 'account'){ go('account'); return; }
+  const item = MORE_ITEMS.find(m=>m.id===id);
+  if(!item) return;
+  document.getElementById('stubTitle').textContent = item.emoji + '  ' + item.t;
+  document.getElementById('stubBanner').textContent = '⚠ Demo UI — connect real data sources in the backend to activate this fully.';
+  document.getElementById('stubBody').textContent = item.body;
+  go('stub');
+}
+
+/* ================= INIT ================= */
+setLang('en');
+renderDayStrip();
+initChat();
+</script>
+</body>
+</html>

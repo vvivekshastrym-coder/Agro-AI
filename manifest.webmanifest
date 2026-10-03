@@ -1,0 +1,25 @@
+{
+  "name": "KisanAI — Smart Farming Assistant",
+  "short_name": "KisanAI",
+  "id": "app.lovable.kisanai",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#FFF8EC",
+  "theme_color": "#1F4D2B",
+  "orientation": "portrait",
+  "description": "AI-powered agritech super-app for Indian farmers. Diagnose leaf diseases, chat with Kisan GPT, check weather advisories, and track mandi price trends.",
+  "icons": [
+    {
+      "src": "icons/icon-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "icons/icon-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

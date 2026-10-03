@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>KisanAI — Smart Farming Assistant</title>
+  
+  <!-- SEO Meta Tags -->
+  <meta name="description" content="AI-powered farming companion for Indian farmers. Diagnose leaf diseases, chat with Kisan GPT, check hyperlocal weather, and track mandi price trends.">
+  <meta name="theme-color" content="#1F4D2B">
+  
+  <!-- PWA Headers -->
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="apple-touch-icon" href="icons/icon-192x192.png">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+  
+  <!-- Stylesheets -->
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+
+  <!-- Top bar / Header -->
+  <div id="top-bar-container"></div>
+
+  <!-- Router outlet -->
+  <main id="app"></main>
+
+  <!-- Bottom Navigation Bar -->
+  <div id="bottom-nav-container"></div>
+
+  <!-- JS Dependencies -->
+  <script src="js/i18n.js"></script>
+  <script src="js/router.js"></script>
+  <!-- Engine (must load before pages) -->
+  <script src="js/engine/core.js"></script>
+  <script src="js/engine/api.js"></script>
+  <script src="js/engine/reports.js"></script>
+  <script src="js/engine/whatsapp.js"></script>
+  <script src="js/components/nav.js"></script>
+  
+  <!-- Page Renderers -->
+  <script src="js/pages/home.js"></script>
+  <script src="js/pages/diagnose.js"></script>
+  <script src="js/pages/kisan-gpt.js"></script>
+  <script src="js/pages/weather.js"></script>
+  <script src="js/pages/market.js"></script>
+  <script src="js/pages/more.js"></script>
+  <script src="js/pages/satellite.js"></script>
+  <script src="js/pages/soil-dna.js"></script>
+  <script src="js/pages/insurance.js"></script>
+  <script src="js/pages/carbon.js"></script>
+  <script src="js/pages/drone.js"></script>
+  <script src="js/pages/logistics.js"></script>
+  <script src="js/pages/credit.js"></script>
+  <script src="js/pages/passport.js"></script>
+  <script src="js/pages/splash.js"></script>
+  <script src="js/pages/onboarding.js"></script>
+  <script src="js/pages/language.js"></script>
+  <script src="js/pages/login.js"></script>
+  <script src="js/pages/signup.js"></script>
+  <script src="js/pages/otp.js"></script>
+  <script src="js/pages/permissions.js"></script>
+  <script src="js/pages/profile.js"></script>
+  <script src="js/pages/settings.js"></script>
+  <script src="js/pages/help.js"></script>
+
+  <!-- App Initialization -->
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      // 1. Inject Top Bar
+      const topBarContainer = document.getElementById('top-bar-container');
+      if (topBarContainer && window.KisanNav) {
+        topBarContainer.appendChild(window.KisanNav.createTopBar());
+      }
+
+      // 2. Inject Bottom Navigation
+      const bottomNavContainer = document.getElementById('bottom-nav-container');
+      if (bottomNavContainer && window.KisanNav) {
+        bottomNavContainer.appendChild(window.KisanNav.createBottomNav());
+      }
+
+      // 3. Initialize translation system
+      if (window.KisanI18n) {
+        window.KisanI18n.applyTranslations();
+        
+        // Apply translations again whenever language changes
+        window.addEventListener('kisanLanguageChanged', () => {
+          window.KisanI18n.applyTranslations();
+        });
+      }
+
+      // 4. Resolve current route with auth/onboarding guard
+      if (window.KisanRouter) {
+        const hash = window.location.hash;
+        const onboarded = localStorage.getItem('kisanOnboarded');
+        const authenticated = localStorage.getItem('kisanAuth');
+
+        // Check if currently on a screen that doesn't need auth (splash, onboarding, language, login, signup, otp, permissions)
+        const publicRoutes = ['#/splash', '#/onboarding', '#/language', '#/login', '#/signup', '#/otp', '#/permissions'];
+        const isPublicRoute = publicRoutes.some(route => hash.startsWith(route));
+
+        if (!isPublicRoute) {
+          if (!onboarded) {
+            window.location.hash = '#/splash';
+          } else if (!authenticated) {
+            window.location.hash = '#/login';
+          }
+        }
+        window.KisanRouter.resolveRoute();
+      }
+
+      // 5. Register Service Worker for offline support
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+          navigator.serviceWorker.register('./sw.js')
+            .then(reg => console.log('Service Worker registered successfully:', reg.scope))
+            .catch(err => console.error('Service Worker registration failed:', err));
+        });
+      }
+    });
+  </script>
+</body>
+</html>
