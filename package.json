@@ -6,7 +6,8 @@
     "dev": "vite",
     "build": "vite build",
     "start": "nitro start",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "postinstall": "prisma skills sync || exit 0"
   },
   "dependencies": {
     "@capacitor/android": "^8.4.0",
@@ -43,7 +44,8 @@
     "@radix-ui/react-toggle-group": "^1.1.11",
     "@radix-ui/react-tooltip": "^1.2.8",
     "@supabase/server": "^1.9.0",
-    "@supabase/supabase-js": "^2.110.1",
+    "@supabase/ssr": "^0.12.7",
+    "@supabase/supabase-js": "^2.117.2",
     "@tailwindcss/vite": "^4.2.1",
     "@tanstack/react-query": "^5.83.0",
     "@tanstack/react-router": "^1.168.25",
@@ -85,6 +87,7 @@
     "globals": "^15.15.0",
     "nitro": "3.0.260603-beta",
     "prettier": "^3.7.3",
+    "prisma": "^8.0.0-rc.19",
     "typescript": "^5.8.3",
     "typescript-eslint": "^8.56.1",
     "vite": "^7.3.1"
