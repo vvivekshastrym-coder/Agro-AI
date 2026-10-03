@@ -20,6 +20,9 @@
 
 <!-- Google Identity Services -->
 <script src="https://accounts.google.com/gsi/client" async defer></script>
+<!-- Supabase Client -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="js/engine/supabase.js"></script>
 
 <style>
   :root{
@@ -860,22 +863,27 @@ function setRole(role){
 
 /* ---- REAL GOOGLE AUTHENTICATION ---- */
 function triggerGoogleSignIn(){
-  // Check if official Google Identity Services is available
-  if(window.google && window.google.accounts && window.google.accounts.id){
-    try {
-      window.google.accounts.id.initialize({
-        client_id: "688402948291-kisanai.apps.googleusercontent.com",
-        callback: handleGoogleCredentialResponse
-      });
-      window.google.accounts.id.prompt((notification) => {
-        if (notification.isNotDisplayed() || notification.isSkippedMoment()) {
-          openGoogleModal();
-        }
-      });
-      return;
-    } catch(err){
-      console.warn('Google GSI init fallback:', err);
-    }
+  if(window.AgroSupabase){
+    window.AgroSupabase.signInWithGoogle().catch(err => {
+      console.warn('Supabase Google OAuth fallback:', err);
+      // Fallback to GSI or custom modal
+      if(window.google && window.google.accounts && window.google.accounts.id){
+        try {
+          window.google.accounts.id.initialize({
+            client_id: "688402948291-kisanai.apps.googleusercontent.com",
+            callback: handleGoogleCredentialResponse
+          });
+          window.google.accounts.id.prompt((notification) => {
+            if (notification.isNotDisplayed() || notification.isSkippedMoment()) {
+              openGoogleModal();
+            }
+          });
+          return;
+        } catch(e){}
+      }
+      openGoogleModal();
+    });
+    return;
   }
   openGoogleModal();
 }

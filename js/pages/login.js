@@ -330,13 +330,27 @@
     /* Google */
     const googleBtn = container.querySelector('#googleLoginBtn');
     if (googleBtn) {
-      googleBtn.addEventListener('click', () => {
-        googleBtn.textContent = '⏳ Connecting...';
-        setTimeout(() => {
-          localStorage.setItem('kisanAuth', 'true');
-          alert('✅ Google Sign-In simulated successfully!');
-          window.location.hash = '#/permissions';
-        }, 1200);
+      googleBtn.addEventListener('click', async () => {
+        googleBtn.disabled = true;
+        googleBtn.textContent = '⏳ Connecting to Google...';
+        try {
+          if (window.AgroSupabase) {
+            await window.AgroSupabase.signInWithGoogle();
+          } else {
+            throw new Error('Authentication service initializing. Please retry in a moment.');
+          }
+        } catch (err) {
+          console.error('Google Sign-In failed:', err);
+          googleBtn.disabled = false;
+          googleBtn.textContent = '🌐 Google';
+          const errMsg = container.querySelector('#loginErrorMsg');
+          if (errMsg) {
+            errMsg.style.display = 'block';
+            errMsg.textContent = `⚠️ Google Sign-In: ${err.message || 'Please enable Google provider in Supabase Dashboard.'}`;
+          } else {
+            alert(`Google Sign-In Error: ${err.message || 'Please check your configuration.'}`);
+          }
+        }
       });
     }
 
