@@ -739,29 +739,31 @@
         <button class="btn btn-outline" style="padding:6px 12px;font-size:12px;" onclick="closeGoogleModal()">Cancel</button>
       </div>
       <p class="muted" style="margin:0 0 16px;">Choose an account to continue to Agro AI</p>
-      
-      <div class="google-account-item" onclick="signInWithGoogleAccount('Vivek S', 'vivek@gmail.com')">
+
+      <!-- Pre-filled known account -->
+      <div class="google-account-item" onclick="signInWithGoogleAccount('Vivek S', 'vvivekshastrym@gmail.com')">
         <div class="avatar-circle" style="width:40px;height:40px;font-size:15px;background:#4285F4;color:#fff;">V</div>
         <div style="flex:1;">
           <div style="font-weight:600;font-size:14px;">Vivek S</div>
-          <div class="muted" style="font-size:12px;">vivek@gmail.com</div>
+          <div class="muted" style="font-size:12px;">vvivekshastrym@gmail.com</div>
         </div>
+        <div style="color:var(--forest);font-size:18px;">→</div>
       </div>
 
-      <div class="google-account-item" onclick="showCustomGoogleInput()">
-        <div class="avatar-circle" style="width:40px;height:40px;font-size:15px;background:var(--forest);color:var(--saffron);">👤</div>
+      <div class="google-account-item" onclick="showCustomGoogleInput()" style="margin-top:8px;">
+        <div class="avatar-circle" style="width:40px;height:40px;font-size:18px;background:var(--cream);color:var(--forest);">+</div>
         <div style="flex:1;">
-          <div style="font-weight:600;font-size:14px;">Use another Google account</div>
-          <div class="muted" style="font-size:12px;">Enter your email</div>
+          <div style="font-weight:600;font-size:14px;">Use another account</div>
+          <div class="muted" style="font-size:12px;">Enter your Gmail address</div>
         </div>
       </div>
 
       <div id="customGoogleBox" style="display:none;margin-top:12px;">
         <input class="field-input" id="customGoogleEmail" type="email" placeholder="yourname@gmail.com" style="margin-bottom:10px;">
-        <button class="btn btn-primary btn-block" onclick="signInWithCustomGoogle()">Continue with this account</button>
+        <button class="btn btn-primary btn-block" onclick="signInWithCustomGoogle()">Continue →</button>
       </div>
 
-      <p class="fine-print" style="margin-top:16px;">To continue, Google will share your name, email address, and language preference with Agro AI.</p>
+      <p class="fine-print" style="margin-top:16px;">Agro AI uses a secure sign-in flow. Your Google account data is never stored without consent.</p>
     </div>
   </div>
 
@@ -834,9 +836,17 @@ function go(view){
   if(view === 'kisangpt') renderChat();
   if(view === 'weather') loadRealWeather();
   if(view === 'home') { loadRealWeather(); renderReportsList(); }
+  if(view === 'logistics') {
+    setTimeout(() => {
+      if(typeof lGoStep === 'function') lGoStep(lState && lState.tripId ? 4 : 1);
+      if(typeof lLoadMyTrips === 'function') lLoadMyTrips();
+      if(lState && lState.tripId && typeof lPollTrip === 'function') lPollTrip();
+    }, 50);
+  }
 
   window.scrollTo(0,0);
 }
+
 
 function goAuth(step){
   document.body.classList.add('authing');
@@ -863,28 +873,27 @@ function setRole(role){
 
 /* ---- REAL GOOGLE AUTHENTICATION ---- */
 function triggerGoogleSignIn(){
-  if(window.AgroSupabase){
-    window.AgroSupabase.signInWithGoogle().catch(err => {
-      console.warn('Supabase Google OAuth fallback:', err);
-      // Fallback to GSI or custom modal
-      if(window.google && window.google.accounts && window.google.accounts.id){
-        try {
-          window.google.accounts.id.initialize({
-            client_id: "688402948291-kisanai.apps.googleusercontent.com",
-            callback: handleGoogleCredentialResponse
-          });
-          window.google.accounts.id.prompt((notification) => {
-            if (notification.isNotDisplayed() || notification.isSkippedMoment()) {
-              openGoogleModal();
-            }
-          });
-          return;
-        } catch(e){}
-      }
-      openGoogleModal();
-    });
-    return;
+  // Use Google Identity Services (GIS) one-tap if available — works on localhost without redirect URI setup
+  if(window.google && window.google.accounts && window.google.accounts.id){
+    try {
+      window.google.accounts.id.initialize({
+        client_id: "688402948291-kisanai.apps.googleusercontent.com",
+        callback: handleGoogleCredentialResponse,
+        auto_select: false,
+        cancel_on_tap_outside: true,
+      });
+      window.google.accounts.id.prompt((notification) => {
+        // If one-tap is not displayed (blocked, dismissed, etc.), fall back to our custom modal
+        if (notification.isNotDisplayed() || notification.isSkippedMoment()) {
+          openGoogleModal();
+        }
+      });
+      return;
+    } catch(err){
+      console.warn('GSI one-tap error:', err);
+    }
   }
+  // Fallback: show our custom Google account modal (no redirect, no OAuth flow needed)
   openGoogleModal();
 }
 
@@ -1642,6 +1651,545 @@ document.addEventListener('DOMContentLoaded', () => {
     navigator.serviceWorker.register('./sw.js').catch(()=>{});
   }
 });
+
+/* ============================================================
+   AGRO AI LOGISTICS  — Full customer flow + live tracking
+   ============================================================ */
+
+const API = 'http://localhost:8080/api';
+const WS_BASE = 'ws://localhost:8080/ws';
+
+// State
+let lState = {
+  step: 1,
+  pickup: { addr: '', lat: null, lon: null },
+  dest:   { addr: '', lat: null, lon: null },
+  route:  null,           // { distance_km, duration_mins, source }
+  drivers: [],            // search results
+  selected: null,         // chosen driver option
+  tripId: null,
+  tripPin: null,
+  shareToken: null,
+  tripStatus: null,
+  ws: null,               // WebSocket connection
+  pollHandle: null,
+};
+
+// ─── Step navigation ─────────────────────────────────────────
+function lGoStep(n){
+  for(let i=1;i<=4;i++){
+    const panel = document.getElementById('lStep'+i);
+    const tab   = document.getElementById('lstep'+i);
+    if(panel) panel.style.display = (i===n) ? 'block' : 'none';
+    if(tab){
+      if(i===n){
+        tab.style.background = 'var(--forest)';
+        tab.style.color = '#fff';
+      } else if(i < n){
+        tab.style.background = '#D4EDDA';
+        tab.style.color = 'var(--forest)';
+      } else {
+        tab.style.background = 'var(--cream)';
+        tab.style.color = 'var(--ink-soft)';
+      }
+    }
+  }
+  lState.step = n;
+}
+
+// ─── GPS capture ──────────────────────────────────────────────
+function lUseGPS(target){
+  if(!navigator.geolocation){ showToast('GPS not available on this device'); return; }
+  showToast('📡 Getting your location…');
+  navigator.geolocation.getCurrentPosition(pos => {
+    const { latitude: lat, longitude: lon } = pos.coords;
+    if(target === 'pickup'){
+      lState.pickup.lat = lat;
+      lState.pickup.lon = lon;
+      lState.pickup.addr = lState.pickup.addr || `${lat.toFixed(5)}, ${lon.toFixed(5)}`;
+      document.getElementById('lPickupAddr').value = lState.pickup.addr;
+      document.getElementById('lPickupCoords').textContent = `📍 GPS: ${lat.toFixed(5)}, ${lon.toFixed(5)}`;
+    } else {
+      lState.dest.lat = lat;
+      lState.dest.lon = lon;
+      lState.dest.addr = lState.dest.addr || `${lat.toFixed(5)}, ${lon.toFixed(5)}`;
+      document.getElementById('lDestAddr').value = lState.dest.addr;
+      document.getElementById('lDestCoords').textContent = `🏁 GPS: ${lat.toFixed(5)}, ${lon.toFixed(5)}`;
+    }
+    showToast('✅ Location captured');
+  }, err => {
+    showToast('Could not get GPS location. Enter address manually.');
+  }, { enableHighAccuracy: true, timeout: 10000 });
+}
+
+// ─── Search drivers ───────────────────────────────────────────
+async function lSearchDrivers(){
+  const pickupAddr = document.getElementById('lPickupAddr').value.trim();
+  const destAddr   = document.getElementById('lDestAddr').value.trim();
+  const crop       = document.getElementById('lCrop').value;
+  const qty        = parseFloat(document.getElementById('lQty').value) || 1.0;
+  const vtype      = document.getElementById('lVehicleType').value;
+
+  if(!pickupAddr || !destAddr){ showToast('Please enter pickup and destination addresses'); return; }
+  if(!lState.pickup.lat || !lState.pickup.lon){ showToast('Please use GPS or enter coordinates for pickup'); return; }
+  if(!lState.dest.lat || !lState.dest.lon){
+    // Try to use same coords if typed same location
+    showToast('Please use GPS button for destination too, or drag map marker (Maps API pending)');
+    return;
+  }
+
+  lState.pickup.addr = pickupAddr;
+  lState.dest.addr   = destAddr;
+
+  const btn = document.querySelector('#lStep1 .btn-primary');
+  btn.disabled = true;
+  btn.textContent = '🔍 Searching…';
+
+  try {
+    const res = await fetch(`${API}/logistics/search`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        pickup_address: pickupAddr,
+        pickup_lat:     lState.pickup.lat,
+        pickup_lon:     lState.pickup.lon,
+        dest_address:   destAddr,
+        dest_lat:       lState.dest.lat,
+        dest_lon:       lState.dest.lon,
+        crop,
+        quantity_tons:  qty,
+        vehicle_type:   vtype,
+      })
+    });
+    const data = await res.json();
+
+    lState.route   = data.options?.[0]?.route || null;
+    lState.drivers = data.options || [];
+
+    lRenderDriverList(data);
+    lGoStep(2);
+  } catch(e){
+    showToast('Could not search drivers. Check your connection.');
+    console.error(e);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Search available drivers →';
+  }
+}
+
+function lRenderDriverList(data){
+  const routeInfo = document.getElementById('lRouteInfo');
+  if(data.options?.[0]?.route){
+    const r = data.options[0].route;
+    const warn = data.routing_warning ? `<div style="color:#856404;font-size:12px;margin-top:6px;">⚠️ ${data.routing_warning}</div>` : '';
+    routeInfo.innerHTML = `
+      <div style="display:flex;gap:16px;align-items:center;">
+        <div><div class="muted" style="font-size:11px;">DISTANCE</div><div style="font-weight:700;font-size:18px;">${r.distance_km} km</div></div>
+        <div><div class="muted" style="font-size:11px;">ESTIMATED TIME</div><div style="font-weight:700;font-size:18px;">${r.duration_mins} min</div></div>
+        <div><div class="muted" style="font-size:11px;">SOURCE</div><div style="font-weight:600;font-size:13px;">${r.source}</div></div>
+      </div>${warn}`;
+  } else {
+    routeInfo.innerHTML = `<div class="muted">Route info unavailable</div>`;
+  }
+
+  const list = document.getElementById('lDriverList');
+  if(!data.available || !data.options?.length){
+    list.innerHTML = `<div class="card" style="text-align:center;padding:24px;">
+      <div style="font-size:32px;">🚛</div>
+      <div style="font-weight:700;margin:8px 0 4px;">No drivers available</div>
+      <div class="muted">No verified Agro AI drivers are currently available in your area. Try again in a few minutes or request a quote.</div>
+    </div>`;
+    return;
+  }
+
+  list.innerHTML = data.options.map((opt, i) => `
+    <div class="card" style="margin-bottom:12px;cursor:pointer;border:2px solid transparent;transition:border 0.2s;" id="dCard${i}" onclick="lSelectDriver(${i})">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px;">
+        <div>
+          <div style="font-weight:700;font-size:15px;">${opt.driver_name}</div>
+          <div class="muted" style="font-size:12px;">${opt.vehicle_type} · ${opt.registration_number}</div>
+          <div style="margin-top:4px;">
+            ${opt.total_trips > 0 ? `<span class="pill pill-forest" style="font-size:11px;">⭐ ${opt.driver_rating} · ${opt.total_trips} trips</span>` : '<span class="pill" style="font-size:11px;background:#f0f0f0;">New driver</span>'}
+            <span class="pill pill-saffron" style="font-size:11px;margin-left:4px;">${opt.location_freshness}</span>
+          </div>
+        </div>
+        <div style="text-align:right;">
+          <div style="font-weight:700;color:var(--forest);font-size:18px;">₹${opt.pricing.farmer_total_price.toLocaleString('en-IN')}</div>
+          <div class="muted" style="font-size:12px;">ETA ~${opt.driver_eta_mins} min</div>
+        </div>
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;font-size:12px;color:var(--ink-soft);">
+        <span>📦 ${opt.payload_capacity_tons}T capacity</span>
+        <span>🛣️ ${opt.route.distance_km} km · ${opt.route.duration_mins} min</span>
+        <span>💰 ₹${opt.pricing.price_per_quintal}/quintal</span>
+      </div>
+      <button class="btn btn-primary" style="width:100%;margin-top:12px;" onclick="event.stopPropagation();lSelectDriver(${i})">Select this driver →</button>
+    </div>`).join('');
+}
+
+function lSelectDriver(i){
+  lState.selected = lState.drivers[i];
+  document.querySelectorAll('[id^="dCard"]').forEach(c => c.style.borderColor='transparent');
+  document.getElementById('dCard'+i).style.borderColor = 'var(--forest)';
+
+  // Render fare breakdown
+  const opt = lState.selected;
+  const p   = opt.pricing;
+  document.getElementById('lFareCard').innerHTML = `
+    <div style="font-weight:700;margin-bottom:12px;font-size:15px;">💰 Fare breakdown</div>
+    <div class="kv-row"><span class="k">Base charge</span><span class="v">₹${p.base_charge}</span></div>
+    <div class="kv-row"><span class="k">Distance fare (${opt.route.distance_km} km)</span><span class="v">₹${p.distance_fare}</span></div>
+    <div class="kv-row"><span class="k">Loading</span><span class="v">₹${p.loading_charge}</span></div>
+    <div class="kv-row"><span class="k">Unloading</span><span class="v">₹${p.unloading_charge}</span></div>
+    ${p.toll_estimate > 0 ? `<div class="kv-row"><span class="k">Toll estimate</span><span class="v">₹${p.toll_estimate}</span></div>` : ''}
+    <div class="kv-row"><span class="k">Platform fee</span><span class="v">₹${p.platform_fee}</span></div>
+    <div class="kv-row" style="border-top:1.5px solid var(--line);padding-top:10px;margin-top:6px;">
+      <span class="k" style="font-weight:700;">Total you pay</span>
+      <span class="v" style="font-weight:700;color:var(--forest);font-size:17px;">₹${p.farmer_total_price.toLocaleString('en-IN')}</span>
+    </div>
+    <div class="muted" style="font-size:12px;margin-top:6px;">≈ ₹${p.price_per_quintal}/quintal · Routing: ${opt.route.source}</div>`;
+
+  document.getElementById('lDriverCard').innerHTML = `
+    <div style="font-weight:700;margin-bottom:10px;font-size:15px;">🚛 Driver details</div>
+    <div class="kv-row"><span class="k">Driver</span><span class="v">${opt.driver_name}</span></div>
+    <div class="kv-row"><span class="k">Vehicle</span><span class="v">${opt.vehicle_type}</span></div>
+    <div class="kv-row"><span class="k">Reg. No.</span><span class="v">${opt.registration_number}</span></div>
+    <div class="kv-row"><span class="k">Capacity</span><span class="v">${opt.payload_capacity_tons} tons</span></div>
+    ${opt.total_trips > 0 ? `<div class="kv-row"><span class="k">Rating</span><span class="v">⭐ ${opt.driver_rating} (${opt.total_trips} trips)</span></div>` : ''}
+    <div class="kv-row"><span class="k">ETA to pickup</span><span class="v">~${opt.driver_eta_mins} min</span></div>`;
+
+  lGoStep(3);
+}
+
+// ─── Confirm booking ──────────────────────────────────────────
+async function lConfirmBooking(){
+  if(!lState.selected){ showToast('No driver selected'); return; }
+  const opt = lState.selected;
+  const qty = parseFloat(document.getElementById('lQty')?.value) || 1.0;
+  const crop = document.getElementById('lCrop')?.value || 'Crop';
+  const farmerId = session?.userId || 'guest';
+
+  const btn = document.getElementById('lBookBtn');
+  btn.disabled = true;
+  btn.textContent = '⏳ Booking…';
+
+  try {
+    const res = await fetch(`${API}/logistics/trips`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session?.token || ''}` },
+      body: JSON.stringify({
+        farmer_id:             farmerId,
+        driver_id:             opt.driver_id,
+        vehicle_id:            opt.vehicle_id,
+        crop,
+        quantity_tons:         qty,
+        pickup_address:        lState.pickup.addr,
+        pickup_lat:            lState.pickup.lat,
+        pickup_lon:            lState.pickup.lon,
+        dest_address:          lState.dest.addr,
+        dest_lat:              lState.dest.lat,
+        dest_lon:              lState.dest.lon,
+        distance_km:           opt.route.distance_km,
+        estimated_duration_mins: opt.route.duration_mins,
+        total_price:           opt.pricing.farmer_total_price,
+        driver_net_earnings:   opt.driver_breakdown.net_earnings,
+        fuel_component:        opt.driver_breakdown.estimated_fuel_cost,
+      })
+    });
+    const data = await res.json();
+
+    if(data.trip_id){
+      lState.tripId     = data.trip_id;
+      lState.tripPin    = data.trip_pin;
+      lState.shareToken = data.share_token;
+      lState.tripStatus = data.status;
+      showToast('✅ Trip booked! Driver notified.');
+      lGoStep(4);
+      lRenderTripStatus();
+      lConnectWebSocket();
+      lLoadMyTrips();
+    } else {
+      showToast('Booking failed: ' + (data.detail || 'Please try again'));
+    }
+  } catch(e){
+    showToast('Booking failed. Check your connection.');
+    console.error(e);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '✅ Confirm booking';
+  }
+}
+
+// ─── WebSocket live tracking ───────────────────────────────────
+function lConnectWebSocket(){
+  if(!lState.tripId) return;
+  if(lState.ws) lState.ws.close();
+
+  const wsUrl = `${WS_BASE}/trip/${lState.tripId}`;
+  try {
+    const ws = new WebSocket(wsUrl);
+    lState.ws = ws;
+
+    ws.onopen  = () => { console.log('[WS] Connected to trip', lState.tripId); lKeepAlive(); };
+    ws.onclose = () => { console.log('[WS] Disconnected'); };
+    ws.onerror = (e) => console.warn('[WS] Error', e);
+
+    ws.onmessage = (event) => {
+      try {
+        const msg = JSON.parse(event.data);
+        lHandleWsMessage(msg);
+      } catch(e){}
+    };
+  } catch(e){
+    console.warn('WebSocket connection failed; will fall back to polling');
+    // Poll every 15s as fallback
+    lState.pollHandle = setInterval(lPollTrip, 15000);
+  }
+}
+
+function lKeepAlive(){
+  setInterval(() => {
+    if(lState.ws?.readyState === WebSocket.OPEN) lState.ws.send('ping');
+  }, 25000);
+}
+
+function lHandleWsMessage(msg){
+  console.log('[WS] Message:', msg);
+  if(msg.event === 'LOCATION_UPDATE'){
+    lState.lastDriverLat = msg.lat;
+    lState.lastDriverLon = msg.lon;
+    lUpdateDriverDot(msg);
+  }
+  if(['TRIP_ACCEPTED','DRIVER_ARRIVED','TRIP_STARTED','TRIP_COMPLETED','TRIP_CANCELLED','TRIP_REJECTED'].includes(msg.event)){
+    lState.tripStatus = msg.status;
+    lRenderTripStatus();
+    lAppendEvent(msg.event, msg.message || msg.status);
+  }
+  if(msg.event === 'SOS'){
+    showToast('🚨 SOS alert triggered! Stay safe.');
+  }
+}
+
+function lUpdateDriverDot(msg){
+  const dot = document.getElementById('lDriverDot');
+  if(dot) dot.style.display = 'block';
+
+  const card = document.getElementById('lDriverLocationCard');
+  if(card){
+    card.innerHTML = `
+      <div style="display:flex;gap:12px;align-items:center;">
+        <div style="width:12px;height:12px;border-radius:50%;background:#4CAF50;flex-shrink:0;box-shadow:0 0 0 4px rgba(76,175,80,0.25);"></div>
+        <div>
+          <div style="font-weight:700;font-size:13px;">🚛 Driver is moving — LIVE</div>
+          <div class="muted" style="font-size:12px;">
+            Lat: ${(msg.lat||0).toFixed(5)}, Lon: ${(msg.lon||0).toFixed(5)}
+            ${msg.speed_kmh ? ` · ${msg.speed_kmh.toFixed(1)} km/h` : ''}
+            ${msg.heading_deg ? ` · Heading ${msg.heading_deg.toFixed(0)}°` : ''}
+          </div>
+        </div>
+      </div>`;
+  }
+}
+
+// ─── Trip status rendering ─────────────────────────────────────
+const TRIP_STATUS_INFO = {
+  REQUESTED:          { icon: '🕐', label: 'Searching for driver', color: '#856404' },
+  MATCHING:           { icon: '🔍', label: 'Notifying driver',      color: '#856404' },
+  DRIVER_ASSIGNED:    { icon: '✅', label: 'Driver accepted!',      color: '#1F4D2B' },
+  DRIVER_EN_ROUTE:    { icon: '🚛', label: 'Driver on the way',     color: '#1F4D2B' },
+  ARRIVED:            { icon: '📍', label: 'Driver arrived at pickup', color: '#0d6efd' },
+  LOADING:            { icon: '📦', label: 'Loading in progress',   color: '#0d6efd' },
+  IN_TRANSIT:         { icon: '🛣️', label: 'In transit to destination', color: '#1F4D2B' },
+  ARRIVED_DESTINATION:{ icon: '🏁', label: 'Arrived at destination', color: '#198754' },
+  UNLOADING:          { icon: '📤', label: 'Unloading in progress', color: '#198754' },
+  COMPLETED:          { icon: '🎉', label: 'Trip completed!',        color: '#198754' },
+  CANCELLED:          { icon: '❌', label: 'Trip cancelled',          color: '#DC3545' },
+  DISPUTED:           { icon: '⚠️', label: 'Dispute raised',          color: '#fd7e14' },
+};
+
+function lRenderTripStatus(){
+  const card = document.getElementById('lTripStatusCard');
+  if(!card) return;
+  const opt  = lState.selected || {};
+  const info = TRIP_STATUS_INFO[lState.tripStatus] || { icon: '🔄', label: lState.tripStatus, color: '#666' };
+
+  card.innerHTML = `
+    <div style="display:flex;gap:14px;align-items:center;margin-bottom:14px;">
+      <div style="font-size:32px;">${info.icon}</div>
+      <div>
+        <div style="font-weight:700;font-size:16px;color:${info.color};">${info.label}</div>
+        <div class="muted" style="font-size:12px;">Trip ID: ${lState.tripId?.slice(0,8)}…</div>
+      </div>
+    </div>
+    ${lState.tripPin ? `
+    <div style="background:var(--cream);border-radius:10px;padding:10px 14px;margin-bottom:12px;display:flex;justify-content:space-between;align-items:center;">
+      <span class="muted" style="font-size:12px;">Show this PIN to driver at pickup:</span>
+      <span style="font-family:monospace;font-size:22px;font-weight:900;letter-spacing:4px;color:var(--forest);">${lState.tripPin}</span>
+    </div>` : ''}
+    <div class="kv-row"><span class="k">From</span><span class="v">${lState.pickup.addr || '—'}</span></div>
+    <div class="kv-row"><span class="k">To</span><span class="v">${lState.dest.addr || '—'}</span></div>
+    ${opt.driver_name ? `<div class="kv-row"><span class="k">Driver</span><span class="v">${opt.driver_name}</span></div>` : ''}
+    ${opt.registration_number ? `<div class="kv-row"><span class="k">Vehicle</span><span class="v">${opt.vehicle_type} · ${opt.registration_number}</span></div>` : ''}
+    ${opt.pricing ? `<div class="kv-row"><span class="k">Total fare</span><span class="v" style="font-weight:700;color:var(--forest);">₹${opt.pricing.farmer_total_price?.toLocaleString('en-IN')}</span></div>` : ''}`;
+
+  lRenderTripActions();
+}
+
+function lRenderTripActions(){
+  const el = document.getElementById('lTripActions');
+  if(!el) return;
+  const s = lState.tripStatus;
+
+  let actions = [];
+  if(s === 'ARRIVED'){
+    actions.push({ label: '▶️ Start loading', fn: 'lStartTrip()' });
+  }
+  if(['ARRIVED','IN_TRANSIT','ARRIVED_DESTINATION','UNLOADING'].includes(s)){
+    actions.push({ label: '✅ Complete trip', fn: 'lCompleteTrip()' });
+  }
+  if(['REQUESTED','MATCHING','DRIVER_ASSIGNED','DRIVER_EN_ROUTE'].includes(s)){
+    actions.push({ label: '❌ Cancel trip', fn: 'lCancelTrip()', danger: true });
+  }
+  if(s === 'COMPLETED' && !lState.rated){
+    actions.push({ label: '⭐ Rate driver', fn: 'lRateDriver()' });
+  }
+
+  el.innerHTML = actions.map(a =>
+    `<button class="btn ${a.danger ? '' : 'btn-outline'}" style="${a.danger ? 'background:#DC3545;color:#fff;' : ''}" onclick="${a.fn}">${a.label}</button>`
+  ).join('');
+}
+
+async function lStartTrip(){
+  await lTripAction('start', '▶️ Trip started!');
+}
+async function lCompleteTrip(){
+  await lTripAction('complete', '🎉 Trip completed!');
+}
+async function lCancelTrip(){
+  if(!confirm('Are you sure you want to cancel this trip?')) return;
+  await lTripAction('cancel', '❌ Trip cancelled');
+}
+
+async function lTripAction(action, successMsg){
+  if(!lState.tripId) return;
+  try {
+    const res = await fetch(`${API}/logistics/trips/${lState.tripId}/${action}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ actor_id: session?.userId || 'farmer', actor_role: 'farmer' })
+    });
+    const data = await res.json();
+    if(data.status){ lState.tripStatus = data.status; }
+    showToast(successMsg);
+    lRenderTripStatus();
+    lAppendEvent(action.toUpperCase(), successMsg);
+    lLoadMyTrips();
+  } catch(e){
+    showToast('Action failed. Try again.');
+  }
+}
+
+async function lTriggerSOS(){
+  if(!lState.tripId){ showToast('No active trip'); return; }
+  if(!confirm('🚨 This will send an SOS alert to Agro AI emergency team. Proceed?')) return;
+  navigator.geolocation.getCurrentPosition(async pos => {
+    const { latitude: lat, longitude: lon } = pos.coords;
+    try {
+      await fetch(`${API}/logistics/trips/${lState.tripId}/sos`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ actor_id: session?.userId || 'farmer', lat, lon })
+      });
+      showToast('🚨 SOS alert sent to Agro AI emergency team!');
+    } catch(e){ showToast('SOS failed. Call 112 directly.'); }
+  }, () => showToast('🚨 SOS sent (no GPS available)'));
+}
+
+function lShareTrip(){
+  if(!lState.tripId || !lState.shareToken){ showToast('No active trip to share'); return; }
+  const link = `${window.location.origin}/api/logistics/trips/${lState.tripId}/track?token=${lState.shareToken}`;
+  if(navigator.share){
+    navigator.share({ title: 'Track my Agro AI transport', url: link });
+  } else {
+    navigator.clipboard.writeText(link).then(() => showToast('📋 Tracking link copied to clipboard!'));
+  }
+}
+
+async function lRateDriver(){
+  const rating = prompt('Rate your driver (1-5 stars):');
+  if(!rating || isNaN(rating) || rating < 1 || rating > 5){ showToast('Please enter a rating between 1 and 5'); return; }
+  const review = prompt('Write a review (optional):') || '';
+  try {
+    await fetch(`${API}/logistics/trips/${lState.tripId}/rate`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ farmer_id: session?.userId || 'farmer', rating: parseFloat(rating), review })
+    });
+    lState.rated = true;
+    showToast('⭐ Rating submitted. Thank you!');
+    lRenderTripActions();
+  } catch(e){ showToast('Rating failed. Try again.'); }
+}
+
+// ─── Poll fallback ─────────────────────────────────────────────
+async function lPollTrip(){
+  if(!lState.tripId) return;
+  try {
+    const res = await fetch(`${API}/logistics/trips/${lState.tripId}`);
+    const data = await res.json();
+    if(data.status && data.status !== lState.tripStatus){
+      lState.tripStatus = data.status;
+      lRenderTripStatus();
+    }
+    if(data.driver_location?.lat){
+      lUpdateDriverDot(data.driver_location);
+    }
+  } catch(e){}
+}
+
+// ─── Events log ───────────────────────────────────────────────
+function lAppendEvent(event, note){
+  const log = document.getElementById('lEventsLog');
+  if(!log) return;
+  const time = new Date().toLocaleTimeString('en-IN', { hour:'2-digit', minute:'2-digit' });
+  log.innerHTML = `<div style="padding:6px 0;border-bottom:1px solid var(--line);display:flex;gap:8px;">
+    <span class="muted" style="font-size:11px;flex-shrink:0;">${time}</span>
+    <span>${note || event}</span>
+  </div>` + log.innerHTML;
+}
+
+// ─── My trips ─────────────────────────────────────────────────
+async function lLoadMyTrips(){
+  const farmerId = session?.userId || 'guest';
+  if(farmerId === 'guest'){ document.getElementById('lMyTripsList').innerHTML = '<div class="muted">Sign in to see your trip history.</div>'; return; }
+  try {
+    const res = await fetch(`${API}/logistics/trips?farmer_id=${farmerId}`, {
+      headers: { 'Authorization': `Bearer ${session?.token || ''}` }
+    });
+    const trips = await res.json();
+    const el = document.getElementById('lMyTripsList');
+    if(!trips.length){ el.innerHTML = '<div class="muted">No trips yet. Book your first transport above.</div>'; return; }
+    el.innerHTML = trips.map(t => {
+      const info = TRIP_STATUS_INFO[t.status] || { icon: '🔄', label: t.status, color: '#666' };
+      return `<div class="kv-row" style="cursor:pointer;" onclick="lOpenTrip('${t.id}','${t.status}')">
+        <span class="k">${info.icon} ${t.pickup_address?.slice(0,20)} → ${t.dest_address?.slice(0,20)}</span>
+        <span class="v" style="color:${info.color};font-size:12px;">${info.label}</span>
+      </div>`;
+    }).join('');
+  } catch(e){
+    document.getElementById('lMyTripsList').innerHTML = '<div class="muted">Could not load trips.</div>';
+  }
+}
+
+function lOpenTrip(tripId, status){
+  lState.tripId = tripId;
+  lState.tripStatus = status;
+  lGoStep(4);
+  lRenderTripStatus();
+  lConnectWebSocket();
+  lPollTrip();
+}
+
 </script>
 </body>
 </html>

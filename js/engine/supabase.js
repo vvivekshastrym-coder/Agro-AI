@@ -1,4 +1,4 @@
-﻿// ═══════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════
 // AGRO AI — SUPABASE CLIENT & AUTH MODULE
 // Configured with live Supabase Project
 // ═══════════════════════════════════════════════════════════
@@ -32,7 +32,7 @@
 
             // Sync with backend API
             try {
-              await fetch('http://localhost:8000/api/auth/google', {
+              await fetch('/api/auth/google', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({

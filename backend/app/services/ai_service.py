@@ -7,10 +7,50 @@ from typing import AsyncGenerator, Dict, Any, Optional
 
 logger = logging.getLogger(__name__)
 
-# Backend API Keys strictly loaded from environment variables
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
-OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY", "")
+# Backend API Keys strictly loaded from environment variables with dynamic runtime fallback
+def get_gemini_api_key() -> str:
+    return os.getenv("GEMINI_API_KEY", "") or os.getenv("GOOGLE_API_KEY", "")
+
+def get_openai_api_key() -> str:
+    return os.getenv("OPENAI_API_KEY", "")
+
+def get_openrouter_api_key() -> str:
+    return os.getenv("OPENROUTER_API_KEY", "") or os.getenv("DEEPSEEK_API_KEY", "")
+
+def set_runtime_api_key(provider: str, key_val: str):
+    """Sets API key in runtime environment and appends/updates .env."""
+    key_val = key_val.strip()
+    if provider.lower() in ["gemini", "google"]:
+        os.environ["GEMINI_API_KEY"] = key_val
+    elif provider.lower() == "openai":
+        os.environ["OPENAI_API_KEY"] = key_val
+    elif provider.lower() in ["openrouter", "deepseek"]:
+        os.environ["OPENROUTER_API_KEY"] = key_val
+        
+    # Persist to .env in project root
+    try:
+        env_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "..", ".env"))
+        lines = []
+        if os.path.exists(env_path):
+            with open(env_path, "r", encoding="utf-8") as f:
+                lines = f.readlines()
+        
+        var_name = "GEMINI_API_KEY" if provider.lower() in ["gemini", "google"] else ("OPENAI_API_KEY" if provider.lower() == "openai" else "OPENROUTER_API_KEY")
+        updated = False
+        new_lines = []
+        for line in lines:
+            if line.startswith(f"{var_name}="):
+                new_lines.append(f"{var_name}={key_val}\n")
+                updated = True
+            else:
+                new_lines.append(line)
+        if not updated:
+            new_lines.append(f"{var_name}={key_val}\n")
+            
+        with open(env_path, "w", encoding="utf-8") as f:
+            f.writelines(new_lines)
+    except Exception as e:
+        logger.warning(f"Could not persist key to .env: {e}")
 
 GEMINI_BASE_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash"
 
@@ -37,6 +77,7 @@ If the image is blurry, dark, unidentifiable, or not a crop leaf, set confidence
 Do NOT surround with code fences. Return pure JSON only.
 """
 
+
 # Comprehensive Agronomy Diagnostic Knowledge Base for Indian Farming
 EXPERT_DIAGNOSES = {
     "tomato": [
@@ -44,7 +85,8 @@ EXPERT_DIAGNOSES = {
             "crop": "Tomato",
             "disease": "Early Blight (Alternaria solani)",
             "scientific_name": "Alternaria solani",
-            "confidence": 0.93,
+            "disease_type": "fungal_blight",
+            "confidence": 0.88,
             "severity": "moderate",
             "evidence": [
                 "Dark brown circular spots with concentric target-board rings on older foliage",
@@ -78,19 +120,56 @@ EXPERT_DIAGNOSES = {
         },
         {
             "crop": "Tomato",
-            "disease": "Tomato Leaf Curl Virus (ToLCV)",
-            "scientific_name": "Begomovirus (Whitefly-transmitted)",
+            "disease": "Late Blight (Phytophthora infestans)",
+            "scientific_name": "Phytophthora infestans",
+            "disease_type": "water_soaked_blight",
             "confidence": 0.91,
             "severity": "critical",
             "evidence": [
+                "Large irregular water-soaked dark green/brown lesions on leaf tips and margins",
+                "White fungal downy growth on leaf underside under humid morning conditions",
+                "Rapid petiole collapse and dark brown rotting"
+            ],
+            "organic_treatment": [
+                "Spray Bordeaux mixture (1%) preventive foliar application",
+                "Apply Bacillus subtilis bio-formulation @ 4g/L on foliage",
+                "Immediately remove severely blighted branches from field"
+            ],
+            "chemical_treatment": [
+                "Cymoxanil 8% + Mancozeb 64% WP (Curzate M8)",
+                "Dimethomorph 50% WP (Acrobat)"
+            ],
+            "dosage": [
+                "Cymoxanil + Mancozeb: 3 g/L of water (600 g/acre in 200L)",
+                "Dimethomorph: 1 g/L of water (200 g/acre)"
+            ],
+            "prevention": [
+                "Avoid sprinkler/overhead irrigation during cool humid weather",
+                "Stake plants to keep foliage off moist soil",
+                "Ensure proper field drainage"
+            ],
+            "spray_window": "Early morning before temperatures rise",
+            "expected_recovery_days": 10,
+            "warnings": [
+                "Late blight can destroy tomato fields within 4-7 days; immediate spray is crucial"
+            ]
+        },
+        {
+            "crop": "Tomato",
+            "disease": "Tomato Leaf Curl Virus (ToLCV)",
+            "scientific_name": "Begomovirus (Whitefly-transmitted)",
+            "disease_type": "viral_chlorosis",
+            "confidence": 0.89,
+            "severity": "critical",
+            "evidence": [
                 "Severe upward curling and puckering of leaf margins",
-                "Stunted plant growth and interveinal yellowing",
+                "Stunted plant growth and interveinal yellowing (chlorosis)",
                 "Presence of Bemisia tabaci (Whitefly vectors) on leaf underside"
             ],
             "organic_treatment": [
                 "Install yellow sticky traps (15-20 traps/acre) at canopy height",
                 "Spray botanical extract: Neem seed kernel extract (NSKE 5%) @ 50ml/L",
-                "Apply Verticillium lecanii bio-insecticide @ 5g/L for whitefly control"
+                "Apply Verticillium lecanii bio-insecticide @ 5g/L for whitefly vector control"
             ],
             "chemical_treatment": [
                 "Diafenthiuron 50% WP (Pegasus)",
@@ -103,15 +182,84 @@ EXPERT_DIAGNOSES = {
             "prevention": [
                 "Erect 40-mesh insect-proof nylon nets in nursery stage",
                 "Rogue out and destroy infected viral plants immediately",
-                "Plant border crops of maize or sorghum as barrier"
+                "Plant border crops of maize or sorghum as barrier against whiteflies"
             ],
             "spray_window": "Late afternoon (4:30 PM - 6:30 PM)",
-            "expected_recovery_days": 16,
+            "expected_recovery_days": 18,
             "warnings": [
-                "Viruses cannot be cured with fungicides; focus entirely on whitefly control"
+                "Viruses cannot be cured with fungicides; focus entirely on controlling whitefly vector"
+            ]
+        },
+        {
+            "crop": "Tomato",
+            "disease": "Powdery Mildew (Leveillula taurica)",
+            "scientific_name": "Leveillula taurica",
+            "disease_type": "powdery_fungus",
+            "confidence": 0.87,
+            "severity": "mild",
+            "evidence": [
+                "White powdery fungal patches on upper leaf surface",
+                "Corresponding yellow chlorotic patches on reverse side of leaf",
+                "Leaves becoming brittle, curling downward and withering prematurely"
+            ],
+            "organic_treatment": [
+                "Foliar spray of Potassium Bicarbonate @ 3g/L or baking soda @ 5g/L with soap",
+                "Spray raw milk dilution (1 part milk : 9 parts water) under bright sun",
+                "Ampelomyces quisqualis bio-fungicide @ 5g/L"
+            ],
+            "chemical_treatment": [
+                "Wettable Sulphur 80% WP (Sulfex)",
+                "Penconazole 10% EC (Topas)"
+            ],
+            "dosage": [
+                "Wettable Sulphur: 2.5 g/L of water (500 g/acre)",
+                "Penconazole: 0.5 ml/L of water (100 ml/acre)"
+            ],
+            "prevention": [
+                "Avoid overhead irrigation during evening",
+                "Thin out dense inner foliage to improve solar radiation penetration",
+                "Clean equipment before moving between plots"
+            ],
+            "spray_window": "Early morning before 9:00 AM",
+            "expected_recovery_days": 8,
+            "warnings": [
+                "Do not apply sulphur sprays when temperature exceeds 32°C to prevent phytotoxicity"
+            ]
+        },
+        {
+            "crop": "Tomato",
+            "disease": "Healthy Foliage (No Disease Detected)",
+            "scientific_name": "Solanum lycopersicum (Healthy)",
+            "disease_type": "healthy",
+            "confidence": 0.94,
+            "severity": "healthy",
+            "evidence": [
+                "Normal vibrant green lamina without necrotic lesions",
+                "Even leaf venation and turgid petiole structure",
+                "No signs of fungal mycelium, bacterial ooze, or viral curling"
+            ],
+            "organic_treatment": [
+                "Maintain routine organic nourishment: Panchagavya (3%) foliar spray",
+                "Apply Seaweed extract @ 2ml/L as growth booster every 15 days"
+            ],
+            "chemical_treatment": [
+                "No chemical fungicide or pesticide required at this stage"
+            ],
+            "dosage": [
+                "Preventive bio-tonic: Seaweed extract 2ml/L"
+            ],
+            "prevention": [
+                "Continue balanced drip irrigation and mulch retention",
+                "Weekly scouting for early whitefly or thrips emergence"
+            ],
+            "spray_window": "N/A — Crop is currently healthy",
+            "expected_recovery_days": 0,
+            "warnings": [
+                "Avoid unnecessary prophylactic pesticide spraying to conserve beneficial insects"
             ]
         }
     ],
+
     "potato": [
         {
             "crop": "Potato",
