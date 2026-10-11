@@ -45,7 +45,9 @@ import random
 import string
 import httpx
 import asyncio
+import hmac
 from ..database.connection import get_db
+from ..auth.deps import get_current_user
 from ..database.models import (
     Driver, Vehicle, LogisticsTrip, VerificationStatus, TripStatus,
     User, DriverLocation, TripEvent, FareCalculation, DriverDocument
@@ -118,7 +120,7 @@ class LogisticsSearchRequest(BaseModel):
     pickup_time: Optional[str] = None
 
 class CreateTripRequest(BaseModel):
-    farmer_id: str
+    farmer_id: Optional[str] = None  # ignored; identity comes from the verified token
     driver_id: str
     vehicle_id: str
     crop: str
@@ -147,18 +149,19 @@ class DriverLocationUpdate(BaseModel):
     altitude_m: Optional[float] = None
 
 class TripActionRequest(BaseModel):
-    actor_id: str
+    actor_id: Optional[str] = None  # ignored; identity comes from the verified token
+    pin: Optional[str] = None
     note: Optional[str] = None
     lat: Optional[float] = None
     lon: Optional[float] = None
 
 class RateTripRequest(BaseModel):
-    farmer_id: str
+    farmer_id: Optional[str] = None  # ignored
     rating: float = Field(ge=1.0, le=5.0)
     review: Optional[str] = None
 
 class DriverRegisterRequest(BaseModel):
-    user_id: str
+    user_id: Optional[str] = None  # ignored; the caller registers themselves
     driving_licence_number: str
     bank_upi_id: Optional[str] = None
     emergency_contact: Optional[str] = None
@@ -316,7 +319,7 @@ def _generate_share_token() -> str:
 # ─── Endpoints ────────────────────────────────────────────────────────────────
 
 @router.post("/search")
-async def search_logistics_options(req: LogisticsSearchRequest, db: Session = Depends(get_db)):
+async def search_logistics_options(req: LogisticsSearchRequest, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
     """Find available verified drivers with fare estimate for a route."""
     route = await _get_road_distance(req.pickup_lat, req.pickup_lon, req.dest_lat, req.dest_lon)
     distance_km = max(route["distance_km"], 1.0)
@@ -432,7 +435,7 @@ async def search_logistics_options(req: LogisticsSearchRequest, db: Session = De
 
 
 @router.post("/trips", status_code=201)
-async def create_trip(req: CreateTripRequest, db: Session = Depends(get_db)):
+async def create_trip(req: CreateTripRequest, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
     """Farmer books a trip — creates the trip record and marks driver busy."""
     driver = db.query(Driver).filter(Driver.id == req.driver_id).first()
     if not driver:
@@ -445,12 +448,23 @@ async def create_trip(req: CreateTripRequest, db: Session = Depends(get_db)):
     vehicle = db.query(Vehicle).filter(Vehicle.id == req.vehicle_id).first()
     if not vehicle:
         raise HTTPException(404, "Vehicle not found")
+    if vehicle.driver_id != driver.id or not vehicle.is_active:
+        raise HTTPException(400, "Vehicle does not belong to the selected driver or is inactive")
+    if req.quantity_tons <= 0:
+        raise HTTPException(422, "quantity_tons must be positive")
+    if vehicle.payload_capacity_tons and req.quantity_tons > vehicle.payload_capacity_tons:
+        raise HTTPException(400, f"Load exceeds vehicle capacity ({vehicle.payload_capacity_tons} t)")
+
+    # Route and price are computed on the server; client-supplied price/distance are ignored.
+    route = await _get_road_distance(req.pickup_lat, req.pickup_lon, req.dest_lat, req.dest_lon)
+    v_cfg = VEHICLE_CONFIGS.get(vehicle.vehicle_type, VEHICLE_CONFIGS["Tata Ace"])
+    fare = _calc_fare(max(route["distance_km"], 1.0), route["duration_mins"], vehicle, req.quantity_tons, v_cfg)
 
     pin = _generate_pin()
     share_token = _generate_share_token()
 
     trip = LogisticsTrip(
-        farmer_id=req.farmer_id,
+        farmer_id=user.id,
         driver_id=req.driver_id,
         vehicle_id=req.vehicle_id,
         status=TripStatus.MATCHING,
@@ -462,16 +476,16 @@ async def create_trip(req: CreateTripRequest, db: Session = Depends(get_db)):
         dest_address=req.dest_address,
         dest_lat=req.dest_lat,
         dest_lon=req.dest_lon,
-        distance_km=req.distance_km,
-        estimated_duration_mins=req.estimated_duration_mins,
-        base_fare=req.total_price - req.distance_km * (vehicle.rate_per_km or 30),
-        distance_fare=req.distance_km * (vehicle.rate_per_km or 30),
-        fuel_component=req.fuel_component,
+        distance_km=route["distance_km"],
+        estimated_duration_mins=route["duration_mins"],
+        base_fare=fare["base_charge"],
+        distance_fare=fare["distance_fare"],
+        fuel_component=fare["fuel_cost"],
         loading_charge=LOADING_CHARGE,
         unloading_charge=UNLOADING_CHARGE,
         platform_fee=PLATFORM_FEE,
-        total_price=req.total_price,
-        driver_net_earnings=req.driver_net_earnings,
+        total_price=fare["total"],
+        driver_net_earnings=fare["driver_net"],
         trip_pin=pin,
         share_token=share_token,
     )
@@ -484,7 +498,7 @@ async def create_trip(req: CreateTripRequest, db: Session = Depends(get_db)):
     db.add(trip)
     driver.is_busy = True
     _record_event(db, trip, TripStatus.MATCHING.value,
-                  actor_id=req.farmer_id, actor_role="farmer",
+                  actor_id=user.id, actor_role="farmer",
                   note="Trip created by farmer")
     db.commit()
     db.refresh(trip)
@@ -499,21 +513,22 @@ async def create_trip(req: CreateTripRequest, db: Session = Depends(get_db)):
 
 
 @router.get("/trips")
-async def list_trips(farmer_id: str = Query(...), db: Session = Depends(get_db)):
-    """Farmer's trip history."""
+async def list_trips(farmer_id: Optional[str] = Query(None), db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    """The authenticated farmer's own trip history (farmer_id query param is ignored)."""
     trips = db.query(LogisticsTrip).filter(
-        LogisticsTrip.farmer_id == farmer_id
+        LogisticsTrip.farmer_id == user.id
     ).order_by(LogisticsTrip.created_at.desc()).limit(50).all()
 
     return [_serialize_trip(t) for t in trips]
 
 
 @router.get("/trips/{trip_id}")
-async def get_trip(trip_id: str, db: Session = Depends(get_db)):
-    """Get full trip details including latest driver location."""
+async def get_trip(trip_id: str, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    """Get full trip details including latest driver location (trip parties only)."""
     trip = db.query(LogisticsTrip).filter(LogisticsTrip.id == trip_id).first()
     if not trip:
         raise HTTPException(404, "Trip not found")
+    _require_trip_party(trip, user)
     return _serialize_trip(trip, include_location=True)
 
 
@@ -530,15 +545,16 @@ async def public_trip_track(trip_id: str, token: str = Query(...), db: Session =
 
 
 @router.post("/trips/{trip_id}/accept")
-async def driver_accept_trip(trip_id: str, req: TripActionRequest, db: Session = Depends(get_db)):
+async def driver_accept_trip(trip_id: str, req: TripActionRequest, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
     """Driver accepts the trip request."""
     trip = _get_trip_or_404(trip_id, db)
+    _require_trip_driver(trip, user)
     _require_status(trip, [TripStatus.MATCHING, TripStatus.REQUESTED])
 
     trip.status = TripStatus.DRIVER_ASSIGNED
     trip.accepted_at = datetime.datetime.utcnow()
     _record_event(db, trip, TripStatus.DRIVER_ASSIGNED.value,
-                  actor_id=req.actor_id, actor_role="driver", note=req.note,
+                  actor_id=user.id, actor_role="driver", note=req.note,
                   lat=req.lat, lon=req.lon)
     db.commit()
     await trip_manager.broadcast(trip_id, {"event": "TRIP_ACCEPTED", "status": "DRIVER_ASSIGNED", "trip_id": trip_id})
@@ -546,9 +562,10 @@ async def driver_accept_trip(trip_id: str, req: TripActionRequest, db: Session =
 
 
 @router.post("/trips/{trip_id}/reject")
-async def driver_reject_trip(trip_id: str, req: TripActionRequest, db: Session = Depends(get_db)):
+async def driver_reject_trip(trip_id: str, req: TripActionRequest, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
     """Driver rejects the trip request — releases the driver."""
     trip = _get_trip_or_404(trip_id, db)
+    _require_trip_driver(trip, user)
     _require_status(trip, [TripStatus.MATCHING, TripStatus.REQUESTED, TripStatus.DRIVER_ASSIGNED])
 
     old_status = trip.status.value
@@ -556,7 +573,7 @@ async def driver_reject_trip(trip_id: str, req: TripActionRequest, db: Session =
     if trip.driver:
         trip.driver.is_busy = False
     _record_event(db, trip, TripStatus.REQUESTED.value,
-                  actor_id=req.actor_id, actor_role="driver",
+                  actor_id=user.id, actor_role="driver",
                   note=req.note or "Driver rejected trip")
     db.commit()
     await trip_manager.broadcast(trip_id, {"event": "TRIP_REJECTED", "status": "REQUESTED", "trip_id": trip_id})
@@ -564,15 +581,16 @@ async def driver_reject_trip(trip_id: str, req: TripActionRequest, db: Session =
 
 
 @router.post("/trips/{trip_id}/arrive")
-async def driver_arrived_pickup(trip_id: str, req: TripActionRequest, db: Session = Depends(get_db)):
+async def driver_arrived_pickup(trip_id: str, req: TripActionRequest, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
     """Driver arrived at pickup point."""
     trip = _get_trip_or_404(trip_id, db)
+    _require_trip_driver(trip, user)
     _require_status(trip, [TripStatus.DRIVER_ASSIGNED, TripStatus.DRIVER_EN_ROUTE])
 
     trip.status = TripStatus.ARRIVED
     trip.driver_arrived_at = datetime.datetime.utcnow()
     _record_event(db, trip, TripStatus.ARRIVED.value,
-                  actor_id=req.actor_id, actor_role="driver",
+                  actor_id=user.id, actor_role="driver",
                   lat=req.lat, lon=req.lon)
     db.commit()
     await trip_manager.broadcast(trip_id, {
@@ -585,15 +603,18 @@ async def driver_arrived_pickup(trip_id: str, req: TripActionRequest, db: Sessio
 
 
 @router.post("/trips/{trip_id}/start")
-async def start_trip(trip_id: str, req: TripActionRequest, db: Session = Depends(get_db)):
+async def start_trip(trip_id: str, req: TripActionRequest, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
     """Start loading / trip — requires PIN verification."""
     trip = _get_trip_or_404(trip_id, db)
+    _require_trip_party(trip, user)
+    if not req.pin or not trip.trip_pin or not hmac.compare_digest(str(req.pin), str(trip.trip_pin)):
+        raise HTTPException(403, "Invalid or missing trip PIN")
     _require_status(trip, [TripStatus.ARRIVED, TripStatus.LOADING])
 
     trip.status = TripStatus.IN_TRANSIT
     trip.started_at = datetime.datetime.utcnow()
     _record_event(db, trip, TripStatus.IN_TRANSIT.value,
-                  actor_id=req.actor_id, actor_role="farmer",
+                  actor_id=user.id, actor_role="farmer",
                   note=req.note, lat=req.lat, lon=req.lon)
     db.commit()
     await trip_manager.broadcast(trip_id, {"event": "TRIP_STARTED", "status": "IN_TRANSIT", "trip_id": trip_id})
@@ -601,9 +622,10 @@ async def start_trip(trip_id: str, req: TripActionRequest, db: Session = Depends
 
 
 @router.post("/trips/{trip_id}/complete")
-async def complete_trip(trip_id: str, req: TripActionRequest, db: Session = Depends(get_db)):
+async def complete_trip(trip_id: str, req: TripActionRequest, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
     """Mark trip as completed — updates driver stats."""
     trip = _get_trip_or_404(trip_id, db)
+    _require_trip_driver(trip, user)
     _require_status(trip, [TripStatus.IN_TRANSIT, TripStatus.ARRIVED_DESTINATION, TripStatus.UNLOADING])
 
     trip.status = TripStatus.COMPLETED
@@ -614,7 +636,7 @@ async def complete_trip(trip_id: str, req: TripActionRequest, db: Session = Depe
         trip.driver.total_trips = (trip.driver.total_trips or 0) + 1
 
     _record_event(db, trip, TripStatus.COMPLETED.value,
-                  actor_id=req.actor_id, actor_role="driver",
+                  actor_id=user.id, actor_role="driver",
                   note=req.note, lat=req.lat, lon=req.lon)
     db.commit()
     await trip_manager.broadcast(trip_id, {"event": "TRIP_COMPLETED", "status": "COMPLETED", "trip_id": trip_id})
@@ -622,9 +644,10 @@ async def complete_trip(trip_id: str, req: TripActionRequest, db: Session = Depe
 
 
 @router.post("/trips/{trip_id}/cancel")
-async def cancel_trip(trip_id: str, req: TripActionRequest, db: Session = Depends(get_db)):
+async def cancel_trip(trip_id: str, req: TripActionRequest, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
     """Cancel a trip — only allowed before IN_TRANSIT."""
     trip = _get_trip_or_404(trip_id, db)
+    _require_trip_party(trip, user)
     cancellable = [TripStatus.REQUESTED, TripStatus.MATCHING, TripStatus.DRIVER_ASSIGNED, TripStatus.DRIVER_EN_ROUTE]
     _require_status(trip, cancellable)
 
@@ -633,7 +656,7 @@ async def cancel_trip(trip_id: str, req: TripActionRequest, db: Session = Depend
     if trip.driver:
         trip.driver.is_busy = False
     _record_event(db, trip, TripStatus.CANCELLED.value,
-                  actor_id=req.actor_id, actor_role="farmer",
+                  actor_id=user.id, actor_role="farmer",
                   note=trip.cancelled_reason)
     db.commit()
     await trip_manager.broadcast(trip_id, {"event": "TRIP_CANCELLED", "status": "CANCELLED", "trip_id": trip_id})
@@ -641,13 +664,15 @@ async def cancel_trip(trip_id: str, req: TripActionRequest, db: Session = Depend
 
 
 @router.post("/trips/{trip_id}/rate")
-async def rate_trip(trip_id: str, req: RateTripRequest, db: Session = Depends(get_db)):
+async def rate_trip(trip_id: str, req: RateTripRequest, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
     """Farmer rates driver after trip completion."""
     trip = _get_trip_or_404(trip_id, db)
     if trip.status != TripStatus.COMPLETED:
         raise HTTPException(400, "Can only rate completed trips")
-    if trip.farmer_id != req.farmer_id:
+    if trip.farmer_id != user.id:
         raise HTTPException(403, "You are not the farmer for this trip")
+    if trip.rating_by_farmer is not None:
+        raise HTTPException(409, "This trip has already been rated")
 
     trip.rating_by_farmer = req.rating
     trip.review_by_farmer = req.review
@@ -663,12 +688,13 @@ async def rate_trip(trip_id: str, req: RateTripRequest, db: Session = Depends(ge
 
 
 @router.post("/trips/{trip_id}/sos")
-async def trigger_sos(trip_id: str, req: TripActionRequest, db: Session = Depends(get_db)):
+async def trigger_sos(trip_id: str, req: TripActionRequest, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
     """Emergency SOS — flags the trip and broadcasts alert."""
     trip = _get_trip_or_404(trip_id, db)
+    _require_trip_party(trip, user)
     trip.sos_triggered = True
     _record_event(db, trip, trip.status.value if trip.status else "UNKNOWN",
-                  actor_id=req.actor_id, actor_role="farmer",
+                  actor_id=user.id, actor_role="farmer",
                   note=f"SOS triggered. Lat:{req.lat}, Lon:{req.lon}",
                   lat=req.lat, lon=req.lon)
     db.commit()
@@ -685,7 +711,7 @@ async def trigger_sos(trip_id: str, req: TripActionRequest, db: Session = Depend
 # ─── Driver GPS ───────────────────────────────────────────────────────────────
 
 @router.post("/drivers/location")
-async def push_driver_location(req: DriverLocationUpdate, db: Session = Depends(get_db)):
+async def push_driver_location(req: DriverLocationUpdate, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
     """
     Driver app pushes GPS heartbeat.
     Updates driver's current position + freshness, records history, broadcasts via WebSocket.
@@ -693,6 +719,12 @@ async def push_driver_location(req: DriverLocationUpdate, db: Session = Depends(
     driver = db.query(Driver).filter(Driver.id == req.driver_id).first()
     if not driver:
         raise HTTPException(404, "Driver not found")
+    if driver.user_id != user.id:
+        raise HTTPException(403, "You can only report your own location")
+    if req.trip_id:
+        t = db.query(LogisticsTrip).filter(LogisticsTrip.id == req.trip_id, LogisticsTrip.driver_id == driver.id).first()
+        if not t:
+            raise HTTPException(403, "Trip is not assigned to this driver")
 
     # Update live position
     driver.current_lat = req.lat
@@ -737,7 +769,8 @@ async def get_nearby_drivers(
     lon: float = Query(...),
     radius_km: float = Query(default=50.0),
     vehicle_type: Optional[str] = Query(default=None),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user)
 ):
     """Find nearby online verified drivers within radius_km."""
     drivers = db.query(Driver).filter(
@@ -786,7 +819,7 @@ async def get_nearby_drivers(
 
 
 @router.get("/drivers/{driver_id}/status")
-async def get_driver_status(driver_id: str, db: Session = Depends(get_db)):
+async def get_driver_status(driver_id: str, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
     driver = db.query(Driver).filter(Driver.id == driver_id).first()
     if not driver:
         raise HTTPException(404, "Driver not found")
@@ -804,18 +837,14 @@ async def get_driver_status(driver_id: str, db: Session = Depends(get_db)):
 
 
 @router.post("/drivers/register", status_code=201)
-async def register_driver(req: DriverRegisterRequest, db: Session = Depends(get_db)):
+async def register_driver(req: DriverRegisterRequest, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
     """Register a new driver profile with vehicle — pending verification."""
-    user = db.query(User).filter(User.id == req.user_id).first()
-    if not user:
-        raise HTTPException(404, "User not found")
-
-    existing = db.query(Driver).filter(Driver.user_id == req.user_id).first()
+    existing = db.query(Driver).filter(Driver.user_id == user.id).first()
     if existing:
         raise HTTPException(409, "Driver profile already exists for this user")
 
     driver = Driver(
-        user_id=req.user_id,
+        user_id=user.id,
         driving_licence_number=req.driving_licence_number,
         bank_upi_id=req.bank_upi_id,
         emergency_contact=req.emergency_contact,
@@ -846,15 +875,30 @@ async def register_driver(req: DriverRegisterRequest, db: Session = Depends(get_
 
 
 @router.get("/drivers/my-trips")
-async def driver_my_trips(driver_id: str = Query(...), db: Session = Depends(get_db)):
-    """Driver's own trip list."""
+async def driver_my_trips(driver_id: Optional[str] = Query(None), db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    """The authenticated driver's own trip list (driver_id query param is ignored)."""
+    me = db.query(Driver).filter(Driver.user_id == user.id).first()
+    if not me:
+        raise HTTPException(403, "No driver profile for this account")
     trips = db.query(LogisticsTrip).filter(
-        LogisticsTrip.driver_id == driver_id
+        LogisticsTrip.driver_id == me.id
     ).order_by(LogisticsTrip.created_at.desc()).limit(50).all()
     return [_serialize_trip(t) for t in trips]
 
 
 # ─── Private helpers ──────────────────────────────────────────────────────────
+
+def _require_trip_driver(trip: LogisticsTrip, user: User):
+    if not trip.driver or trip.driver.user_id != user.id:
+        raise HTTPException(403, "Only the assigned driver can perform this action")
+
+
+def _require_trip_party(trip: LogisticsTrip, user: User):
+    is_farmer = trip.farmer_id == user.id
+    is_driver = bool(trip.driver and trip.driver.user_id == user.id)
+    if not (is_farmer or is_driver):
+        raise HTTPException(403, "You are not a party to this trip")
+
 
 def _get_trip_or_404(trip_id: str, db: Session) -> LogisticsTrip:
     trip = db.query(LogisticsTrip).filter(LogisticsTrip.id == trip_id).first()

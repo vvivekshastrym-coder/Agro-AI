@@ -1,5 +1,5 @@
 // KisanAI Service Worker for Offline Farming Support
-const CACHE_NAME = 'kisanai-v2';
+const CACHE_NAME = 'agroai-v3';
 const ASSETS = [
   './',
   './index.html',

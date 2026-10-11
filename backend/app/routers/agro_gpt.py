@@ -9,6 +9,8 @@ import logging
 from ..database.connection import get_db
 from ..database.models import AgroGPTConversation, AgroGPTMessage, AIContext, DiagnosisReport, User, Farm, FarmCrop
 from ..services.ai_service import generate_agro_gpt_response, stream_agro_gpt_response
+from ..auth.deps import get_current_user
+from ..auth.entitlements import check_and_consume_entitlement
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -26,16 +28,16 @@ class ChatRequest(BaseModel):
     context: Optional[Dict[str, Any]] = None
 
 @router.post("/context/diagnosis")
-async def attach_diagnosis_context(req: DiagnosisContextRequest, db: Session = Depends(get_db)):
+async def attach_diagnosis_context(req: DiagnosisContextRequest, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
     """
     POST /api/agro-gpt/context/diagnosis
     Stores a diagnosis report as active context for Agro GPT.
     """
-    report = db.query(DiagnosisReport).filter(DiagnosisReport.id == req.report_id).first()
+    report = db.query(DiagnosisReport).filter(DiagnosisReport.id == req.report_id, DiagnosisReport.farmer_id == user.id).first()
     if not report:
         raise HTTPException(status_code=404, detail="Diagnosis report not found")
-        
-    farmer_id = req.farmer_id or report.farmer_id or "default_farmer"
+
+    farmer_id = user.id
     
     ctx = db.query(AIContext).filter(AIContext.farmer_id == farmer_id).first()
     if not ctx:
@@ -48,16 +50,21 @@ async def attach_diagnosis_context(req: DiagnosisContextRequest, db: Session = D
     return {"status": "success", "message": "Diagnosis context attached to Agro GPT", "report_id": report.id}
 
 @router.post("/chat")
-async def agro_gpt_chat(req: ChatRequest, db: Session = Depends(get_db)):
+async def agro_gpt_chat(req: ChatRequest, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
     """
     POST /api/agro-gpt/chat
     Main Agro GPT chat endpoint with full farmer DB context retrieval.
     """
-    farmer_id = req.farmer_id or "default_farmer"
+    farmer_id = user.id
     conversation_id = req.conversation_id or str(uuid.uuid4())
     
-    # 1. Get or create conversation in DB
+    # 0. Enforce server-side entitlement
+    check_and_consume_entitlement(db, user.id, "kisan_chat", consume=True)
+
+    # 1. Get or create conversation in DB (never touch another user's conversation)
     conv = db.query(AgroGPTConversation).filter(AgroGPTConversation.id == conversation_id).first()
+    if conv and conv.farmer_id != user.id:
+        raise HTTPException(status_code=403, detail={"error": {"code": "FORBIDDEN", "message": "Not permitted."}})
     if not conv:
         conv = AgroGPTConversation(id=conversation_id, farmer_id=farmer_id, language=req.language or "en")
         db.add(conv)
@@ -87,7 +94,8 @@ async def agro_gpt_chat(req: ChatRequest, db: Session = Depends(get_db)):
         reply_text = await generate_agro_gpt_response(message_history, context_data, req.language or "en")
     except Exception as e:
         logger.error(f"Error in Agro GPT chat: {e}")
-        reply_text = "I am currently running in offline expert mode. Please inspect your crop for pests, ensure balanced watering, and spray in the early morning before 9 AM."
+        raise HTTPException(status_code=503, detail={"error": {"code": "ASSISTANT_UNAVAILABLE",
+                            "message": "Kisan GPT is temporarily unavailable. Your message was saved; please retry.", "retryable": True}})
 
     # Save Assistant Response to DB
     assistant_msg = AgroGPTMessage(
@@ -110,14 +118,21 @@ async def agro_gpt_chat(req: ChatRequest, db: Session = Depends(get_db)):
     }
 
 @router.post("/chat/stream")
-async def agro_gpt_chat_stream(req: ChatRequest, db: Session = Depends(get_db)):
+async def agro_gpt_chat_stream(req: ChatRequest, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
     """
     POST /api/agro-gpt/chat/stream
     Streams Agro GPT response via SSE (Server-Sent Events).
     """
-    farmer_id = req.farmer_id or "default_farmer"
+    farmer_id = user.id
     conversation_id = req.conversation_id or str(uuid.uuid4())
     
+    # Enforce server-side entitlement
+    check_and_consume_entitlement(db, user.id, "kisan_chat", consume=True)
+
+    conv = db.query(AgroGPTConversation).filter(AgroGPTConversation.id == conversation_id).first()
+    if conv and conv.farmer_id != user.id:
+        raise HTTPException(status_code=403, detail={"error": {"code": "FORBIDDEN", "message": "Not permitted."}})
+
     context_data = await fetch_farmer_context(db, farmer_id, req.context)
     past_msgs = db.query(AgroGPTMessage).filter(AgroGPTMessage.conversation_id == conversation_id).order_by(AgroGPTMessage.created_at.asc()).all()
     message_history = [{"role": m.role, "content": m.content} for m in past_msgs]
@@ -164,7 +179,7 @@ async def fetch_farmer_context(db: Session, farmer_id: str, req_context: Optiona
             report_id = ai_ctx.active_diagnosis_id
 
     if report_id:
-        diag = db.query(DiagnosisReport).filter(DiagnosisReport.id == report_id).first()
+        diag = db.query(DiagnosisReport).filter(DiagnosisReport.id == report_id, DiagnosisReport.farmer_id == farmer_id).first()
         if diag:
             ctx["latest_diagnosis"] = {
                 "report_id": diag.id,
@@ -175,14 +190,26 @@ async def fetch_farmer_context(db: Session, farmer_id: str, req_context: Optiona
                 "chemical_treatment": diag.chemical_treatment or []
             }
 
+    # 4. Fetch Live Weather for Farmer's Location
+    loc = ctx.get("village") or (req_context.get("location") if req_context else None) or "Mandya"
+    try:
+        from .weather import get_current_weather
+        w_data = await get_current_weather(q=loc)
+        if w_data.get("available"):
+            ctx["weather"] = w_data
+    except Exception as e:
+        logger.warning(f"Could not load weather for farmer context: {e}")
+
     return ctx
+
 
 
 @router.get("/daily-digest")
 async def get_daily_digest(
-    farmer_id: str = "default_farmer",
+    farmer_id: Optional[str] = None,
     language: str = "en",
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user)
 ):
     """
     GET /api/agro-gpt/daily-digest
@@ -192,6 +219,7 @@ async def get_daily_digest(
     from datetime import datetime
     import json
 
+    farmer_id = user.id  # query param ignored
     context_data = await fetch_farmer_context(db, farmer_id)
 
     # Build a concise digest prompt
@@ -237,10 +265,6 @@ Guidelines:
         }
     except Exception as e:
         logger.error(f"Daily digest generation failed: {e}")
-        return {
-            "digest": f"🌾 Good {greeting_time}, {farmer_name}! Check your crops today and ensure adequate irrigation. Verify weather before any spraying activities.",
-            "farmer_id": farmer_id,
-            "language": language,
-            "fallback": True
-        }
+        raise HTTPException(status_code=503, detail={"error": {"code": "DIGEST_UNAVAILABLE",
+                            "message": "Daily digest is unavailable right now.", "retryable": True}})
 

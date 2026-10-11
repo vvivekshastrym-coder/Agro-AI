@@ -332,10 +332,18 @@
     if (googleBtn) {
       googleBtn.addEventListener('click', async () => {
         googleBtn.disabled = true;
-        googleBtn.textContent = '⏳ Connecting to Google...';
+        googleBtn.textContent = '⏳ Connecting...';
         try {
           if (window.AgroSupabase) {
-            await window.AgroSupabase.signInWithGoogle();
+            const res = await window.AgroSupabase.signInWithGoogle();
+            if (res && res.method === 'gis_prompt') {
+              setTimeout(() => {
+                if (googleBtn) {
+                  googleBtn.disabled = false;
+                  googleBtn.textContent = '🌐 Google';
+                }
+              }, 3000);
+            }
           } else {
             throw new Error('Authentication service initializing. Please retry in a moment.');
           }

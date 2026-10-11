@@ -1,13 +1,18 @@
-from fastapi import APIRouter
-import datetime
+﻿from fastapi import APIRouter, Depends
+
+from ..auth.deps import get_current_user
+from ..database.models import User
 
 router = APIRouter()
 
+
 @router.get("/ndvi")
-async def get_ndvi_analysis(lat: float = 12.9716, lon: float = 77.5946):
+async def get_ndvi_analysis(user: User = Depends(get_current_user)):
+    """No satellite provider is integrated, so no NDVI is reported (it was previously a constant 0.74)."""
     return {
-        "ndvi_mean": 0.74,
-        "health_category": "Vigorous Vegetation",
-        "last_satellite_pass": datetime.date.today().isoformat(),
-        "provider": "Sentinel-2 L2A European Space Agency"
+        "available": False,
+        "status": "UNAVAILABLE",
+        "feature": "Satellite NDVI",
+        "reason": "not_connected",
+        "message": "Satellite monitoring is not available yet: no imagery provider or registered field boundary is configured.",
     }

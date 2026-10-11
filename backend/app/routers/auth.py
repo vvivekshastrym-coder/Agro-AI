@@ -1,109 +1,108 @@
+import os
+import time
+import jwt
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from typing import Optional
-import uuid
+
 from ..database.connection import get_db
-from ..database.models import User, Farm, UserRole
+from ..database.models import User, UserRole
+from ..auth.deps import get_current_user, GUEST_SESSION_SECRET
 
 router = APIRouter()
 
-class OTPRequest(BaseModel):
-    phone: str
+_RETIRED = {
+    "error": {
+        "code": "ENDPOINT_RETIRED",
+        "message": "This sign-in method was removed because it did not verify identity. "
+                   "Sign in through Supabase Auth and send the access token as 'Authorization: Bearer'.",
+    }
+}
 
-class OTPVerifyRequest(BaseModel):
-    phone: str
-    otp: str
 
-class GoogleAuthRequest(BaseModel):
-    credential: Optional[str] = None
-    email: Optional[str] = None
-    name: Optional[str] = None
-    picture: Optional[str] = None
-    role: Optional[str] = "farmer"
+def _user_payload(u: User) -> dict:
+    return {
+        "farmer_id": u.id,
+        "email": u.email,
+        "phone": u.phone,
+        "full_name": u.full_name,
+        "preferred_language": u.preferred_language,
+        "role": u.role.value if u.role else None,
+        "avatar_url": u.avatar_url,
+    }
 
+
+class ProfileUpdate(BaseModel):
+    full_name: Optional[str] = Field(None, min_length=1, max_length=100)
+    preferred_language: Optional[str] = Field(None, pattern=r"^(en|kn|hi|te|ta|mr|bn|gu|pa)$")
+
+
+@router.get("/me")
+async def me(user: User = Depends(get_current_user)):
+    """Returns the verified identity behind the bearer token."""
+    return _user_payload(user)
+
+
+@router.patch("/me")
+async def update_me(body: ProfileUpdate, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    """Updates only the supplied fields of the caller's own profile."""
+    changes = body.model_dump(exclude_unset=True, exclude_none=True)
+    for k, v in changes.items():
+        setattr(user, k, v)
+    try:
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise HTTPException(status_code=500, detail={"error": {"code": "DB_WRITE_FAILED", "message": "Could not save profile."}})
+    db.refresh(user)
+    return _user_payload(user)
+
+
+@router.post("/guest-session")
+async def create_guest_session(db: Session = Depends(get_db)):
+    """Issues a cryptographically signed JWT session for guest farmers."""
+    guest_id = "farmer_guest"
+    user = db.query(User).filter(User.id == guest_id).first()
+    if not user:
+        user = User(
+            id=guest_id,
+            email="guest@agroai.in",
+            phone="9876543210",
+            full_name="Vivek (Guest Farmer)",
+            role=UserRole.farmer,
+            is_verified=True,
+        )
+        db.add(user)
+        try:
+            db.commit()
+            db.refresh(user)
+        except Exception:
+            db.rollback()
+            user = db.query(User).filter(User.id == guest_id).first()
+
+    payload = {
+        "sub": guest_id,
+        "aud": "authenticated",
+        "iss": "agro-ai-local",
+        "exp": int(time.time()) + 86400 * 30,
+        "email": "guest@agroai.in",
+        "user_metadata": {
+            "name": "Vivek (Guest Farmer)",
+            "full_name": "Vivek (Guest Farmer)",
+        }
+    }
+    guest_token = jwt.encode(payload, GUEST_SESSION_SECRET, algorithm="HS256")
+    return {
+        "access_token": guest_token,
+        "token_type": "bearer",
+        "user": _user_payload(user)
+    }
+
+
+# Fake OTP / Google endpoints accepted any input and issued forgeable tokens. They are retired.
 @router.post("/send-otp")
-async def send_otp(req: OTPRequest):
-    """Sends OTP to farmer phone number."""
-    return {"status": "success", "message": f"OTP sent to {req.phone}"}
-
 @router.post("/verify-otp")
-async def verify_otp(req: OTPVerifyRequest, db: Session = Depends(get_db)):
-    """Verifies OTP and returns user authentication payload."""
-    user = db.query(User).filter(User.phone == req.phone).first()
-    if not user:
-        user = User(
-            id=str(uuid.uuid4()),
-            phone=req.phone,
-            full_name="Farmer Partner",
-            role=UserRole.farmer,
-            is_verified=True
-        )
-        db.add(user)
-        db.commit()
-        db.refresh(user)
-
-        # Create default farm for user
-        farm = Farm(
-            id=str(uuid.uuid4()),
-            user_id=user.id,
-            village="Mandya",
-            district="Mandya",
-            state="Karnataka",
-            total_acres=5.0,
-            owned_acres=5.0
-        )
-        db.add(farm)
-        db.commit()
-
-    return {
-        "access_token": f"jwt_token_{user.id}",
-        "token_type": "bearer",
-        "user": {
-            "farmer_id": user.id,
-            "phone": user.phone,
-            "full_name": user.full_name,
-            "preferred_language": user.preferred_language
-        }
-    }
-
 @router.post("/google")
-async def google_auth(req: GoogleAuthRequest, db: Session = Depends(get_db)):
-    """Authenticates or registers user via Google Sign-In."""
-    email = req.email or "farmer@gmail.com"
-    full_name = req.name or "Farmer Partner"
-    user = db.query(User).filter(User.phone == email).first()
-    if not user:
-        user = User(
-            id=str(uuid.uuid4()),
-            phone=email,
-            full_name=full_name,
-            role=UserRole.farmer,
-            is_verified=True
-        )
-        db.add(user)
-        db.commit()
-        db.refresh(user)
-
-        farm = Farm(
-            id=str(uuid.uuid4()),
-            user_id=user.id,
-            village="Mandya",
-            district="Mandya",
-            state="Karnataka",
-            total_acres=5.0,
-            owned_acres=5.0
-        )
-        db.add(farm)
-        db.commit()
-
-    return {
-        "status": "success",
-        "access_token": f"jwt_google_{user.id}",
-        "token_type": "bearer",
-        "user": {
-            "farmer_id": user.id,
-            "email": email,
-            "full_name": user.full_name
-        }
-    }
+async def retired_auth_endpoints():
+    raise HTTPException(status_code=status.HTTP_410_GONE, detail=_RETIRED)

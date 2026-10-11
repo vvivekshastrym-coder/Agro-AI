@@ -143,7 +143,7 @@ class DiagnosisReport(Base):
     dosage = Column(JSON, default=list)
     prevention = Column(JSON, default=list)
     spray_window = Column(String(200), nullable=True)
-    expected_recovery_days = Column(Integer, default=14)
+    expected_recovery_days = Column(Integer, nullable=True)
     warnings = Column(JSON, default=list)
     model = Column(String(100), default='gemini-2.0-flash')
     model_version = Column(String(20), default='1.0')
@@ -548,3 +548,288 @@ class WeatherCache(Base):
     data_source = Column(String(100), default='OpenWeatherMap Live API')
     fetched_at = Column(DateTime(timezone=True), server_default=func.now())
     expires_at = Column(DateTime(timezone=True))
+
+
+# ── PHASE 1: ADMIN, SUBSCRIPTIONS, ENTITLEMENTS & PAYMENTS ──────
+
+class AdminUserRole(str, enum.Enum):
+    super_admin = 'super_admin'
+    plan_manager = 'plan_manager'
+    payment_manager = 'payment_manager'
+    support_agent = 'support_agent'
+    content_manager = 'content_manager'
+    analyst = 'analyst'
+
+
+class AdminUser(Base):
+    __tablename__ = 'admin_users'
+
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    user_id = Column(String, ForeignKey('users.id', ondelete='CASCADE'), unique=True, index=True)
+    role = Column(Enum(AdminUserRole), nullable=False)
+    is_active = Column(Boolean, default=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+
+    user = relationship('User')
+
+
+class AdminAccessRequest(Base):
+    """Queue for staff members requesting access to the Agro AI admin panel."""
+    __tablename__ = 'admin_access_requests'
+
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    user_id = Column(String, ForeignKey('users.id', ondelete='SET NULL'), nullable=True)
+    email = Column(String(255), unique=True, nullable=False, index=True)
+    full_name = Column(String(100), nullable=False)
+    requested_role = Column(String(50), default='support_agent', nullable=False)
+    notes = Column(Text, nullable=True)
+    status = Column(String(20), default='pending', nullable=False) # pending, approved, rejected
+    reviewed_by = Column(String, ForeignKey('users.id', ondelete='SET NULL'), nullable=True)
+    reviewed_at = Column(DateTime(timezone=True), nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+
+    user = relationship('User', foreign_keys=[user_id])
+    reviewer = relationship('User', foreign_keys=[reviewed_by])
+
+
+class SubscriptionPlan(Base):
+    __tablename__ = 'subscription_plans'
+
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    slug = Column(String(50), unique=True, nullable=False, index=True)
+    status = Column(String(20), default='draft', nullable=False) # draft, published, paused, archived
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+
+    versions = relationship('SubscriptionPlanVersion', back_populates='plan', cascade='all, delete-orphan')
+
+
+class SubscriptionPlanVersion(Base):
+    __tablename__ = 'subscription_plan_versions'
+
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    plan_id = Column(String, ForeignKey('subscription_plans.id', ondelete='CASCADE'), nullable=False, index=True)
+    version = Column(Integer, nullable=False)
+    name = Column(String(100), nullable=False)
+    description = Column(Text, nullable=True)
+    price_minor = Column(Integer, nullable=False) # e.g. 19900 = ₹199.00
+    currency = Column(String(10), default='INR', nullable=False)
+    billing_interval = Column(String(20), nullable=False) # monthly, quarterly, yearly, lifetime
+    trial_days = Column(Integer, default=0, nullable=False)
+    benefits = Column(JSON, default=list, nullable=False)
+    is_published = Column(Boolean, default=False, nullable=False)
+    available_from = Column(DateTime(timezone=True), nullable=True)
+    available_until = Column(DateTime(timezone=True), nullable=True)
+    created_by = Column(String, nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    plan = relationship('SubscriptionPlan', back_populates='versions')
+    entitlements = relationship('PlanEntitlement', back_populates='plan_version', cascade='all, delete-orphan')
+
+
+class PlanEntitlement(Base):
+    __tablename__ = 'plan_entitlements'
+
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    plan_version_id = Column(String, ForeignKey('subscription_plan_versions.id', ondelete='CASCADE'), nullable=False, index=True)
+    feature_key = Column(String(50), nullable=False) # kisan_chat, diagnose_leaf, mandi_price, etc.
+    enabled = Column(Boolean, default=True, nullable=False)
+    usage_limit = Column(Integer, nullable=True) # None = unlimited
+    limit_period = Column(String(20), nullable=True) # daily, monthly, total
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    plan_version = relationship('SubscriptionPlanVersion', back_populates='entitlements')
+
+
+class UserSubscription(Base):
+    __tablename__ = 'user_subscriptions'
+
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    user_id = Column(String, ForeignKey('users.id', ondelete='CASCADE'), nullable=False, index=True)
+    plan_version_id = Column(String, ForeignKey('subscription_plan_versions.id'), nullable=False)
+    status = Column(String(20), default='active', nullable=False) # trialing, active, past_due, canceled, expired
+    current_period_start = Column(DateTime(timezone=True), server_default=func.now())
+    current_period_end = Column(DateTime(timezone=True), nullable=False)
+    cancel_at_period_end = Column(Boolean, default=False, nullable=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+
+    user = relationship('User')
+    plan_version = relationship('SubscriptionPlanVersion')
+
+
+class SubscriptionUsage(Base):
+    __tablename__ = 'subscription_usage'
+
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    user_id = Column(String, ForeignKey('users.id', ondelete='CASCADE'), nullable=False, index=True)
+    feature_key = Column(String(50), nullable=False)
+    period_start = Column(DateTime(timezone=True), nullable=False)
+    used = Column(Integer, default=0, nullable=False)
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+
+
+class PaymentOrder(Base):
+    __tablename__ = 'payment_orders'
+
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    user_id = Column(String, ForeignKey('users.id', ondelete='CASCADE'), nullable=False, index=True)
+    plan_version_id = Column(String, ForeignKey('subscription_plan_versions.id'), nullable=False)
+    amount_minor = Column(Integer, nullable=False)
+    currency = Column(String(10), default='INR', nullable=False)
+    status = Column(String(20), default='created', nullable=False) # created, attempted, paid, failed, refunded
+    provider = Column(String(30), default='razorpay', nullable=False)
+    provider_order_id = Column(String(100), unique=True, nullable=True)
+    receipt = Column(String(100), nullable=True)
+    notes = Column(JSON, default=dict, nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+
+
+class PaymentTransaction(Base):
+    __tablename__ = 'payment_transactions'
+
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    order_id = Column(String, ForeignKey('payment_orders.id', ondelete='CASCADE'), nullable=False, index=True)
+    user_id = Column(String, ForeignKey('users.id', ondelete='CASCADE'), nullable=False, index=True)
+    amount_minor = Column(Integer, nullable=False)
+    currency = Column(String(10), default='INR', nullable=False)
+    status = Column(String(20), nullable=False) # success, failed, refunded, pending
+    provider = Column(String(30), default='razorpay', nullable=False)
+    provider_payment_id = Column(String(100), unique=True, nullable=True)
+    provider_signature = Column(String(255), nullable=True)
+    error_code = Column(String(50), nullable=True)
+    error_description = Column(String(255), nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+
+class PaymentWebhookEvent(Base):
+    __tablename__ = 'payment_webhook_events'
+
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    provider = Column(String(30), default='razorpay', nullable=False)
+    provider_event_id = Column(String(100), nullable=False)
+    event_type = Column(String(100), nullable=False)
+    payload = Column(JSON, nullable=False)
+    processed = Column(Boolean, default=False, nullable=False)
+    processed_at = Column(DateTime(timezone=True), nullable=True)
+    error_log = Column(Text, nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+
+class AdminAuditLog(Base):
+    __tablename__ = 'admin_audit_logs'
+
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    actor_id = Column(String, ForeignKey('users.id', ondelete='SET NULL'), nullable=True, index=True)
+    actor_role = Column(String(30), nullable=False)
+    action = Column(String(100), nullable=False, index=True)
+    target_entity = Column(String(100), nullable=False, index=True)
+    target_id = Column(String(100), nullable=True)
+    details = Column(JSON, default=dict)
+    ip_address = Column(String(50), nullable=True)
+    user_agent = Column(String(255), nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+
+class DataRequest(Base):
+    __tablename__ = 'data_requests'
+
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    user_id = Column(String, ForeignKey('users.id', ondelete='CASCADE'), nullable=False, index=True)
+    request_type = Column(String(30), nullable=False)  # 'export', 'delete'
+    status = Column(String(30), default='pending', nullable=False)  # 'pending', 'processing', 'completed', 'rejected'
+    details = Column(JSON, default=dict)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+    processed_by = Column(String, ForeignKey('users.id', ondelete='SET NULL'), nullable=True)
+    processed_at = Column(DateTime(timezone=True), nullable=True)
+    admin_notes = Column(Text, nullable=True)
+
+
+# ── BROADCAST POSTS & PROMOTIONAL OFFERS (APPROVAL ARCHITECTURE) ──
+
+class BroadcastType(str, enum.Enum):
+    post = 'post'
+    offer = 'offer'
+    advisory = 'advisory'
+
+
+class BroadcastStatus(str, enum.Enum):
+    draft = 'draft'
+    pending_approval = 'pending_approval'
+    approved = 'approved'
+    rejected = 'rejected'
+    archived = 'archived'
+
+
+class BroadcastItem(Base):
+    """Posts, updates, announcements, and promotional offers for farmers."""
+    __tablename__ = 'broadcast_items'
+
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    item_type = Column(Enum(BroadcastType), default=BroadcastType.post, nullable=False)
+    title = Column(String(200), nullable=False)
+    content = Column(Text, nullable=False)
+    
+    # Offer specific fields
+    discount_percent = Column(Float, nullable=True)
+    discount_code = Column(String(50), nullable=True)
+    target_plan_slug = Column(String(50), nullable=True)
+    banner_url = Column(String(500), nullable=True)
+    tags = Column(JSON, default=list)
+    
+    # Status & Super Admin Approval
+    status = Column(Enum(BroadcastStatus), default=BroadcastStatus.draft, nullable=False)
+    
+    created_by = Column(String, ForeignKey('users.id', ondelete='SET NULL'), nullable=True)
+    submitted_at = Column(DateTime(timezone=True), nullable=True)
+    
+    approved_by = Column(String, ForeignKey('users.id', ondelete='SET NULL'), nullable=True)
+    approved_at = Column(DateTime(timezone=True), nullable=True)
+    super_admin_notes = Column(Text, nullable=True)
+    
+    valid_from = Column(DateTime(timezone=True), nullable=True)
+    valid_until = Column(DateTime(timezone=True), nullable=True)
+    
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+
+    author = relationship('User', foreign_keys=[created_by])
+    approver = relationship('User', foreign_keys=[approved_by])
+
+
+class GovernmentScheme(Base):
+    """Real Central and State Government agricultural subsidy & support schemes."""
+    __tablename__ = 'government_schemes'
+
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    slug = Column(String(100), unique=True, nullable=False, index=True)
+    title = Column(String(255), nullable=False)
+    short_description = Column(Text, nullable=False)
+    benefit_summary = Column(String(255), nullable=False)  # e.g. "₹6,000/yr Direct Cash Transfer"
+    benefit_amount = Column(String(100), nullable=True)   # e.g. "₹6,000 / year"
+    category = Column(String(100), nullable=False)        # Income Support, Crop Insurance, Irrigation, Credit, Mechanization, etc.
+    level = Column(String(50), default="central")         # central, state
+    state = Column(String(100), nullable=True)            # None for all-India central, or specific state
+    
+    # Eligibility constraints
+    min_land_acres = Column(Float, nullable=True, default=0.0)
+    max_land_acres = Column(Float, nullable=True)         # None = any size, or e.g. 5.0 for small/marginal
+    eligible_crops = Column(JSON, default=list)           # [] = all crops
+    eligible_farmer_types = Column(JSON, default=list)    # ["small", "marginal", "all"]
+    eligible_states = Column(JSON, default=list)          # [] = all states
+    
+    # Details & Application
+    application_portal = Column(String(500), nullable=False)
+    application_process = Column(Text, nullable=True)
+    required_documents = Column(JSON, default=list)
+    key_highlights = Column(JSON, default=list)
+    is_active = Column(Boolean, default=True, nullable=False)
+    
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+
+

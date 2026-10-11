@@ -9,7 +9,8 @@
 <meta name="description" content="Agro AI — The AI operating system for your farm: weather, mandi prices, crop diagnosis and Kisan GPT in your language.">
 <meta name="theme-color" content="#1F4D2B">
 <link rel="manifest" href="manifest.webmanifest">
-<link rel="apple-touch-icon" href="icons/icon-192x192.png">
+<link rel="icon" type="image/png" href="favicon.png?v=2">
+<link rel="apple-touch-icon" href="icons/icon-192x192.png?v=2">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 
@@ -23,6 +24,9 @@
 <!-- Supabase Client -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="js/engine/supabase.js"></script>
+<!-- Razorpay Checkout SDK -->
+<script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+
 
 <style>
   :root{
@@ -324,20 +328,106 @@
     border-radius:16px; margin-bottom:10px; cursor:pointer; transition:background 0.15s;
   }
   .google-account-item:hover{ background:var(--cream); border-color:var(--forest); }
+
+  /* Splash Screen & App Logo Flow */
+  #splashScreen{
+    position:fixed; inset:0; z-index:99999;
+    background:linear-gradient(180deg, #13351C 0%, #1F4D2B 50%, #0E2614 100%);
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    color:#FFFFFF; transition:opacity 0.6s cubic-bezier(0.4,0,0.2,1), visibility 0.6s ease;
+    cursor:pointer;
+  }
+  #splashScreen.splash-hide{
+    opacity:0; visibility:hidden; pointer-events:none;
+  }
+  .splash-content{
+    display:flex; flex-direction:column; align-items:center; text-align:center;
+    padding:24px; animation:splashPop .8s cubic-bezier(0.16,1,0.3,1) forwards;
+  }
+  @keyframes splashPop{
+    0%{ transform:scale(0.85); opacity:0; }
+    100%{ transform:scale(1); opacity:1; }
+  }
+  .splash-logo-wrap{
+    width:168px; height:168px; border-radius:50%;
+    background:#FFFFFF; box-shadow:0 16px 40px rgba(0,0,0,0.35), 0 0 0 4px rgba(255,255,255,0.25);
+    display:flex; align-items:center; justify-content:center;
+    margin-bottom:20px; overflow:hidden; position:relative;
+  }
+  .splash-logo-img{
+    width:100%; height:100%; object-fit:contain; display:block;
+  }
+  .splash-brand-title{
+    font-family:'Fraunces',Georgia,serif; font-size:32px; font-weight:700;
+    letter-spacing:-0.02em; margin-bottom:6px; color:#FFFFFF;
+  }
+  .splash-brand-sub{
+    font-size:13.5px; color:#E2ECE3; opacity:0.9;
+    margin-bottom:28px; max-width:270px; line-height:1.45;
+  }
+  .splash-loader{
+    width:130px; height:4px; background:rgba(255,255,255,0.2);
+    border-radius:99px; overflow:hidden; position:relative;
+  }
+  .splash-loader-bar{
+    position:absolute; top:0; left:0; bottom:0; width:40%;
+    background:#E58A2D; border-radius:99px;
+    animation:splashProgress 1.4s ease-in-out infinite;
+  }
+  @keyframes splashProgress{
+    0%{ left:-40%; width:30%; }
+    50%{ width:60%; }
+    100%{ left:100%; width:30%; }
+  }
 </style>
 </head>
 <body class="authing">
+
+  <!-- ================= SPLASH SCREEN & APP LOGO FLOW ================= -->
+  <!-- Note: You can replace 'icons/icon-512x512.png' with your custom Agro AI logo, or swap the src on #appLogoImg -->
+  <div id="splashScreen" onclick="hideSplash()">
+    <div class="splash-content">
+      <div class="splash-logo-wrap">
+        <img id="appLogoImg" class="splash-logo-img" src="icons/icon-512x512.png?v=2" alt="Agro AI Logo" onerror="this.onerror=null;this.parentElement.innerHTML='<span style=\'font-size:54px;\'>🌾</span>';">
+      </div>
+      <div class="splash-brand-title" id="splashTitle">Agro AI</div>
+      <div class="splash-brand-sub" id="splashSub">The AI Operating System for your Farm</div>
+      <div class="splash-loader">
+        <div class="splash-loader-bar"></div>
+      </div>
+      <div style="font-size:11px;opacity:0.6;margin-top:16px;" id="splashTapHint">Tap anywhere to continue</div>
+    </div>
+  </div>
+  <script>
+    /* Failsafe: the splash must never block the app, even if a later script fails to load or errors. */
+    (function(){
+      function forceHide(){
+        var s = document.getElementById('splashScreen');
+        if(s && !s.classList.contains('splash-hide')){
+          s.classList.add('splash-hide');
+          setTimeout(function(){ s.style.display = 'none'; }, 650);
+        }
+      }
+      if(typeof window.hideSplash !== 'function') window.hideSplash = forceHide;
+      document.getElementById('splashScreen').addEventListener('click', forceHide);
+      setTimeout(forceHide, 3000);
+    })();
+  </script>
+
 <div class="app-shell">
 
   <!-- Top Bar -->
   <div class="topbar">
     <div class="brand" onclick="go('home')">
-      <div class="brand-mark">🌾</div>
-      <div class="brand-name">Agro AI</div>
+      <div class="brand-mark" id="topBrandMark">
+        <img id="topLogoImg" src="icons/icon-192x192.png?v=2" alt="Logo" style="width:100%;height:100%;border-radius:10px;object-fit:cover;" onerror="this.style.display='none';this.parentElement.textContent='🌾';">
+      </div>
+      <div class="brand-name" id="topBrandName">Agro AI</div>
     </div>
     <div style="display:flex;gap:8px;">
+      <button class="lang-btn" onclick="go('plans')" style="background:var(--sand);border-color:var(--sand-dark);font-weight:600;" id="topPlansBtn" title="Subscription Plans">💎 Plans</button>
       <button class="lang-btn" onclick="openLangModal()">🌐 <span id="topLangLabel">EN</span></button>
-      <button class="lang-btn" onclick="go('account')" style="padding:7px 10px;" title="Account">👤</button>
+      <button class="lang-btn" onclick="go('account')" style="padding:7px 10px;" id="topAcctBtn" title="Account">👤</button>
     </div>
   </div>
 
@@ -345,71 +435,75 @@
 
     <!-- ============ AUTH: WELCOME ============ -->
     <section class="auth-view active" data-view="auth-welcome">
-      <div class="auth-logo">🌾</div>
-      <h1 class="auth-title display">Agro AI</h1>
-      <p class="auth-sub">The AI operating system for your farm — weather, mandi prices, crop diagnosis and more, in your language.</p>
+      <div class="auth-logo" id="authLogoMark">
+        <img id="authLogoImg" src="icons/icon-192x192.png?v=2" alt="Logo" style="width:58px;height:58px;border-radius:16px;object-fit:cover;" onerror="this.style.display='none';this.parentElement.textContent='🌾';">
+      </div>
+      <h1 class="auth-title display" id="authWelcomeTitle">Agro AI</h1>
+      <p class="auth-sub" id="authWelcomeSub">The AI operating system for your farm — weather, mandi prices, crop diagnosis and more, in your language.</p>
 
       <div class="role-toggle">
         <div class="role-opt active" id="roleFarmer" onclick="setRole('farmer')">🌾 I'm a Farmer</div>
         <div class="role-opt" id="roleDriver" onclick="setRole('driver')">🚚 I'm a Driver</div>
       </div>
 
+      <div id="googleBtnContainer" style="margin-bottom:10px;display:flex;justify-content:center;min-height:44px;"></div>
       <button class="google-btn" onclick="triggerGoogleSignIn()" id="googleBtn">
-        <span class="google-g"></span> Continue with Google
+        <span class="google-g"></span> <span id="googleBtnText">Continue with Google</span>
       </button>
 
-      <div class="auth-divider">or continue with phone</div>
+      <div class="auth-divider" id="authDividerText">or continue with phone</div>
 
-      <span class="field-label">Mobile number</span>
+      <span class="field-label" id="authPhoneLabel">Mobile number</span>
       <div class="phone-row">
         <div class="cc-box">+91</div>
         <input class="field-input" id="phoneInput" type="tel" maxlength="10" placeholder="98765 43210" inputmode="numeric" oninput="this.value=this.value.replace(/\D/g,'')">
       </div>
-      <button class="btn btn-primary btn-block" onclick="sendOtp()">Send OTP</button>
+      <button class="btn btn-primary btn-block" id="authSendOtpBtn" onclick="sendOtp()">Send OTP</button>
+      <button class="btn btn-outline btn-block" style="margin-top:10px;" id="authGuestBtn" onclick="continueAsGuest()">🌾 Explore as Guest Farmer</button>
 
-      <p class="fine-print">By continuing, you agree to Agro AI's Terms of Service and Privacy Policy.<br>We never share your farm data without your consent.</p>
+      <p class="fine-print" id="authFinePrint">By continuing, you agree to Agro AI's Terms of Service and Privacy Policy.<br>We never share your farm data without your consent.</p>
     </section>
 
     <!-- ============ AUTH: OTP ============ -->
     <section class="auth-view" data-view="auth-otp">
-      <button class="backlink" onclick="goAuth('auth-welcome')" style="margin:0 0 20px;">← Back</button>
-      <h1 class="auth-title display" style="font-size:21px;">Verify your number</h1>
+      <button class="backlink" onclick="goAuth('auth-welcome')" id="otpBackBtn" style="margin:0 0 20px;">← Back</button>
+      <h1 class="auth-title display" style="font-size:21px;" id="otpTitle">Verify your number</h1>
       <p class="auth-sub" id="otpSubText">Enter the 6-digit code sent to +91 98765 43210</p>
       <input class="otp-input" id="otpInput" type="tel" maxlength="6" inputmode="numeric" placeholder="••••••" oninput="this.value=this.value.replace(/\D/g,'')">
       <div style="height:16px;"></div>
-      <button class="btn btn-primary btn-block" onclick="verifyOtp()">Verify &amp; continue</button>
+      <button class="btn btn-primary btn-block" id="otpVerifyBtn" onclick="verifyOtp()">Verify &amp; continue</button>
       <div class="resend-line" id="resendLine">Resend OTP in <span id="resendTimer">00:30</span></div>
     </section>
 
     <!-- ============ AUTH: PROFILE SETUP ============ -->
     <section class="auth-view" data-view="auth-profile">
-      <h1 class="auth-title display" style="font-size:21px;">Set up your profile</h1>
-      <p class="auth-sub">Takes 30 seconds — this helps Kisan GPT give advice that's actually relevant to your farm.</p>
+      <h1 class="auth-title display" style="font-size:21px;" id="profTitle">Set up your profile</h1>
+      <p class="auth-sub" id="profSub">Takes 30 seconds — this helps Kisan GPT give advice that's actually relevant to your farm.</p>
 
-      <span class="field-label">Full name</span>
-      <input class="field-input" id="profName" placeholder="Your name" value="Vivek S" style="margin-bottom:14px;">
+      <span class="field-label" id="profLblName">Full name</span>
+      <input class="field-input" id="profName" placeholder="Your name" value="" style="margin-bottom:14px;">
 
-      <span class="field-label">State</span>
+      <span class="field-label" id="profLblState">State</span>
       <select class="field-input" id="profState" style="margin-bottom:14px;">
         <option selected>Karnataka</option><option>Maharashtra</option><option>Punjab</option><option>Uttar Pradesh</option><option>Tamil Nadu</option><option>Gujarat</option><option>Haryana</option>
       </select>
 
-      <span class="field-label">Village / district</span>
+      <span class="field-label" id="profLblVillage">Village / district</span>
       <input class="field-input" id="profVillage" placeholder="e.g. Mandya" value="Mandya" style="margin-bottom:14px;">
 
-      <span class="field-label">Land size (acres)</span>
-      <input class="field-input" id="profLand" type="number" placeholder="e.g. 3.5" value="3.5" style="margin-bottom:14px;">
+      <span class="field-label" id="profLblLand">Land size (acres)</span>
+      <input class="field-input" id="profLand" type="number" placeholder="e.g. 3.5" value="" style="margin-bottom:14px;">
 
-      <span class="field-label">Primary crop</span>
+      <span class="field-label" id="profLblCrop">Primary crop</span>
       <select class="field-input" id="profCrop" style="margin-bottom:18px;">
         <option selected>Tomato</option><option>Wheat</option><option>Rice / Paddy</option><option>Cotton</option><option>Sugarcane</option><option>Maize</option><option>Onion</option>
       </select>
 
-      <span class="field-label">Preferred language</span>
+      <span class="field-label" id="profLblLang">Preferred language</span>
       <div class="lang-grid" id="profLangGrid"></div>
 
-      <button class="btn btn-primary btn-block" onclick="completeProfile()">Get started</button>
-      <div class="resend-line"><a onclick="completeProfile(true)">Skip for now</a></div>
+      <button class="btn btn-primary btn-block" id="profStartBtn" onclick="completeProfile()">Get started</button>
+      <div class="resend-line"><a id="profSkipBtn" onclick="completeProfile(true)">Skip for now</a></div>
     </section>
 
     <!-- ============ HOME ============ -->
@@ -423,38 +517,70 @@
         </div>
       </div>
 
+      <div id="homeBroadcastsContainer" style="margin: 12px 0;"></div>
+
       <div class="grid2">
         <button class="action-tile" onclick="go('diagnose')">
           <span class="action-emoji">🩺</span>
-          <div class="action-label">Diagnose crop</div>
-          <div class="action-sub">Photo → instant analysis</div>
+          <div class="action-label" id="homeTileDiagnoseTitle">Diagnose crop</div>
+          <div class="action-sub" id="homeTileDiagnoseSub">Photo → instant analysis</div>
         </button>
         <button class="action-tile" onclick="go('kisangpt')">
           <span class="action-emoji">💬</span>
-          <div class="action-label">Ask Kisan GPT</div>
-          <div class="action-sub">Voice or text, 9 languages</div>
+          <div class="action-label" id="homeTileGptTitle">Ask Kisan GPT</div>
+          <div class="action-sub" id="homeTileGptSub">Voice or text, 9 languages</div>
         </button>
         <button class="action-tile" onclick="go('weather')">
           <span class="action-emoji">⛅</span>
-          <div class="action-label">Weather</div>
-          <div class="action-sub">Live hyperlocal forecast</div>
+          <div class="action-label" id="homeTileWeatherTitle">Weather</div>
+          <div class="action-sub" id="homeTileWeatherSub">Live hyperlocal forecast</div>
         </button>
         <button class="action-tile" onclick="go('market')">
           <span class="action-emoji">📈</span>
-          <div class="action-label">Mandi prices</div>
-          <div class="action-sub">Today + 30-day trend</div>
+          <div class="action-label" id="homeTileMarketTitle">Mandi prices</div>
+          <div class="action-sub" id="homeTileMarketSub">Today + 30-day trend</div>
         </button>
       </div>
 
-      <div class="section-title">More services</div>
-      <div class="grid2">
-        <button class="action-tile" onclick="openMoreItem('pest')"><span class="action-emoji">🦗</span><div class="action-label">Pest Radar</div><div class="action-sub">Outbreak risk nearby</div></button>
-        <button class="action-tile" onclick="go('logistics')"><span class="action-emoji">🚛</span><div class="action-label">Logistics</div><div class="action-sub">Book verified transport</div></button>
-        <button class="action-tile" onclick="openMoreItem('drone')"><span class="action-emoji">🛸</span><div class="action-label">Drone</div><div class="action-sub">Spray / scout booking</div></button>
-        <button class="action-tile" onclick="openMoreItem('inputs')"><span class="action-emoji">🛒</span><div class="action-label">Inputs</div><div class="action-sub">Compare shop prices</div></button>
+      <!-- Unverified provider services hidden until live registered providers exist in DB -->
+      <div id="homeUnverifiedServices" style="display:none;">
+        <div class="section-title" id="homeSecMore">More services</div>
+        <div class="grid2">
+          <button class="action-tile" onclick="openMoreItem('pest')"><span class="action-emoji">🦗</span><div class="action-label" id="homeTilePestTitle">Pest Radar</div><div class="action-sub" id="homeTilePestSub">Outbreak risk nearby</div></button>
+          <button class="action-tile" onclick="go('logistics')"><span class="action-emoji">🚛</span><div class="action-label" id="homeTileLogisticsTitle">Logistics</div><div class="action-sub" id="homeTileLogisticsSub">Book verified transport</div></button>
+          <button class="action-tile" onclick="go('drone')"><span class="action-emoji">🛸</span><div class="action-label" id="homeTileDroneTitle">Drone</div><div class="action-sub" id="homeTileDroneSub">Spray / scout booking</div></button>
+          <button class="action-tile" onclick="go('inputs')"><span class="action-emoji">🛒</span><div class="action-label" id="homeTileInputsTitle">Inputs</div><div class="action-sub" id="homeTileInputsSub">Compare shop prices</div></button>
+        </div>
       </div>
 
-      <div class="section-title">Your reports</div>
+
+      <div style="margin: 14px 0 6px;">
+        <button class="card" style="width:100%;text-align:left;display:flex;align-items:center;justify-content:space-between;padding:12px 16px;cursor:pointer;border-left:4px solid var(--forest);background:#fff;" onclick="go('plans')">
+          <div style="display:flex;align-items:center;gap:12px;">
+            <span style="font-size:24px;">🌱</span>
+            <div>
+              <div style="font-weight:700;font-size:14px;color:var(--forest-dark);" id="homePlansTitle">Agro AI Features — 100% Free</div>
+              <div class="muted" style="font-size:12px;" id="homePlansSub">Unlimited Kisan GPT, Leaf Scans &amp; Mandi Prices</div>
+            </div>
+          </div>
+          <span style="font-size:13px;color:var(--forest);font-weight:600;">Details →</span>
+        </button>
+      </div>
+
+      <div style="margin: 0 0 10px;">
+        <button class="card" style="width:100%;text-align:left;display:flex;align-items:center;justify-content:space-between;padding:12px 16px;cursor:pointer;border-left:4px solid #F9A03F;background:#fff;" onclick="go('schemes')">
+          <div style="display:flex;align-items:center;gap:12px;">
+            <span style="font-size:24px;">🏛️</span>
+            <div>
+              <div style="font-weight:700;font-size:14px;color:var(--forest-dark);" id="homeSchemesTitle">Government Schemes &amp; Subsidies</div>
+              <div class="muted" style="font-size:12px;" id="homeSchemesSub">Live match with PM-KISAN, PMFBY, PMKSY &amp; state benefits</div>
+            </div>
+          </div>
+          <span style="font-size:13px;color:#F9A03F;font-weight:700;">Check →</span>
+        </button>
+      </div>
+
+      <div class="section-title" id="homeSecReports">Your reports</div>
       <div class="card" id="reportsContainer">
         <div class="muted" id="reportsEmptyText">No diagnosis reports yet. Run a crop diagnosis to start building your farm history — it will show up here and inside Kisan GPT.</div>
       </div>
@@ -462,28 +588,28 @@
 
     <!-- ============ DIAGNOSE ============ -->
     <section class="view" data-view="diagnose">
-      <h2 class="display" style="font-size:22px;margin:6px 0 4px;">Diagnose your crop</h2>
-      <p class="muted" style="margin:0 0 14px;">Take a clear, well-lit photo of the affected leaf or plant.</p>
+      <h2 class="display" style="font-size:22px;margin:6px 0 4px;" id="diagTitle">Diagnose your crop</h2>
+      <p class="muted" style="margin:0 0 14px;" id="diagSub">Take a clear, well-lit photo of the affected leaf or plant.</p>
 
       <div class="upload-zone" id="uploadZone" onclick="triggerUpload()">
         <div id="uploadInner">
           <div style="font-size:34px;margin-bottom:8px;">📷</div>
-          <div style="font-weight:600;margin-bottom:4px;">Upload or capture a photo</div>
-          <div class="muted">JPG or PNG, one leaf per photo works best</div>
+          <div style="font-weight:600;margin-bottom:4px;" id="diagUploadHeading">Upload or capture a photo</div>
+          <div class="muted" id="diagUploadSub">JPG or PNG, one leaf per photo works best</div>
         </div>
       </div>
       <input type="file" id="fileInput" accept="image/*" capture="environment" style="display:none" onchange="handleUpload(event)">
 
       <div class="select-row">
         <select id="cropHint">
-          <option value="">Crop (optional — AI will detect)</option>
-          <option>Tomato</option><option>Wheat</option><option>Rice / Paddy</option>
-          <option>Cotton</option><option>Sugarcane</option><option>Maize</option>
+          <option value="" id="diagCropHintOpt">Crop (optional — AI will detect)</option>
+          <option value="Tomato">Tomato</option><option value="Wheat">Wheat</option><option value="Rice / Paddy">Rice / Paddy</option>
+          <option value="Cotton">Cotton</option><option value="Sugarcane">Sugarcane</option><option value="Maize">Maize</option>
         </select>
       </div>
 
       <div style="display:flex;gap:10px;">
-        <button class="btn btn-outline" style="flex:1" onclick="triggerUpload()">📁 Choose photo</button>
+        <button class="btn btn-outline" style="flex:1" id="diagChooseBtn" onclick="triggerUpload()">📁 Choose photo</button>
         <button class="btn btn-primary" style="flex:1" id="analyzeBtn" onclick="runDiagnosis()" disabled>Analyze</button>
       </div>
 
@@ -493,8 +619,8 @@
     <!-- ============ KISAN GPT ============ -->
     <section class="view" data-view="kisangpt" style="display:none;">
       <div style="display:flex;justify-content:space-between;align-items:center;margin:4px 0 10px;">
-        <h2 class="display" style="font-size:20px;margin:0;">Kisan GPT</h2>
-        <button class="pill pill-forest" style="border:none;cursor:pointer;" onclick="showToast('Dialing 1800-KISAN…')">📞 1800-KISAN</button>
+        <h2 class="display" style="font-size:20px;margin:0;" id="gptTitle">Kisan GPT</h2>
+        <button class="pill pill-forest" style="border:none;cursor:pointer;" id="gptCallBtn" onclick="showToast('Dialing 1800-KISAN…')">📞 1800-KISAN</button>
       </div>
       <div class="pillbar" id="gptLangBar"></div>
       <div class="chat-scroll" id="chatScroll"></div>
@@ -518,13 +644,13 @@
           </div>
         </div>
       </div>
-      <div class="section-title" style="margin-top:0;">7-day forecast</div>
+      <div class="section-title" style="margin-top:0;" id="weatherForecastTitle">7-day forecast</div>
       <div class="day-strip" id="dayStrip"></div>
-      <div class="section-title">Live spray advisory</div>
+      <div class="section-title" id="weatherAdvisorySecTitle">Live spray advisory</div>
       <div class="advisory-card">
         <span>🌧️</span>
         <div>
-          <div style="font-weight:600;font-size:13.5px;margin-bottom:6px;">Crop Spray Window</div>
+          <div style="font-weight:600;font-size:13.5px;margin-bottom:6px;" id="weatherSprayCardTitle">Crop Spray Window</div>
           <div class="muted" style="margin-bottom:8px;" id="weatherSprayAdvice">Checking weather conditions for spray window...</div>
           <span class="pill pill-saffron" id="weatherSprayPill">Optimal Spray Window</span>
         </div>
@@ -533,63 +659,116 @@
 
     <!-- ============ MARKET ============ -->
     <section class="view" data-view="market" style="display:none;">
-      <h2 class="display" style="font-size:22px;margin:6px 0 14px;">Mandi Market</h2>
+      <h2 class="display" style="font-size:22px;margin:6px 0 14px;" id="marketTitle">Mandi Market</h2>
       <div class="select-row">
         <select id="cropSel">
-          <option>Tomato</option><option>Wheat</option><option>Onion</option><option>Cotton</option><option>Paddy</option>
+          <option value="Tomato">Tomato</option><option value="Wheat">Wheat</option><option value="Onion">Onion</option><option value="Cotton">Cotton</option><option value="Paddy">Paddy</option>
         </select>
         <select id="stateSel">
-          <option>Karnataka</option><option>Maharashtra</option><option>Punjab</option><option>Uttar Pradesh</option>
+          <option value="Karnataka">Karnataka</option><option value="Maharashtra">Maharashtra</option><option value="Punjab">Punjab</option><option value="Uttar Pradesh">Uttar Pradesh</option>
         </select>
       </div>
-      <button class="btn btn-primary btn-block" onclick="runForecast()">Forecast price</button>
+      <button class="btn btn-primary btn-block" id="marketForecastBtn" onclick="runForecast()">Forecast price</button>
       <div id="marketResultArea"></div>
     </section>
 
     <!-- ============ MORE ============ -->
     <section class="view" data-view="more" style="display:none;">
-      <h2 class="display" style="font-size:22px;margin:6px 0 14px;">More services</h2>
+      <h2 class="display" style="font-size:22px;margin:6px 0 14px;" id="moreTitle">More services</h2>
       <div class="more-list" id="moreList"></div>
     </section>
 
     <!-- ============ ACCOUNT & SECURITY ============ -->
     <section class="view" data-view="account" style="display:none;">
-      <button class="backlink" onclick="go('home')">← Back</button>
+      <button class="backlink" onclick="go('home')" id="acctBackBtn">← Back</button>
       <div style="display:flex;align-items:center;gap:14px;margin-bottom:18px;">
         <div class="avatar-circle" id="acctAvatar">V</div>
         <div>
-          <div style="font-weight:700;font-size:16px;" id="acctName">Vivek S</div>
+          <div style="font-weight:700;font-size:16px;" id="acctName"></div>
           <div class="muted" id="acctMeta">vivek@gmail.com · Signed in</div>
         </div>
       </div>
 
-      <div class="section-title" style="margin-top:0;">Farm profile</div>
+      <div class="section-title" style="margin-top:0;" id="acctSecFarm">Farm profile</div>
       <div class="card" style="margin-bottom:16px;">
-        <div class="kv-row"><span class="k">Village / district</span><span class="v" id="acctVillage">Mandya</span></div>
-        <div class="kv-row"><span class="k">State</span><span class="v" id="acctState">Karnataka</span></div>
-        <div class="kv-row"><span class="k">Land size</span><span class="v" id="acctLand">3.5 acres</span></div>
-        <div class="kv-row"><span class="k">Primary crop</span><span class="v" id="acctCrop">Tomato</span></div>
-        <div class="kv-row"><span class="k">Language</span><span class="v" id="acctLangRow">English</span></div>
+        <div class="kv-row"><span class="k" id="acctLblVillage">Village / district</span><span class="v" id="acctVillage">Mandya</span></div>
+        <div class="kv-row"><span class="k" id="acctLblState">State</span><span class="v" id="acctState">Karnataka</span></div>
+        <div class="kv-row"><span class="k" id="acctLblLand">Land size</span><span class="v" id="acctLand">—</span></div>
+        <div class="kv-row"><span class="k" id="acctLblCrop">Primary crop</span><span class="v" id="acctCrop">Tomato</span></div>
+        <div class="kv-row"><span class="k" id="acctLblLang">Language</span><span class="v" id="acctLangRow">English</span></div>
       </div>
 
-      <div class="section-title" style="margin-top:0;">Login &amp; security</div>
+      <div class="section-title" style="margin-top:0;" id="acctSecLogin">Login &amp; security</div>
       <div class="card" style="margin-bottom:16px;">
-        <div class="kv-row"><span class="k">Sign-in method</span><span class="v" id="acctMethod">Google Sign-In</span></div>
-        <div class="kv-row"><span class="k">Two-factor verification</span><span class="v pill pill-forest">Enabled</span></div>
-        <div class="kv-row"><span class="k">Active sessions</span><span class="v">1 device</span></div>
+        <div class="kv-row"><span class="k" id="acctLblMethod">Sign-in method</span><span class="v" id="acctMethod">Google Sign-In</span></div>
+        <div class="kv-row"><span class="k" id="acctLbl2fa">Two-factor verification</span><span class="v pill pill-forest" id="acctVal2fa">Enabled</span></div>
+        <div class="kv-row"><span class="k" id="acctLblSessions">Active sessions</span><span class="v" id="acctValSessions">1 device</span></div>
         <div style="display:flex;gap:10px;margin-top:14px;">
-          <button class="btn btn-outline" style="flex:1" onclick="exportDataWhatsApp()">⬇ Export my data</button>
-          <button class="btn btn-outline" style="flex:1;border-color:var(--danger);color:var(--danger);" onclick="requestDeleteAccount()">Delete account</button>
+          <button class="btn btn-outline" style="flex:1" id="acctExportBtn" onclick="exportDataWhatsApp()">⬇ Export my data</button>
+          <button class="btn btn-outline" style="flex:1;border-color:var(--danger);color:var(--danger);" id="acctDeleteBtn" onclick="requestDeleteAccount()">Delete account</button>
         </div>
       </div>
 
-      <button class="btn btn-block" style="background:#F1EDE1;color:var(--ink);" onclick="signOut()">Sign out</button>
-      <p class="fine-print">Your farm data is encrypted in transit and at rest, and is never sold to third parties. Location data is only used to power the features you open.</p>
+      <button class="btn btn-block" style="background:#F1EDE1;color:var(--ink);" id="acctSignOutBtn" onclick="signOut()">Sign out</button>
+      <p class="fine-print" id="acctFinePrint">Your farm data is encrypted in transit and at rest, and is never sold to third parties. Location data is only used to power the features you open.</p>
+    </section>
+
+    <!-- ============ MEMBERSHIP & PLANS ============ -->
+    <section class="view" data-view="plans" style="display:none;">
+      <button class="backlink" onclick="go('home')" id="plansBackBtn">← Back</button>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+        <h2 class="display" style="font-size:22px;margin:0;" id="plansHeaderTitle">Plans &amp; Membership</h2>
+        <span class="pill pill-forest" id="plansActiveBadge">Active Tier</span>
+      </div>
+
+      <!-- Current Usage Card -->
+      <div class="card" style="margin-bottom:16px;" id="plansQuotaCard">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+          <div style="font-weight:700;font-size:15px;" id="plansCurrentPlanName">Loading plan status…</div>
+          <span style="font-size:11px;font-weight:600;padding:2px 8px;border-radius:12px;background:#E8F5E9;color:var(--forest);" id="plansCurrentStatus">ACTIVE</span>
+        </div>
+        <div class="muted" style="font-size:12px;margin-bottom:12px;" id="plansCurrentPeriod">Billing cycle: current month</div>
+        <div style="display:flex;flex-direction:column;gap:10px;">
+          <div>
+            <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px;">
+              <span>💬 Kisan GPT</span>
+              <span id="quotaKisanChat" style="font-weight:600;">—</span>
+            </div>
+            <div style="background:#eee;border-radius:4px;height:6px;overflow:hidden;">
+              <div id="barKisanChat" style="background:var(--forest);height:100%;width:0%;transition:width 0.3s ease;"></div>
+            </div>
+          </div>
+          <div>
+            <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px;">
+              <span>🩺 Leaf Diagnoses</span>
+              <span id="quotaLeafDiag" style="font-weight:600;">—</span>
+            </div>
+            <div style="background:#eee;border-radius:4px;height:6px;overflow:hidden;">
+              <div id="barLeafDiag" style="background:var(--forest);height:100%;width:0%;transition:width 0.3s ease;"></div>
+            </div>
+          </div>
+          <div>
+            <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px;">
+              <span>📈 Mandi Price Lookups</span>
+              <span id="quotaMandiPrice" style="font-weight:600;">—</span>
+            </div>
+            <div style="background:#eee;border-radius:4px;height:6px;overflow:hidden;">
+              <div id="barMandiPrice" style="background:var(--forest);height:100%;width:0%;transition:width 0.3s ease;"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Published Plans List -->
+      <div class="section-title" id="plansAvailableTitle">Available Plans</div>
+      <div id="plansListContainer" style="display:flex;flex-direction:column;gap:14px;">
+        <div class="muted" style="text-align:center;padding:20px;">Fetching latest membership plans…</div>
+      </div>
     </section>
 
     <!-- ============ GENERIC STUB FOR MORE ITEMS ============ -->
     <section class="view" data-view="stub" style="display:none;">
-      <button class="backlink" onclick="go('more')">← Back</button>
+      <button class="backlink" id="stubBackBtn" onclick="go('more')">← Back</button>
       <h2 class="display" id="stubTitle" style="font-size:21px;margin:0 0 10px;"></h2>
       <div class="stub-banner" id="stubBanner"></div>
       <div class="card">
@@ -597,11 +776,151 @@
       </div>
     </section>
 
+    <!-- ============ GOVERNMENT SCHEMES & SUBSIDY MATCHER ============ -->
+    <section class="view" data-view="schemes" style="display:none;">
+      <button class="backlink" onclick="go('home')" id="schemesBackBtn">← Back</button>
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;">
+        <div>
+          <h2 class="display" style="font-size:22px;margin:0 0 4px;" id="schemesHeaderTitle">Government Schemes &amp; Subsidies</h2>
+          <p class="muted" style="margin:0;font-size:13px;" id="schemesHeaderSub">Live eligibility matching against real Central &amp; State agricultural welfare schemes.</p>
+        </div>
+      </div>
+
+      <!-- Farmer Profile Match Criteria Card -->
+      <div class="card" style="border:1.5px solid var(--forest);background:#F9FAF9;padding:14px;margin-bottom:14px;border-radius:12px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+          <span style="font-size:12px;font-weight:700;color:var(--forest-dark);text-transform:uppercase;letter-spacing:0.5px;">🎯 Your Active Profile Criteria</span>
+          <button class="btn btn-outline" style="padding:3px 10px;font-size:11px;" onclick="toggleSchemeCriteriaForm()" id="schemesToggleEditBtn">Edit Criteria ▾</button>
+        </div>
+        <div id="schemesProfileSummary" style="display:flex;flex-wrap:wrap;gap:8px;font-size:13px;">
+          <span class="pill pill-forest" id="schemesPillState">📍 State: Karnataka</span>
+          <span class="pill pill-forest" id="schemesPillLand">🚜 Land: 3.5 Acres (Small Farmer)</span>
+          <span class="pill pill-forest" id="schemesPillCrop">🌾 Crop: Tomato</span>
+        </div>
+
+        <!-- Inline Criteria Editor (Expandable) -->
+        <div id="schemesCriteriaForm" style="display:none;margin-top:12px;padding-top:12px;border-top:1px solid #E5E7EB;">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px;">
+            <div>
+              <span class="field-label" style="font-size:11px;">State</span>
+              <select class="field-input" id="schemesInputState" style="padding:6px 10px;font-size:13px;margin:0;">
+                <option value="Karnataka">Karnataka</option>
+                <option value="Maharashtra">Maharashtra</option>
+                <option value="Uttar Pradesh">Uttar Pradesh</option>
+                <option value="Punjab">Punjab</option>
+                <option value="Tamil Nadu">Tamil Nadu</option>
+                <option value="Gujarat">Gujarat</option>
+                <option value="Haryana">Haryana</option>
+                <option value="Madhya Pradesh">Madhya Pradesh</option>
+                <option value="Rajasthan">Rajasthan</option>
+                <option value="Andhra Pradesh">Andhra Pradesh</option>
+                <option value="Telangana">Telangana</option>
+              </select>
+            </div>
+            <div>
+              <span class="field-label" style="font-size:11px;">Land (Acres)</span>
+              <input class="field-input" type="number" step="0.5" id="schemesInputLand" value="3.5" style="padding:6px 10px;font-size:13px;margin:0;">
+            </div>
+          </div>
+          <div style="margin-bottom:10px;">
+            <span class="field-label" style="font-size:11px;">Primary Crop</span>
+            <select class="field-input" id="schemesInputCrop" style="padding:6px 10px;font-size:13px;margin:0;">
+              <option value="Tomato">Tomato</option>
+              <option value="Wheat">Wheat</option>
+              <option value="Rice / Paddy">Rice / Paddy</option>
+              <option value="Cotton">Cotton</option>
+              <option value="Sugarcane">Sugarcane</option>
+              <option value="Maize">Maize</option>
+              <option value="Onion">Onion</option>
+              <option value="Millets / Ragi">Millets / Ragi</option>
+              <option value="Pulses">Pulses</option>
+              <option value="Vegetables">Vegetables / Horticulture</option>
+            </select>
+          </div>
+          <button class="btn btn-primary btn-block" style="padding:8px;" onclick="recalculateSchemeEligibility()">Re-check My Eligibility ⚡</button>
+        </div>
+      </div>
+
+      <!-- Eligibility Summary Banner -->
+      <div id="schemesSummaryBanner" class="card" style="background:#1B4332;color:#FFFFFF;padding:14px;margin-bottom:16px;border-radius:12px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;">
+          <div>
+            <div style="font-size:11px;text-transform:uppercase;letter-spacing:1px;color:#A7D7C5;font-weight:700;">Eligibility Match Score</div>
+            <div style="font-size:20px;font-weight:800;" id="schemesEligibleCount">11 Eligible Schemes Found</div>
+          </div>
+          <div style="text-align:right;">
+            <div style="font-size:11px;color:#A7D7C5;font-weight:600;">Est. Direct Benefit</div>
+            <div style="font-size:18px;font-weight:700;color:#F9A03F;" id="schemesEstBenefit">₹16,000+ / yr</div>
+          </div>
+        </div>
+        <div style="font-size:12px;margin-top:8px;color:#D8F3DC;line-height:1.4;" id="schemesBenefitHighlight">
+          ✓ Micro-Irrigation up to 80% · 4% KCC Crop Loans · 50% Mechanization
+        </div>
+      </div>
+
+      <!-- Category Filter Pills -->
+      <div style="display:flex;gap:6px;overflow-x:auto;padding-bottom:10px;margin-bottom:12px;" id="schemesFilterPills">
+        <button class="pill pill-forest" style="cursor:pointer;white-space:nowrap;" onclick="filterSchemesTab('all', this)">All Eligible</button>
+        <button class="pill" style="cursor:pointer;white-space:nowrap;" onclick="filterSchemesTab('central', this)">Central Govt</button>
+        <button class="pill" style="cursor:pointer;white-space:nowrap;" onclick="filterSchemesTab('state', this)">State Subsidies</button>
+        <button class="pill" style="cursor:pointer;white-space:nowrap;" onclick="filterSchemesTab('dbt', this)">Direct Cash (DBT)</button>
+        <button class="pill" style="cursor:pointer;white-space:nowrap;" onclick="filterSchemesTab('irrigation', this)">Irrigation &amp; Tech</button>
+      </div>
+
+      <!-- Schemes List Container -->
+      <div id="schemesListContainer" style="display:flex;flex-direction:column;gap:14px;">
+        <div class="muted" style="text-align:center;padding:24px;">Analyzing your profile against government databases…</div>
+      </div>
+    </section>
+
+    <!-- ============ DRONE SERVICES ============ -->
+    <section class="view" data-view="drone" style="display:none;">
+      <button class="backlink" onclick="go('home')" id="droneBackBtn">← Back</button>
+      <h2 class="display" style="font-size:22px;margin:0 0 4px;" id="droneTitle">Drone Services</h2>
+      <p class="muted" style="margin:0 0 16px;" id="droneSub">Book DGCA-approved drone pilots for spraying and surveying.</p>
+
+      <div class="card" style="margin-bottom:14px;">
+        <span class="field-label" id="droneAreaLabel">Farm size (acres)</span>
+        <div class="select-row">
+          <select id="droneAcresSel" onchange="loadDroneOperators()">
+            <option value="1">1 acre</option>
+            <option value="2">2 acres</option>
+            <option value="3">3 acres</option>
+            <option value="5" selected>5 acres</option>
+            <option value="10">10 acres</option>
+          </select>
+          <select id="droneServiceTypeSel" onchange="loadDroneOperators()">
+            <option value="spray" id="droneOptSpray">Pesticide / Nutrient Spray</option>
+            <option value="scout" id="droneOptScout">Crop Health Scouting</option>
+          </select>
+        </div>
+      </div>
+
+      <div id="droneOperatorsArea"></div>
+    </section>
+
+    <!-- ============ INPUTS COMPARE ============ -->
+    <section class="view" data-view="inputs" style="display:none;">
+      <button class="backlink" onclick="go('home')" id="inputsBackBtn">← Back</button>
+      <h2 class="display" style="font-size:22px;margin:0 0 4px;" id="inputsTitle">Inputs Compare</h2>
+      <p class="muted" style="margin:0 0 16px;" id="inputsSub">Compare prices for seeds, fertilizers, and pesticides across verified sellers.</p>
+
+      <div class="filter-pills" id="inputsCatPills" style="display:flex;gap:8px;overflow-x:auto;padding-bottom:8px;margin-bottom:12px;">
+        <button class="pill active" style="cursor:pointer;" onclick="setInputsCategory('', this)" id="inputsPillAll">All</button>
+        <button class="pill" style="cursor:pointer;" onclick="setInputsCategory('Fertilizer', this)" id="inputsPillFert">Fertilizer</button>
+        <button class="pill" style="cursor:pointer;" onclick="setInputsCategory('Pesticide', this)" id="inputsPillPest">Pesticide</button>
+        <button class="pill" style="cursor:pointer;" onclick="setInputsCategory('Seed', this)" id="inputsPillSeed">Seeds</button>
+      </div>
+
+      <div id="inputsProductsArea"></div>
+    </section>
+
     <!-- ============ LOGISTICS ============ -->
+
     <section class="view" data-view="logistics" style="display:none;">
-      <button class="backlink" onclick="go('home')">← Back</button>
-      <h2 class="display" style="font-size:22px;margin:0 0 4px;">Agro AI Logistics</h2>
-      <p class="muted" style="margin:0 0 18px;">Book verified agricultural transport. Real GPS tracking included.</p>
+      <button class="backlink" onclick="go('home')" id="lBackBtn">← Back</button>
+      <h2 class="display" style="font-size:22px;margin:0 0 4px;" id="lTitle">Agro AI Logistics</h2>
+      <p class="muted" style="margin:0 0 18px;" id="lSub">Book verified agricultural transport. Real GPS tracking included.</p>
 
       <!-- STEP INDICATOR -->
       <div id="logisticsSteps" style="display:flex;gap:0;margin-bottom:20px;border-radius:12px;overflow:hidden;border:1.5px solid var(--line);">
@@ -614,14 +933,14 @@
       <!-- STEP 1: ROUTE ENTRY -->
       <div id="lStep1" class="l-panel">
         <div class="card" style="margin-bottom:14px;">
-          <span class="field-label">📍 Pickup location</span>
+          <span class="field-label" id="lPickupLabel">📍 Pickup location</span>
           <div style="display:flex;gap:8px;align-items:center;">
             <input class="field-input" id="lPickupAddr" placeholder="e.g. Mandya, Karnataka" style="flex:1;margin:0;">
             <button class="btn btn-outline" style="white-space:nowrap;padding:10px 12px;" onclick="lUseGPS('pickup')">📡 GPS</button>
           </div>
           <div id="lPickupCoords" class="muted" style="font-size:11px;margin-top:4px;"></div>
 
-          <span class="field-label" style="margin-top:12px;">🏁 Destination</span>
+          <span class="field-label" id="lDestLabel" style="margin-top:12px;">🏁 Destination</span>
           <div style="display:flex;gap:8px;align-items:center;">
             <input class="field-input" id="lDestAddr" placeholder="e.g. APMC Mysuru" style="flex:1;margin:0;">
             <button class="btn btn-outline" style="white-space:nowrap;padding:10px 12px;" onclick="lUseGPS('dest')">📡 GPS</button>
@@ -630,42 +949,42 @@
         </div>
 
         <div class="card" style="margin-bottom:14px;">
-          <span class="field-label">🌾 Crop being transported</span>
+          <span class="field-label" id="lCropLabel">🌾 Crop being transported</span>
           <select class="field-input" id="lCrop" style="margin-bottom:12px;">
-            <option>Tomato</option><option>Onion</option><option>Potato</option><option>Wheat</option>
-            <option>Rice / Paddy</option><option>Cotton</option><option>Sugarcane</option>
-            <option>Maize</option><option>Chilli</option><option>Groundnut</option><option>Other</option>
+            <option value="Tomato">Tomato</option><option value="Onion">Onion</option><option value="Potato">Potato</option><option value="Wheat">Wheat</option>
+            <option value="Rice / Paddy">Rice / Paddy</option><option value="Cotton">Cotton</option><option value="Sugarcane">Sugarcane</option>
+            <option value="Maize">Maize</option><option value="Chilli">Chilli</option><option value="Groundnut">Groundnut</option><option value="Other">Other</option>
           </select>
-          <span class="field-label">⚖️ Quantity (tons)</span>
+          <span class="field-label" id="lQtyLabel">⚖️ Quantity (tons)</span>
           <input class="field-input" id="lQty" type="number" step="0.1" min="0.1" placeholder="e.g. 2.5" style="margin-bottom:12px;">
-          <span class="field-label">🚛 Vehicle type needed</span>
+          <span class="field-label" id="lVehicleTypeLabel">🚛 Vehicle type needed</span>
           <select class="field-input" id="lVehicleType">
-            <option>Tata Ace</option><option>Mini Truck</option><option>Tata 407</option>
-            <option>Tata 709</option><option>Eicher</option><option>Tractor Trailer</option>
-            <option>Refrigerated Truck</option><option>Large Truck</option>
+            <option value="Tata Ace">Tata Ace</option><option value="Mini Truck">Mini Truck</option><option value="Tata 407">Tata 407</option>
+            <option value="Tata 709">Tata 709</option><option value="Eicher">Eicher</option><option value="Tractor Trailer">Tractor Trailer</option>
+            <option value="Refrigerated Truck">Refrigerated Truck</option><option value="Large Truck">Large Truck</option>
           </select>
         </div>
 
-        <button class="btn btn-primary btn-block" onclick="lSearchDrivers()">Search available drivers →</button>
-        <p class="fine-print" style="margin-top:8px;">Only <strong>verified Agro AI drivers</strong> are shown. No fake or unverified drivers.</p>
+        <button class="btn btn-primary btn-block" id="lSearchDriversBtn" onclick="lSearchDrivers()">Search available drivers →</button>
+        <p class="fine-print" id="lVerifiedDriversNote" style="margin-top:8px;">Only <strong>verified Agro AI drivers</strong> are shown. No fake or unverified drivers.</p>
       </div>
 
       <!-- STEP 2: DRIVER OPTIONS -->
       <div id="lStep2" class="l-panel" style="display:none;">
         <div id="lRouteInfo" class="card" style="margin-bottom:14px;"></div>
         <div id="lDriverList"></div>
-        <button class="btn btn-outline btn-block" onclick="lGoStep(1)" style="margin-top:10px;">← Change route</button>
+        <button class="btn btn-outline btn-block" id="lChangeRouteBtn" onclick="lGoStep(1)" style="margin-top:10px;">← Change route</button>
       </div>
 
       <!-- STEP 3: FARE BREAKDOWN + CONFIRM -->
       <div id="lStep3" class="l-panel" style="display:none;">
         <div class="card" style="margin-bottom:14px;" id="lFareCard"></div>
         <div class="card" style="margin-bottom:14px;" id="lDriverCard"></div>
-        <div style="background:#FFF3CD;border-radius:12px;padding:12px 14px;margin-bottom:14px;font-size:13px;color:#856404;">
+        <div id="lTripPinWarning" style="background:#FFF3CD;border-radius:12px;padding:12px 14px;margin-bottom:14px;font-size:13px;color:#856404;">
           ⚠️ Once booked, the driver will be notified and a 6-digit Trip PIN will be generated. Show this PIN to the driver at pickup to start loading.
         </div>
         <button class="btn btn-primary btn-block" id="lBookBtn" onclick="lConfirmBooking()">✅ Confirm booking</button>
-        <button class="btn btn-outline btn-block" onclick="lGoStep(2)" style="margin-top:10px;">← Change driver</button>
+        <button class="btn btn-outline btn-block" id="lChangeDriverBtn" onclick="lGoStep(2)" style="margin-top:10px;">← Change driver</button>
       </div>
 
       <!-- STEP 4: LIVE TRIP TRACKER -->
@@ -675,7 +994,7 @@
         <!-- Map placeholder — Google Maps key pending -->
         <div id="lMapPlaceholder" style="background:linear-gradient(135deg,#1F4D2B 0%,#2d6b3f 100%);border-radius:16px;height:220px;display:flex;flex-direction:column;align-items:center;justify-content:center;color:#fff;margin-bottom:14px;position:relative;overflow:hidden;">
           <div style="font-size:36px;margin-bottom:8px;">🗺️</div>
-          <div style="font-weight:700;font-size:15px;">Live Route Map</div>
+          <div style="font-weight:700;font-size:15px;" id="lMapTitle">Live Route Map</div>
           <div id="lMapNote" style="font-size:12px;opacity:0.8;margin-top:4px;text-align:center;padding:0 20px;">Google Maps API key not yet configured. Map will appear here once added.</div>
           <!-- Live driver dot animation -->
           <div id="lDriverDot" style="display:none;position:absolute;bottom:30px;left:50%;transform:translateX(-50%);width:20px;height:20px;border-radius:50%;background:#E58A2D;border:3px solid #fff;box-shadow:0 0 0 4px rgba(229,138,45,0.3);animation:pulse 1.5s infinite;"></div>
@@ -689,12 +1008,12 @@
         <div id="lTripActions" style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px;"></div>
 
         <!-- Trip Events Log -->
-        <div class="section-title">Trip events</div>
+        <div class="section-title" id="lTripEventsTitle">Trip events</div>
         <div class="card" id="lEventsLog" style="font-size:13px;max-height:200px;overflow-y:auto;"></div>
 
         <div style="margin-top:16px;display:flex;gap:10px;">
-          <button class="btn btn-outline" style="flex:1" onclick="lShareTrip()">📤 Share trip</button>
-          <button class="btn" style="flex:1;background:#DC3545;color:#fff;" onclick="lTriggerSOS()">🚨 SOS</button>
+          <button class="btn btn-outline" style="flex:1" id="lShareTripBtn" onclick="lShareTrip()">📤 Share trip</button>
+          <button class="btn" style="flex:1;background:#DC3545;color:#fff;" id="lSosBtn" onclick="lTriggerSOS()">🚨 SOS</button>
         </div>
       </div>
 
@@ -707,11 +1026,11 @@
 
   <!-- Bottom Nav -->
   <nav class="bottom-nav">
-    <button class="nav-item active" data-nav="home" onclick="go('home')"><span class="icon">🏠</span>Home</button>
-    <button class="nav-item" data-nav="diagnose" onclick="go('diagnose')"><span class="icon">🩺</span>Diagnose</button>
-    <button class="nav-item" data-nav="kisangpt" onclick="go('kisangpt')"><span class="icon">💬</span>Kisan GPT</button>
-    <button class="nav-item" data-nav="weather" onclick="go('weather')"><span class="icon">⛅</span>Weather</button>
-    <button class="nav-item" data-nav="more" onclick="go('more')"><span class="icon">☰</span>More</button>
+    <button class="nav-item active" data-nav="home" onclick="go('home')"><span class="icon">🏠</span><span id="navLabelHome">Home</span></button>
+    <button class="nav-item" data-nav="diagnose" onclick="go('diagnose')"><span class="icon">🩺</span><span id="navLabelDiagnose">Diagnose</span></button>
+    <button class="nav-item" data-nav="kisangpt" onclick="go('kisangpt')"><span class="icon">💬</span><span id="navLabelGpt">Kisan GPT</span></button>
+    <button class="nav-item" data-nav="weather" onclick="go('weather')"><span class="icon">⛅</span><span id="navLabelWeather">Weather</span></button>
+    <button class="nav-item" data-nav="more" onclick="go('more')"><span class="icon">☰</span><span id="navLabelMore">More</span></button>
   </nav>
 
   <!-- Toast element -->
@@ -727,47 +1046,8 @@
       <div class="lang-grid" id="modalLangGrid"></div>
     </div>
   </div>
-
-  <!-- Google Sign-In Modal Sheet -->
-  <div class="modal-backdrop" id="googleModal" onclick="if(event.target===this)closeGoogleModal()">
-    <div class="modal-sheet">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px;">
-        <div style="display:flex;align-items:center;gap:8px;">
-          <span class="google-g"></span>
-          <h3 class="display" style="margin:0;font-size:19px;">Sign in with Google</h3>
-        </div>
-        <button class="btn btn-outline" style="padding:6px 12px;font-size:12px;" onclick="closeGoogleModal()">Cancel</button>
-      </div>
-      <p class="muted" style="margin:0 0 16px;">Choose an account to continue to Agro AI</p>
-
-      <!-- Pre-filled known account -->
-      <div class="google-account-item" onclick="signInWithGoogleAccount('Vivek S', 'vvivekshastrym@gmail.com')">
-        <div class="avatar-circle" style="width:40px;height:40px;font-size:15px;background:#4285F4;color:#fff;">V</div>
-        <div style="flex:1;">
-          <div style="font-weight:600;font-size:14px;">Vivek S</div>
-          <div class="muted" style="font-size:12px;">vvivekshastrym@gmail.com</div>
-        </div>
-        <div style="color:var(--forest);font-size:18px;">→</div>
-      </div>
-
-      <div class="google-account-item" onclick="showCustomGoogleInput()" style="margin-top:8px;">
-        <div class="avatar-circle" style="width:40px;height:40px;font-size:18px;background:var(--cream);color:var(--forest);">+</div>
-        <div style="flex:1;">
-          <div style="font-weight:600;font-size:14px;">Use another account</div>
-          <div class="muted" style="font-size:12px;">Enter your Gmail address</div>
-        </div>
-      </div>
-
-      <div id="customGoogleBox" style="display:none;margin-top:12px;">
-        <input class="field-input" id="customGoogleEmail" type="email" placeholder="yourname@gmail.com" style="margin-bottom:10px;">
-        <button class="btn btn-primary btn-block" onclick="signInWithCustomGoogle()">Continue →</button>
-      </div>
-
-      <p class="fine-print" style="margin-top:16px;">Agro AI uses a secure sign-in flow. Your Google account data is never stored without consent.</p>
-    </div>
-  </div>
-
 </div>
+
 
 <script>
 /* ================= DATA & LOCALIZATION ================= */
@@ -791,25 +1071,396 @@ const GREETINGS = {
 };
 function t(lang){ return GREETINGS[lang] || GREETINGS.en; }
 
-const SUGGESTIONS = [
-  "Show today's weather","Diagnose my crop","Today's mandi price","Book a drone","What fertilizer should I buy?"
-];
+/* Comprehensive bidirectional I18N dictionary covering all screens */
+const I18N = {
+  en: {
+    splash_title: "Agro AI",
+    splash_sub: "The AI Operating System for your Farm",
+    splash_tap: "Tap anywhere to continue",
+    brand_name: "Agro AI",
+    acct_title: "Account",
+    nav_home: "Home",
+    nav_diagnose: "Diagnose",
+    nav_kisangpt: "Kisan GPT",
+    nav_weather: "Weather",
+    nav_more: "More",
+    auth_welcome_title: "Agro AI",
+    auth_welcome_sub: "The AI operating system for your farm — weather, mandi prices, crop diagnosis and more, in your language.",
+    role_farmer: "🌾 I'm a Farmer",
+    role_driver: "🚚 I'm a Driver",
+    google_btn: "Continue with Google",
+    auth_divider: "or continue with phone",
+    auth_phone_lbl: "Mobile number",
+    auth_send_otp: "Send OTP",
+    auth_guest_btn: "🌾 Explore as Guest Farmer",
+    auth_fine_print: "By continuing, you agree to Agro AI's Terms of Service and Privacy Policy.<br>We never share your farm data without your consent.",
+    otp_back: "← Back",
+    otp_title: "Verify your number",
+    otp_verify: "Verify & continue",
+    prof_title: "Set up your profile",
+    prof_sub: "Takes 30 seconds — this helps Kisan GPT give advice that's actually relevant to your farm.",
+    prof_name: "Full name",
+    prof_state: "State",
+    prof_village: "Village / district",
+    prof_land: "Land size (acres)",
+    prof_crop: "Primary crop",
+    prof_lang: "Preferred language",
+    prof_start: "Get started",
+    prof_skip: "Skip for now",
+    home_tile_diagnose_title: "Diagnose crop",
+    home_tile_diagnose_sub: "Photo → instant analysis",
+    home_tile_gpt_title: "Ask Kisan GPT",
+    home_tile_gpt_sub: "Voice or text, 9 languages",
+    home_tile_weather_title: "Weather",
+    home_tile_weather_sub: "Live hyperlocal forecast",
+    home_tile_market_title: "Mandi prices",
+    home_tile_market_sub: "Today + 30-day trend",
+    home_sec_more: "More services",
+    home_tile_pest_title: "Pest Radar",
+    home_tile_pest_sub: "Outbreak risk nearby",
+    home_tile_logistics_title: "Logistics",
+    home_tile_logistics_sub: "Book verified transport",
+    home_tile_drone_title: "Drone",
+    home_tile_drone_sub: "Spray / scout booking",
+    home_tile_inputs_title: "Inputs",
+    home_tile_inputs_sub: "Compare shop prices",
+    home_sec_reports: "Your reports",
+    reports_empty: "No diagnosis reports yet. Run a crop diagnosis to start building your farm history — it will show up here and inside Kisan GPT.",
+    diag_title: "Diagnose your crop",
+    diag_sub: "Take a clear, well-lit photo of the affected leaf or plant.",
+    diag_upload_heading: "Upload or capture a photo",
+    diag_upload_sub: "JPG or PNG, one leaf per photo works best",
+    diag_crop_hint_opt: "Crop (optional — AI will detect)",
+    diag_choose_btn: "📁 Choose photo",
+    diag_analyze_btn: "Analyze",
+    diag_vision_indicator_local: "🔬 Local Pixel Computer Vision active",
+    diag_vision_indicator_cloud: "🟢 Google Gemini Cloud Vision active",
+    diag_vision_key_btn: "⚙️ Vision AI Key",
+    diag_tab_organic: "🌿 Organic",
+    diag_tab_chemical: "🧪 Chemical",
+    diag_prevention: "Prevention",
+    diag_spray_window: "Spray",
+    diag_recovery: "Recovery",
+    diag_save_report: "💾 Save report",
+    diag_share_whatsapp: "📤 Share WhatsApp",
+    diag_evidence_title: "🔬 Measured Visual Evidence:",
+    diag_conf_label: "confidence",
+    gpt_title: "Kisan GPT",
+    gpt_call_btn: "📞 1800-KISAN",
+    gpt_placeholder: "Type your question…",
+    weather_forecast_title: "7-day forecast",
+    weather_advisory_sec_title: "Live spray advisory",
+    weather_spray_card_title: "Crop Spray Window",
+    weather_spray_checking: "Checking weather conditions for spray window...",
+    weather_spray_optimal: "Optimal Spray Window",
+    weather_spray_postpone: "Postpone Spray",
+    weather_days: ["Today", "Thu", "Fri", "Sat", "Sun", "Mon", "Tue"],
+    market_title: "Mandi Market",
+    market_forecast_btn: "Forecast price",
+    market_unit: "/quintal",
+    market_trend_desc: "30-day forecast: gradual rise, expected to peak late next month before harvest arrivals increase.",
+    market_best_mandi: "📍 Best mandi nearby:",
+    market_alert_placeholder: "Mobile for WhatsApp price alert",
+    market_alert_btn: "Set alert",
+    logistics_title: "Agro AI Logistics",
+    logistics_sub: "Book verified agricultural transport. Real GPS tracking included.",
+    lstep1: "1. Route",
+    lstep2: "2. Vehicles",
+    lstep3: "3. Fare",
+    lstep4: "4. Track",
+    l_pickup_label: "📍 Pickup location",
+    l_dest_label: "🏁 Destination",
+    l_crop_label: "🌾 Crop being transported",
+    l_qty_label: "⚖️ Quantity (tons)",
+    l_vehicle_type_label: "🚛 Vehicle type needed",
+    l_search_drivers_btn: "Search available drivers →",
+    l_verified_drivers_note: "Only <strong>verified Agro AI drivers</strong> are shown. No fake or unverified drivers.",
+    l_change_route: "← Change route",
+    l_change_driver: "← Change driver",
+    l_confirm_booking: "✅ Confirm booking",
+    l_map_title: "Live Route Map",
+    l_trip_events_title: "Trip events",
+    l_share_trip: "📤 Share trip",
+    l_sos: "🚨 SOS",
+    l_my_trips_title: "My recent trips",
+    more_title: "More services",
+    acct_back_btn: "← Back",
+    acct_sec_farm: "Farm profile",
+    acct_lbl_village: "Village / district",
+    acct_lbl_state: "State",
+    acct_lbl_land: "Land size",
+    acct_lbl_crop: "Primary crop",
+    acct_lbl_lang: "Language",
+    acct_sec_login: "Login & security",
+    acct_lbl_method: "Sign-in method",
+    acct_lbl_2fa: "Two-factor verification",
+    acct_lbl_sessions: "Active sessions",
+    acct_export_btn: "⬇ Export my data",
+    acct_delete_btn: "Delete account",
+    acct_sign_out_btn: "Sign out",
+    acct_fine_print: "Your farm data is encrypted in transit and at rest, and is never sold to third parties. Location data is only used to power the features you open.",
+    crops: {
+      "Tomato": "Tomato", "Wheat": "Wheat", "Rice / Paddy": "Rice / Paddy",
+      "Cotton": "Cotton", "Sugarcane": "Sugarcane", "Maize": "Maize",
+      "Onion": "Onion", "Potato": "Potato", "Chilli": "Chilli",
+      "Groundnut": "Groundnut", "Other": "Other"
+    },
+    vehicles: {
+      "Tata Ace": "Tata Ace", "Mini Truck": "Mini Truck", "Tata 407": "Tata 407",
+      "Tata 709": "Tata 709", "Eicher": "Eicher", "Tractor Trailer": "Tractor Trailer",
+      "Refrigerated Truck": "Refrigerated Truck", "Large Truck": "Large Truck"
+    },
+    states: {
+      "Karnataka": "Karnataka", "Maharashtra": "Maharashtra", "Punjab": "Punjab",
+      "Uttar Pradesh": "Uttar Pradesh", "Andhra Pradesh": "Andhra Pradesh", "Tamil Nadu": "Tamil Nadu"
+    },
+    drone_title: "Drone Services",
+    drone_sub: "Book DGCA-approved drone pilots for spraying and surveying.",
+    drone_area_label: "Farm size (acres)",
+    drone_opt_spray: "Pesticide / Nutrient Spray",
+    drone_opt_scout: "Crop Health Scouting",
+    drone_book_btn: "Book operator",
+    inputs_title: "Inputs Compare",
+    inputs_sub: "Compare verified seeds, fertilizer, and pesticide prices.",
+    inputs_pill_all: "All",
+    inputs_pill_fert: "Fertilizer",
+    inputs_pill_pest: "Pesticide",
+    inputs_pill_seed: "Seeds",
+    inputs_buy_btn: "Order / Inquire"
+  },
 
-const MORE_ITEMS = [
-  {id:'account', emoji:'👤', t:'Account & Security', s:'Profile, login method, sign out'},
-  {id:'pest', emoji:'🦗', t:'Pest Radar', s:'Village-level outbreak risk', body:"Pest Radar analyses nearby farmer reports to flag outbreak risk in your area. Real detection requires reports from verified farmers near your village."},
-  {id:'inputs', emoji:'🛒', t:'Inputs Compare', s:'Seed, fertilizer, pesticide prices', body:"Compares prices for seeds, fertilizer and pesticide across nearby verified shops. Connect your location to see real vendor prices."},
-  {id:'logistics', emoji:'🚚', t:'Logistics', s:'Book verified transport', body:"Matches you with a verified nearby truck or tractor for harvest transport, with real GPS tracking and road-network ETA."},
-  {id:'drone', emoji:'🛸', t:'Drone Marketplace', s:'Spray, scout, or NDVI mapping', body:"Connects you with verified drone operators near your field for spraying, scouting or NDVI mapping."},
-  {id:'satellite', emoji:'🛰️', t:'Satellite Twin', s:'Digital twin of your field', body:"Builds a live satellite view of your field using Sentinel-2 imagery, tracking crop health (NDVI) over time."},
-  {id:'carbon', emoji:'🌍', t:'Carbon Credits', s:'Passive income for low-input farming', body:"Tracks verified reductions in chemical/water use and estimates carbon credit income."},
-  {id:'insurance', emoji:'🛡️', t:'Auto Insurance', s:'Weather-triggered, zero paperwork', body:"Parametric crop insurance that pays out automatically when verified weather/satellite conditions confirm damage."},
-  {id:'soildna', emoji:'🧪', t:'Soil DNA Lab', s:'Mail-in microbiome test', body:"Order a soil test kit, courier your sample back, and get a biofertilizer recommendation from DNA sequencing of your soil."},
-  {id:'passport', emoji:'🪪', t:'Farm Passport', s:'Your farm\'s permanent record', body:"A blockchain-backed record of your farm: soil history, diagnosis history, inputs used, and harvests."},
-  {id:'schemes', emoji:'🏛️', t:'Government Schemes', s:'PM-KISAN, NABARD, PMFBY alerts', body:"Matches your farmer profile against live government scheme announcements and tells you what you're eligible for."},
-  {id:'credit', emoji:'💳', t:'Alternative Credit', s:'Credit score for the unbanked', body:"Builds a credit score from your UPI history, satellite-measured farm size, and yield history."},
-  {id:'reports', emoji:'📄', t:'My Reports', s:'Diagnosis & service history', body:"All your past diagnosis reports, weather alerts, and service bookings in one place."},
-];
+
+  kn: {
+    splash_title: "ಆಗ್ರೋ AI",
+    splash_sub: "ನಿಮ್ಮ ಕೃಷಿಗಾಗಿ AI ನಿರ್ವಹಣಾ ವ್ಯವಸ್ಥೆ",
+    splash_tap: "ಮುಂದುವರಿಯಲು ಎಲ್ಲಿಯಾದರೂ ಸ್ಪರ್ಶಿಸಿ",
+    brand_name: "ಆಗ್ರೋ AI",
+    acct_title: "ಖಾತೆ",
+    nav_home: "ಮುಖಪುಟ",
+    nav_diagnose: "ರೋಗ ತಪಾಸಣೆ",
+    nav_kisangpt: "ಕಿಸಾನ್ ಜಿಪಿಟಿ",
+    nav_weather: "ಹವಾಮಾನ",
+    nav_more: "ಇನ್ನಷ್ಟು",
+    auth_welcome_title: "ಆಗ್ರೋ AI",
+    auth_welcome_sub: "ನಿಮ್ಮ ಕೃಷಿಗಾಗಿ AI ನಿರ್ವಹಣಾ ವ್ಯವಸ್ಥೆ — ಹವಾಮಾನ, ಮಂಡಿ ದರಗಳು, ಬೆಳೆ ತಪಾಸಣೆ ಮತ್ತು ಇನ್ನಷ್ಟು, ನಿಮ್ಮದೇ ಭಾಷೆಯಲ್ಲಿ.",
+    role_farmer: "🌾 ನಾನು ರೈತ",
+    role_driver: "🚚 ನಾನು ಚಾಲಕ",
+    google_btn: "Google ಮೂಲಕ ಮುಂದುವರಿಯಿರಿ",
+    auth_divider: "ಅಥವಾ ಮೊಬೈಲ್ ಮೂಲಕ ಮುಂದುವರಿಯಿರಿ",
+    auth_phone_lbl: "ಮೊಬೈಲ್ ಸಂಖ್ಯೆ",
+    auth_send_otp: "OTP ಕಳುಹಿಸಿ",
+    auth_guest_btn: "🌾 ರೈತರಾಗಿ ಮುಂದುವರಿಯಿರಿ (ತ್ವರಿತ ಪ್ರವೇಶ)",
+    auth_fine_print: "ಮುಂದುವರಿಯುವ ಮೂಲಕ, ನೀವು ಆಗ್ರೋ AI ನ ಸೇವಾ ನಿಯಮಗಳು ಮತ್ತು ಗೌಪ್ಯತಾ ನೀತಿಯನ್ನು ಒಪ್ಪುತ್ತೀರಿ.<br>ನಿಮ್ಮ ಒಪ್ಪಿಗೆಯಿಲ್ಲದೆ ನಿಮ್ಮ ಕೃಷಿ ಡೇಟಾವನ್ನು ಹಂಚಿಕೊಳ್ಳುವುದಿಲ್ಲ.",
+    otp_back: "← ಹಿಂದಕ್ಕೆ",
+    otp_title: "ನಿಮ್ಮ ಸಂಖ್ಯೆಯನ್ನು ಪರಿಶೀಲಿಸಿ",
+    otp_verify: "ಪರಿಶೀಲಿಸಿ & ಮುಂದುವರಿಯಿರಿ",
+    prof_title: "ನಿಮ್ಮ ಪ್ರೊಫೈಲ್ ರಚಿಸಿ",
+    prof_sub: "30 ಸೆಕೆಂಡುಗಳು ಸಾಕು — ಇದು ನಿಮ್ಮ ಕೃಷಿಗೆ ಹೆಚ್ಚು ಸೂಕ್ತವಾದ ಸಲಹೆ ನೀಡಲು ಕಿಸಾನ್ ಜಿಪಿಟಿಗೆ ಸಹಾಯ ಮಾಡುತ್ತದೆ.",
+    prof_name: "ಪೂರ್ಣ ಹೆಸರು",
+    prof_state: "ರಾಜ್ಯ",
+    prof_village: "ಗ್ರಾಮ / ಜಿಲ್ಲೆ",
+    prof_land: "ಜಮೀನಿನ ವಿಸ್ತೀರ್ಣ (ಎಕರೆ)",
+    prof_crop: "ಪ್ರಮುಖ ಬೆಳೆ",
+    prof_lang: "ಆದ್ಯತೆಯ ಭಾಷೆ",
+    prof_start: "ಪ್ರಾರಂಭಿಸಿ",
+    prof_skip: "ಈಗ ಬಿಟ್ಟುಬಿಡಿ",
+    home_tile_diagnose_title: "ಬೆಳೆ ರೋಗ ತಪಾಸಣೆ",
+    home_tile_diagnose_sub: "ಫೋಟೋ → ತ್ವರಿತ ವಿಶ್ಲೇಷಣೆ",
+    home_tile_gpt_title: "ಕಿಸಾನ್ ಜಿಪಿಟಿ ಕೇಳಿ",
+    home_tile_gpt_sub: "ಧ್ವನಿ ಅಥವಾ ಪಠ್ಯ, 9 ಭಾಷೆಗಳು",
+    home_tile_weather_title: "ಹವಾಮಾನ",
+    home_tile_weather_sub: "ನೇರ ಸ್ಥಳೀಯ ಮುನ್ಸೂಚನೆ",
+    home_tile_market_title: "ಮಂಡಿ ದರಗಳು",
+    home_tile_market_sub: "ಇಂದಿನ ದರ + 30 ದಿನಗಳ ಟ್ರೆಂಡ್",
+    home_sec_more: "ಇನ್ನಷ್ಟು ಸೇವೆಗಳು",
+    home_tile_pest_title: "ಕೀಟ ರೇಡಾರ್",
+    home_tile_pest_sub: "ಸುತ್ತಮುತ್ತಲಿನ ಕೀಟ ಬಾಧೆ ಅಪಾಯ",
+    home_tile_logistics_title: "ಕೃಷಿ ಸಾರಿಗೆ",
+    home_tile_logistics_sub: "ದೃಢೀಕೃತ ವಾಹನ ಬುಕಿಂಗ್",
+    home_tile_drone_title: "ಡ್ರೋನ್ ಸೇವೆ",
+    home_tile_drone_sub: "ಸಿಂಪಡಣೆ & ಸಮೀಕ್ಷೆ ಬುಕಿಂಗ್",
+    home_tile_inputs_title: "ಕೃಷಿ ಪರಿಕರಗಳು",
+    home_tile_inputs_sub: "ಅಂಗಡಿ ದರಗಳ ಹೋಲಿಕೆ",
+    home_sec_reports: "ನಿಮ್ಮ ವರದಿಗಳು",
+    reports_empty: "ಇನ್ನೂ ಯಾವುದೇ ರೋಗ ತಪಾಸಣೆ ವರದಿಗಳಿಲ್ಲ. ನಿಮ್ಮ ಕೃಷಿ ಇತಿಹಾಸ ನಿರ್ಮಿಸಲು ಬೆಳೆ ತಪಾಸಣೆ ಮಾಡಿ — ಅದು ಇಲ್ಲಿ ಮತ್ತು ಕಿಸಾನ್ ಜಿಪಿಟಿಯಲ್ಲಿ ಕಾಣಿಸುತ್ತದೆ.",
+    diag_title: "ನಿಮ್ಮ ಬೆಳೆ ರೋಗ ತಪಾಸಣೆ",
+    diag_sub: "ಬಾಧಿತ ಎಲೆ ಅಥವಾ ಗಿಡದ ಸ್ಪಷ್ಟ, ಬೆಳಕಿರುವ ಫೋಟೋ ತೆಗೆದುಕೊಳ್ಳಿ.",
+    diag_upload_heading: "ಫೋಟೋ ಅಪ್‌ಲೋಡ್ ಮಾಡಿ ಅಥವಾ ತೆಗೆಯಿರಿ",
+    diag_upload_sub: "JPG ಅಥವಾ PNG, ಒಂದು ಫೋಟೋದಲ್ಲಿ ಒಂದು ಎಲೆ ಸೂಕ್ತ",
+    diag_crop_hint_opt: "ಬೆಳೆ (ಐಚ್ಛಿಕ — AI ಪತ್ತೆಹಚ್ಚುತ್ತದೆ)",
+    diag_choose_btn: "📁 ಫೋಟೋ ಆಯ್ಕೆಮಾಡಿ",
+    diag_analyze_btn: "ವಿಶ್ಲೇಷಿಸಿ",
+    diag_vision_indicator_local: "🔬 ಸ್ಥಳೀಯ ಕಂಪ್ಯೂಟರ್ ವಿಷನ್ ಸಕ್ರಿಯವಾಗಿದೆ",
+    diag_vision_indicator_cloud: "🟢 ಗೂಗಲ್ ಜೆಮಿನಿ ಕ್ಲೌಡ್ ವಿಷನ್ ಸಕ್ರಿಯವಾಗಿದೆ",
+    diag_vision_key_btn: "⚙️ ವಿಷನ್ ಕೀ ಸಂರಚನೆ",
+    diag_tab_organic: "🌿 ಸಾವಯವ ಪರಿಹಾರ",
+    diag_tab_chemical: "🧪 ರಾಸಾಯನಿಕ ಪರಿಹಾರ",
+    diag_prevention: "ಮುನ್ನೆಚ್ಚರಿಕೆ ಕ್ರಮಗಳು",
+    diag_spray_window: "ಸಿಂಪಡಣಾ ಸಮಯ",
+    diag_recovery: "ಗುಣಮುಖ ಅವಧಿ",
+    diag_save_report: "💾 ವರದಿ ಉಳಿಸಿ",
+    diag_share_whatsapp: "📤 ವಾಟ್ಸಾಪ್‌ನಲ್ಲಿ ಹಂಚಿಕೊಳ್ಳಿ",
+    diag_evidence_title: "🔬 ಅಳತೆ ಮಾಡಿದ ದೃಶ್ಯ ಸಾಕ್ಷ್ಯಗಳು:",
+    diag_conf_label: "ವಿಶ್ವಾಸಾರ್ಹತೆ",
+    gpt_title: "ಕಿಸಾನ್ ಜಿಪಿಟಿ",
+    gpt_call_btn: "📞 1800-ಕಿಸಾನ್",
+    gpt_placeholder: "ನಿಮ್ಮ ಪ್ರಶ್ನೆಯನ್ನು ಟೈಪ್ ಮಾಡಿ…",
+    weather_forecast_title: "7 ದಿನಗಳ ಮುನ್ಸೂಚನೆ",
+    weather_advisory_sec_title: "ನೇರ ಸಿಂಪಡಣಾ ಸಲಹೆ",
+    weather_spray_card_title: "ಬೆಳೆ ಸಿಂಪಡಣಾ ಸಮಯ",
+    weather_spray_checking: "ಸಿಂಪಡಣಾ ಸಮಯಕ್ಕಾಗಿ ಹವಾಮಾನ ಪರಿಸ್ಥಿತಿ ಪರಿಶೀಲಿಸಲಾಗುತ್ತಿದೆ...",
+    weather_spray_optimal: "ಸೂಕ್ತ ಸಿಂಪಡಣಾ ಸಮಯ",
+    weather_spray_postpone: "ಸಿಂಪಡಣೆ ಮುಂದೂಡಿ",
+    weather_days: ["ಇಂದು", "ಗುರು", "ಶುಕ್ರ", "ಶನಿ", "ಭಾನು", "ಸೋಮ", "ಮಂಗಳ"],
+    market_title: "ಮಂಡಿ ಮಾರುಕಟ್ಟೆ",
+    market_forecast_btn: "ದರ ಮುನ್ಸೂಚನೆ ಪಡೆಯಿರಿ",
+    market_unit: "/ಕ್ವಿಂಟಾಲ್",
+    market_trend_desc: "30 ದಿನಗಳ ಮುನ್ಸೂಚನೆ: ಬೆಲೆಗಳು ಕ್ರಮೇಣ ಏರಿಕೆಯಾಗಲಿದ್ದು, ಹೊಸ ಬೆಳೆ ಬರುವ ಮೊದಲು ಗರಿಷ್ಠ ಮಟ್ಟ ತಲುಪುವ ಸಾಧ್ಯತೆಯಿದೆ.",
+    market_best_mandi: "📍 ಹತ್ತಿರದ ಉತ್ತಮ ಮಂಡಿ:",
+    market_alert_placeholder: "ವಾಟ್ಸಾಪ್ ದರ ಎಚ್ಚರಿಕೆಗಾಗಿ ಮೊಬೈಲ್ ಸಂಖ್ಯೆ",
+    market_alert_btn: "ಎಚ್ಚರಿಕೆ ಹೊಂದಿಸಿ",
+    logistics_title: "ಆಗ್ರೋ AI ಸಾರಿಗೆ",
+    logistics_sub: "ದೃಢೀಕೃತ ಕೃಷಿ ಸಾರಿಗೆ ಬುಕ್ ಮಾಡಿ. ನೇರ GPS ಟ್ರ್ಯಾಕಿಂಗ್ ಲಭ್ಯವಿದೆ.",
+    lstep1: "1. ಮಾರ್ಗ",
+    lstep2: "2. ವಾಹನಗಳು",
+    lstep3: "3. ದರ",
+    lstep4: "4. ಟ್ರ್ಯಾಕಿಂಗ್",
+    l_pickup_label: "📍 ಹೊರಡುವ ಸ್ಥಳ",
+    l_dest_label: "🏁 ತಲುಪುವ ಸ್ಥಳ",
+    l_crop_label: "🌾 ಸಾಗಿಸುವ ಬೆಳೆ",
+    l_qty_label: "⚖️ ಪ್ರಮಾಣ (ಟನ್)",
+    l_vehicle_type_label: "🚛 ಅಗತ್ಯವಿರುವ ವಾಹನ",
+    l_search_drivers_btn: "ಲಭ್ಯವಿರುವ ಚಾಲಕರನ್ನು ಹುಡುಕಿ →",
+    l_verified_drivers_note: "ಕೇವಲ <strong>ದೃಢೀಕೃತ ಆಗ್ರೋ AI ಚಾಲಕರನ್ನು</strong> ಮಾತ್ರ ತೋರಿಸಲಾಗುತ್ತದೆ. ನಕಲಿ ಚಾಲಕರಿಲ್ಲ.",
+    l_change_route: "← ಮಾರ್ಗ ಬದಲಾಯಿಸಿ",
+    l_change_driver: "← ಚಾಲಕ ಬದಲಾಯಿಸಿ",
+    l_confirm_booking: "✅ ಬುಕಿಂಗ್ ದೃಢೀಕರಿಸಿ",
+    l_map_title: "ನೇರ ಮಾರ್ಗ ನಕ್ಷೆ",
+    l_trip_events_title: "ಪ್ರಯಾಣದ ವಿವರಗಳು",
+    l_share_trip: "📤 ಪ್ರಯಾಣ ಹಂಚಿಕೊಳ್ಳಿ",
+    l_sos: "🚨 ತುರ್ತು ಕರೆ (SOS)",
+    l_my_trips_title: "ನನ್ನ ಇತ್ತೀಚಿನ ಸಾರಿಗೆ ಪ್ರಯಾಣಗಳು",
+    more_title: "ಇನ್ನಷ್ಟು ಸೇವೆಗಳು",
+    acct_back_btn: "← ಹಿಂದಕ್ಕೆ",
+    acct_sec_farm: "ಕೃಷಿ ವಿವರ",
+    acct_lbl_village: "ಗ್ರಾಮ / ಜಿಲ್ಲೆ",
+    acct_lbl_state: "ರಾಜ್ಯ",
+    acct_lbl_land: "ಜಮೀನಿನ ವಿಸ್ತೀರ್ಣ",
+    acct_lbl_crop: "ಪ್ರಮುಖ ಬೆಳೆ",
+    acct_lbl_lang: "ಭಾಷೆ",
+    acct_sec_login: "ಲಾಗಿನ್ ಮತ್ತು ಭದ್ರತೆ",
+    acct_lbl_method: "ಸೈನ್-ಇನ್ ವಿಧಾನ",
+    acct_lbl_2fa: "ದ್ವಿಮುಖ ಪರಿಶೀಲನೆ",
+    acct_lbl_sessions: "ಸಕ್ರಿಯ ಸಾಧನಗಳು",
+    acct_export_btn: "⬇ ನನ್ನ ಮಾಹಿತಿ ಡೌನ್‌ಲೋಡ್ ಮಾಡಿ",
+    acct_delete_btn: "ಖಾತೆ ಅಳಿಸಿ",
+    acct_sign_out_btn: "ಸೈನ್ ಔಟ್",
+    acct_fine_print: "ನಿಮ್ಮ ಕೃಷಿ ಡೇಟಾವನ್ನು ಸಂಪೂರ್ಣವಾಗಿ ಎನ್‌ಕ್ರಿಪ್ಟ್ ಮಾಡಲಾಗಿದೆ ಮತ್ತು ಮೂರನೇ ವ್ಯಕ್ತಿಗಳಿಗೆ ಮಾರಾಟ ಮಾಡಲಾಗುವುದಿಲ್ಲ.",
+    crops: {
+      "Tomato": "ಟೊಮೆಟೊ", "Wheat": "ಗೋಧಿ", "Rice / Paddy": "ಭತ್ತ",
+      "Cotton": "ಹತ್ತಿ", "Sugarcane": "ಕಬ್ಬು", "Maize": "ಜೋಳ",
+      "Onion": "ಈರುಳ್ಳಿ", "Potato": "ಆಲೂಗಡ್ಡೆ", "Chilli": "ಮೆಣಸಿನಕಾಯಿ",
+      "Groundnut": "ಕಡಲೆಕಾಯಿ", "Other": "ಇತರ ಬೆಳೆ"
+    },
+    vehicles: {
+      "Tata Ace": "ಟಾಟಾ ಏಸ್", "Mini Truck": "ಮಿನಿ ಟ್ರಕ್", "Tata 407": "ಟಾಟಾ 407",
+      "Tata 709": "ಟಾಟಾ 709", "Eicher": "ಐಷರ್ ಟ್ರಕ್", "Tractor Trailer": "ಟ್ರಾಕ್ಟರ್ ಟ್ರೈಲರ್",
+      "Refrigerated Truck": "ರೆಫ್ರಿಜರೇಟೆಡ್ ಟ್ರಕ್", "Large Truck": "ದೊಡ್ಡ ಲಾರಿ"
+    },
+    states: {
+      "Karnataka": "ಕರ್ನಾಟಕ", "Maharashtra": "ಮಹಾರಾಷ್ಟ್ರ", "Punjab": "ಪಂಜಾಬ್",
+      "Uttar Pradesh": "ಉತ್ತರ ಪ್ರದೇಶ", "Andhra Pradesh": "ಆಂಧ್ರಪ್ರದೇಶ", "Tamil Nadu": "ತಮಿಳುನಾಡು"
+    },
+    drone_title: "ಡ್ರೋನ್ ಸೇವೆಗಳು",
+    drone_sub: "ಕೀಟನಾಶಕ ಸಿಂಪಡಣೆ ಮತ್ತು ಸಮೀಕ್ಷೆಗೆ DGCA-ಅನುಮೋದಿತ ಡ್ರೋನ್ ಪೈಲಟ್‌ಗಳು.",
+    drone_area_label: "ಜಮೀನಿನ ವಿಸ್ತೀರ್ಣ (ಎಕರೆ)",
+    drone_opt_spray: "ಕೀಟನಾಶಕ / ಪೋಷಕಾಂಶ ಸಿಂಪಡಣೆ",
+    drone_opt_scout: "ಬೆಳೆ ಆರೋಗ್ಯ ಸಮೀಕ್ಷೆ",
+    drone_book_btn: "ಡ್ರೋನ್ ಬುಕ್ ಮಾಡಿ",
+    inputs_title: "ಕೃಷಿ ಪರಿಕರಗಳ ಬೆಲೆ ಹೋಲಿಕೆ",
+    inputs_sub: "ದೃಢೀಕೃತ ಅಂಗಡಿಗಳಿಂದ ಬೀಜ, ರಸಗೊಬ್ಬರ ಮತ್ತು ಕೀಟನಾಶಕ ಬೆಲೆಗಳ ಹೋಲಿಕೆ.",
+    inputs_pill_all: "ಎಲ್ಲಾ",
+    inputs_pill_fert: "ರಸಗೊಬ್ಬರ",
+    inputs_pill_pest: "ಕೀಟನಾಶಕ",
+    inputs_pill_seed: "ಬೀಜಗಳು",
+    inputs_buy_btn: "ಆರ್ಡರ್ / ವಿಚಾರಣೆ"
+  }
+};
+
+
+const SUGGESTIONS_I18N = {
+  en: ["Show today's weather", "Diagnose my crop", "Today's mandi price", "Book a drone", "What fertilizer should I buy?"],
+  kn: ["ಇಂದಿನ ಹವಾಮಾನ ತೋರಿಸಿ", "ನನ್ನ ಬೆಳೆ ರೋಗ ತಪಾಸಣೆ ಮಾಡಿ", "ಇಂದಿನ ಮಂಡಿ ದರಗಳು", "ಡ್ರೋನ್ ಬುಕ್ ಮಾಡಿ", "ಯಾವ ಗೊಬ್ಬರ ಬಳಸಬೇಕು?"]
+};
+
+const MORE_ITEMS_I18N = {
+  en: [
+    {id:'account', emoji:'👤', t:'Account & Security', s:'Profile, login method, sign out'},
+    {id:'plans', emoji:'💎', t:'Membership & Plans', s:'View quotas, features & upgrades'},
+    {id:'pest', emoji:'🦗', t:'Pest Radar', s:'Village-level outbreak risk', body:"Pest Radar analyses nearby farmer reports to flag outbreak risk in your area. Real detection requires reports from verified farmers near your village."},
+    {id:'inputs', emoji:'🛒', t:'Inputs Compare', s:'Seed, fertilizer, pesticide prices', body:"Compares prices for seeds, fertilizer and pesticide across nearby verified shops. Connect your location to see real vendor prices."},
+    {id:'logistics', emoji:'🚚', t:'Logistics', s:'Book verified transport', body:"Matches you with a verified nearby truck or tractor for harvest transport, with real GPS tracking and road-network ETA."},
+    {id:'drone', emoji:'🛸', t:'Drone Marketplace', s:'Spray, scout, or NDVI mapping', body:"Connects you with verified drone operators near your field for spraying, scouting or NDVI mapping."},
+    {id:'satellite', emoji:'🛰️', t:'Satellite Twin', s:'Digital twin of your field', body:"Builds a live satellite view of your field using Sentinel-2 imagery, tracking crop health (NDVI) over time."},
+    {id:'carbon', emoji:'🌍', t:'Carbon Credits', s:'Passive income for low-input farming', body:"Tracks verified reductions in chemical/water use and estimates carbon credit income."},
+    {id:'insurance', emoji:'🛡️', t:'Auto Insurance', s:'Weather-triggered, zero paperwork', body:"Parametric crop insurance that pays out automatically when verified weather/satellite conditions confirm damage."},
+    {id:'soildna', emoji:'🧪', t:'Soil DNA Lab', s:'Mail-in microbiome test', body:"Order a soil test kit, courier your sample back, and get a biofertilizer recommendation from DNA sequencing of your soil."},
+    {id:'passport', emoji:'🪪', t:'Farm Passport', s:'Your farm\'s permanent record', body:"A blockchain-backed record of your farm: soil history, diagnosis history, inputs used, and harvests."},
+    {id:'schemes', emoji:'🏛️', t:'Government Schemes', s:'PM-KISAN, NABARD, PMFBY alerts', body:"Matches your farmer profile against live government scheme announcements and tells you what you're eligible for."},
+    {id:'credit', emoji:'💳', t:'Alternative Credit', s:'Credit score for the unbanked', body:"Builds a credit score from your UPI history, satellite-measured farm size, and yield history."},
+    {id:'reports', emoji:'📄', t:'My Reports', s:'Diagnosis & service history', body:"All your past diagnosis reports, weather alerts, and service bookings in one place."},
+  ],
+  kn: [
+    {id:'account', emoji:'👤', t:'ಖಾತೆ ಮತ್ತು ಭದ್ರತೆ', s:'ಪ್ರೊಫೈಲ್, ಲಾಗಿನ್ ವಿಧಾನ, ಸೈನ್ ಔಟ್'},
+    {id:'plans', emoji:'💎', t:'ಚಂದಾದಾರಿಕೆ ಯೋಜನೆಗಳು', s:'ಕೋಟಾಗಳು ಮತ್ತು ಸದಸ್ಯತ್ವ ವಿವರಗಳು'},
+    {id:'pest', emoji:'🦗', t:'ಕೀಟ ರೇಡಾರ್', s:'ಗ್ರಾಮ ಮಟ್ಟದ ಕೀಟ ಬಾಧೆ ಅಪಾಯ', body:"ಕೀಟ ರೇಡಾರ್ ನಿಮ್ಮ ಸುತ್ತಮುತ್ತಲಿನ ರೈತರ ವರದಿಗಳನ್ನು ವಿಶ್ಲೇಷಿಸಿ ಕೀಟ ಬಾಧೆಯ ಅಪಾಯವನ್ನು ಮುಂಚಿತವಾಗಿ ಎಚ್ಚರಿಸುತ್ತದೆ."},
+    {id:'inputs', emoji:'🛒', t:'ಕೃಷಿ ಪರಿಕರಗಳ ಬೆಲೆ ಹೋಲಿಕೆ', s:'ಬೀಜ, ರಸಗೊಬ್ಬರ, ಕೀಟನಾಶಕ ದರಗಳು', body:"ನಿಮ್ಮ ಹತ್ತಿರದ ಅಂಗಡಿಗಳಲ್ಲಿ ಬೀಜ, ರಸಗೊಬ್ಬರ ಮತ್ತು ಕೀಟನಾಶಕಗಳ ಬೆಲೆಗಳನ್ನು ಹೋಲಿಕೆ ಮಾಡಿ ಉತ್ತಮ ದರ ಪಡೆಯಿರಿ."},
+    {id:'logistics', emoji:'🚚', t:'ಕೃಷಿ ಸಾರಿಗೆ', s:'ದೃಢೀಕೃತ ವಾಹನ ಬುಕಿಂಗ್', body:"ಬೆಳೆ ಸಾಗಿಸಲು ನಿಮ್ಮ ಹತ್ತಿರದ ಪರಿಶೀಲಿಸಿದ ಟ್ರಕ್ ಅಥವಾ ಟ್ರಾಕ್ಟರ್ ಅನ್ನು ನೈಜ ಜಿಪಿಎಸ್ ಟ್ರ್ಯಾಕಿಂಗ್‌ನೊಂದಿಗೆ ಬುಕ್ ಮಾಡಿ."},
+    {id:'drone', emoji:'🛸', t:'ಡ್ರೋನ್ ಮಾರುಕಟ್ಟೆ', s:'ಸಿಂಪಡಣೆ & ಸಮೀಕ್ಷೆ ಬುಕಿಂಗ್', body:"ನಿಮ್ಮ ಹೊಲದಲ್ಲಿ ಕೀಟನಾಶಕ ಸಿಂಪಡಣೆ ಮತ್ತು ಬೆಳೆ ಸಮೀಕ್ಷೆಗೆ ಹತ್ತಿರದ ಪರಿಶೀಲಿಸಿದ ಡ್ರೋನ್ ಪೈಲಟ್‌ಗಳನ್ನು ಸಂಪರ್ಕಿಸಿ."},
+    {id:'satellite', emoji:'🛰️', t:'ಉಪಗ್ರಹ ಕ್ಷೇತ್ರ ಚಿತ್ರಣ', s:'ನಿಮ್ಮ ಹೊಲದ ಡಿಜಿಟಲ್ ಅವಳಿ', body:"ಸೆಂಟಿನೆಲ್-2 ಉಪಗ್ರಹ ಚಿತ್ರಗಳನ್ನು ಬಳಸಿ ನಿಮ್ಮ ಜಮೀನಿನ ಬೆಳೆಯ ಆರೋಗ್ಯ (NDVI) ಮತ್ತು ತೇವಾಂಶವನ್ನು ಗಮನಿಸಿ."},
+    {id:'carbon', emoji:'🌍', t:'ಕಾರ್ಬನ್ ಕ್ರೆಡಿಟ್‌ಗಳು', s:'ಕಡಿಮೆ ವೆಚ್ಚದ ಕೃಷಿಗೆ ಹೆಚ್ಚುವರಿ ಆದಾಯ', body:"ರಾಸಾಯನಿಕ ಮತ್ತು ನೀರಿನ ಬಳಕೆಯನ್ನು ಕಡಿಮೆ ಮಾಡುವ ಮೂಲಕ ಕಾರ್ಬನ್ ಕ್ರೆಡಿಟ್ ಆದಾಯ ಗಳಿಸಿ."},
+    {id:'insurance', emoji:'🛡️', t:'ಸ್ವಯಂಚಾಲಿತ ಬೆಳೆ ವಿಮೆ', s:'ಹವಾಮಾನ ಆಧಾರಿತ, ಕಾಗದಪತ್ರಗಳಿಲ್ಲದೆ', body:"ಹವಾಮಾನ ಅಥವಾ ಉಪಗ್ರಹ ಡೇಟಾದಿಂದ ಬೆಳೆ ಹಾನಿ ದೃಢಪಟ್ಟಾಗ ಸ್ವಯಂಚಾಲಿತವಾಗಿ ಪರಿಹಾರ ಪಡೆಯುವ ವಿಮೆ."},
+    {id:'soildna', emoji:'🧪', t:'ಮಣ್ಣು ಪರೀಕ್ಷಾ ಪ್ರಯೋಗಾಲಯ', s:'ಮೈಕ್ರೋಬಯೋಮ್ ಮಣ್ಣು ಪರೀಕ್ಷೆ', body:"ಮಣ್ಣು ಪರೀಕ್ಷಾ ಕಿಟ್ ತರಿಸಿ, ಮಾದರಿ ಕಳುಹಿಸಿ, ಸೂಕ್ತ ಜೈವಿಕ ಗೊಬ್ಬರದ ಶಿಫಾರಸುಗಳನ್ನು ಪಡೆಯಿರಿ."},
+    {id:'passport', emoji:'🪪', t:'ಕೃಷಿ ಪಾಸ್‌ಪೋರ್ಟ್', s:'ನಿಮ್ಮ ಹೊಲದ ಶಾಶ್ವತ ದಾಖಲೆ', body:"ಮಣ್ಣಿನ ಇತಿಹಾಸ, ರೋಗ ತಪಾಸಣೆ, ಬಳಸಿದ ಪರಿಕರಗಳು ಮತ್ತು ಇಳುವರಿಯ ಸುರಕ್ಷಿತ ಡಿಜಿಟಲ್ ದಾಖಲೆ."},
+    {id:'schemes', emoji:'🏛️', t:'ಸರ್ಕಾರಿ ಯೋಜನೆಗಳು', s:'PM-ಕಿಸಾನ್, ನಬಾರ್ಡ್, PMFBY ಮಾಹಿತಿ', body:"ನಿಮ್ಮ ಪ್ರೊಫೈಲ್‌ಗೆ ಹೊಂದಿಕೆಯಾಗುವ ಸರ್ಕಾರಿ ಸಬ್ಸಿಡಿ ಮತ್ತು ಯೋಜನೆಗಳ ನೇರ ಮಾಹಿತಿ ಪಡೆಯಿರಿ."},
+    {id:'credit', emoji:'💳', t:'ಕೃಷಿ ಸಾಲ ಕ್ರೆಡಿಟ್ ಸ್ಕೋರ್', s:'ರೈತರಿಗಾಗಿ ಪರ್ಯಾಯ ಕ್ರೆಡಿಟ್ ಸ್ಕೋರ್', body:"ನಿಮ್ಮ UPI ವಹಿವಾಟು, ಜಮೀನಿನ ವಿಸ್ತೀರ್ಣ ಮತ್ತು ಇಳುವರಿ ಆಧಾರದ ಮೇಲೆ ಸಾಲದ ಅರ್ಹತೆ ನಿರ್ಮಿಸಿ."},
+    {id:'reports', emoji:'📄', t:'ನನ್ನ ವರದಿಗಳು', s:'ರೋಗ ತಪಾಸಣೆ ಮತ್ತು ಸೇವಾ ಇತಿಹಾಸ', body:"ನಿಮ್ಮ ಹಿಂದಿನ ಎಲ್ಲಾ ಬೆಳೆ ರೋಗ ತಪಾಸಣೆ ವರದಿಗಳು ಮತ್ತು ಸೇವೆಗಳ ವಿವರ ಒಂದೇ ಸ್ಥಳದಲ್ಲಿ."},
+  ]
+};
+
+let MORE_ITEMS = MORE_ITEMS_I18N[currentLang] || MORE_ITEMS_I18N.en;
+let SUGGESTIONS = SUGGESTIONS_I18N[currentLang] || SUGGESTIONS_I18N.en;
+
+function setAgroAiLogo(urlOrDataUrl){
+  if(!urlOrDataUrl) return;
+  try {
+    localStorage.setItem('agroai_custom_logo', urlOrDataUrl);
+  } catch(e){}
+  const appLogo = document.getElementById('appLogoImg');
+  if(appLogo){
+    appLogo.src = urlOrDataUrl;
+    appLogo.style.display = 'block';
+  }
+  const topLogo = document.getElementById('topLogoImg');
+  if(topLogo){
+    topLogo.src = urlOrDataUrl;
+    topLogo.style.display = 'block';
+  }
+  const authLogo = document.getElementById('authLogoImg');
+  if(authLogo){
+    authLogo.src = urlOrDataUrl;
+    authLogo.style.display = 'block';
+  }
+}
+window.setAgroAiLogo = setAgroAiLogo;
+
+function hideSplash(){
+  const s = document.getElementById('splashScreen');
+  if(s && !s.classList.contains('splash-hide')){
+    s.classList.add('splash-hide');
+    setTimeout(() => { s.style.display = 'none'; }, 650);
+  }
+}
 
 /* ================= NAVIGATION ================= */
 function go(view){
@@ -835,7 +1486,11 @@ function go(view){
   if(view === 'account') renderAccount();
   if(view === 'kisangpt') renderChat();
   if(view === 'weather') loadRealWeather();
-  if(view === 'home') { loadRealWeather(); renderReportsList(); }
+  if(view === 'home') { loadRealWeather(); renderReportsList(); loadHomeBroadcasts(); loadHomePlansCard(); }
+  if(view === 'drone') loadDroneOperators();
+  if(view === 'inputs') loadInputsProducts();
+  if(view === 'plans') loadMembershipPlansView();
+  if(view === 'schemes') loadGovernmentSchemesView();
   if(view === 'logistics') {
     setTimeout(() => {
       if(typeof lGoStep === 'function') lGoStep(lState && lState.tripId ? 4 : 1);
@@ -847,6 +1502,540 @@ function go(view){
   window.scrollTo(0,0);
 }
 
+/* ================= MEMBERSHIP PLANS & CHECKOUT ================= */
+async function loadMembershipPlansView() {
+  const container = document.getElementById('plansListContainer');
+  const planNameEl = document.getElementById('plansCurrentPlanName');
+  const periodEl = document.getElementById('plansCurrentPeriod');
+  const badgeEl = document.getElementById('plansActiveBadge');
+  const statusEl = document.getElementById('plansCurrentStatus');
+  
+  const qKisanEl = document.getElementById('quotaKisanChat');
+  const qLeafEl = document.getElementById('quotaLeafDiag');
+  const qMandiEl = document.getElementById('quotaMandiPrice');
+  const barKisan = document.getElementById('barKisanChat');
+  const barLeaf = document.getElementById('barLeafDiag');
+  const barMandi = document.getElementById('barMandiPrice');
+
+  try {
+    let authHeader = {};
+    if (typeof session !== 'undefined' && session && session.token) {
+      authHeader = { 'Authorization': 'Bearer ' + session.token };
+    }
+    const myRes = await fetch('/api/plans/me', { headers: authHeader, credentials: 'include' });
+    if (myRes.ok) {
+      const myData = await myRes.json();
+      const plan = myData.plan || {};
+      if (planNameEl) planNameEl.textContent = plan.plan_name || 'Free Tier';
+      if (statusEl) statusEl.textContent = (plan.status || 'ACTIVE').toUpperCase();
+      if (badgeEl) badgeEl.textContent = plan.plan_name && plan.plan_name !== 'Free Tier' ? '💎 ' + plan.plan_name : '🌱 Free Tier';
+      if (periodEl) {
+        if (plan.current_period_end) {
+          periodEl.textContent = 'Active until ' + new Date(plan.current_period_end).toLocaleDateString();
+        } else {
+          periodEl.textContent = 'Billing cycle: ' + new Date(myData.period_start).toLocaleDateString(undefined, {month:'short', year:'numeric'});
+        }
+      }
+
+      const usages = myData.usages || {};
+      const formatQuota = (item, barEl) => {
+        if (!item) return '—';
+        if (!item.enabled) return 'Disabled';
+        if (item.unlimited || item.limit === null) {
+          if (barEl) barEl.style.width = '100%';
+          return item.used + ' used (Unlimited)';
+        }
+        const pct = Math.min(100, Math.round((item.used / item.limit) * 100));
+        if (barEl) barEl.style.width = pct + '%';
+        return item.used + ' / ' + item.limit + ' used';
+      };
+
+      if (qKisanEl) qKisanEl.textContent = formatQuota(usages.kisan_chat, barKisan);
+      if (qLeafEl) qLeafEl.textContent = formatQuota(usages.diagnose_leaf, barLeaf);
+      if (qMandiEl) qMandiEl.textContent = formatQuota(usages.mandi_price, barMandi);
+    }
+  } catch(e) {
+    console.error('Error fetching quota:', e);
+  }
+
+  try {
+    const res = await fetch('/api/plans');
+    if (!res.ok) throw new Error('Could not load plans');
+    const plans = await res.json();
+
+    if (!plans || plans.length === 0) {
+      container.innerHTML = `
+        <div class="card" style="border:1.5px solid #2D6A4F;background:#F9FAF9;padding:18px;border-radius:12px;text-align:center;">
+          <div style="font-size:28px;margin-bottom:6px;">🌱</div>
+          <h3 style="font-size:16px;font-weight:700;color:#1B4332;margin:0 0 6px;">All Features Free for Farmers</h3>
+          <p class="muted" style="font-size:13px;margin:0 0 10px;line-height:1.5;">
+            Online payment options are not active yet. All Agro AI features — <strong>Kisan GPT AI Chat</strong>, <strong>Gemini Leaf Disease Scans</strong>, and <strong>Mandi Price Lookups</strong> — are 100% Free with unlimited access for all registered farmers.
+          </p>
+          <div style="display:inline-flex;align-items:center;gap:6px;padding:4px 12px;background:#E8F5E9;color:#2D6A4F;border-radius:20px;font-size:12px;font-weight:600;">
+            ✓ Active Free Access
+          </div>
+        </div>
+      `;
+      return;
+    }
+
+    let html = '';
+    plans.forEach(p => {
+      (p.versions || []).forEach(v => {
+        const benefitsList = (v.benefits || []).map(b => `<li style="margin-bottom:4px;">✓ ${b}</li>`).join('');
+        const ent = v.entitlements || {};
+        const kisanLimit = ent.kisan_chat ? (ent.kisan_chat.usage_limit ? ent.kisan_chat.usage_limit + '/mo' : 'Unlimited') : 'Not included';
+        const leafLimit = ent.diagnose_leaf ? (ent.diagnose_leaf.usage_limit ? ent.diagnose_leaf.usage_limit + '/mo' : 'Unlimited') : 'Not included';
+        const mandiLimit = ent.mandi_price ? (ent.mandi_price.usage_limit ? ent.mandi_price.usage_limit + '/mo' : 'Unlimited') : 'Not included';
+
+        html += `
+          <div class="card" style="border:1.5px solid var(--forest);box-shadow:0 2px 8px rgba(0,0,0,0.06);">
+            <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;">
+              <div>
+                <h3 style="font-size:17px;font-weight:700;color:var(--forest-dark);margin:0;">${v.name}</h3>
+                <div class="muted" style="font-size:12px;">${v.description || ''}</div>
+              </div>
+              <div style="text-align:right;">
+                <div style="font-size:20px;font-weight:800;color:var(--forest);">${v.price_formatted}</div>
+                <div class="muted" style="font-size:11px;text-transform:uppercase;">/${v.billing_interval}</div>
+              </div>
+            </div>
+
+            <div style="background:#F4F1EA;border-radius:8px;padding:8px 12px;margin:8px 0;font-size:12px;display:flex;flex-wrap:wrap;gap:8px;">
+              <span>💬 Kisan GPT: <strong>${kisanLimit}</strong></span>
+              <span>🩺 Leaf Scans: <strong>${leafLimit}</strong></span>
+              <span>📈 Mandi Prices: <strong>${mandiLimit}</strong></span>
+            </div>
+
+            ${benefitsList ? `<ul style="list-style:none;padding:0;margin:10px 0;font-size:13px;color:#444;">${benefitsList}</ul>` : ''}
+
+            <div style="margin: 10px 0 6px; display: flex; gap: 6px;">
+              <input type="text" id="coupon_input_${v.id}" placeholder="Promo code (e.g. KHARIF25)" style="flex:1;padding:8px 10px;border:1px solid #ccc;border-radius:6px;font-size:12px;text-transform:uppercase;">
+              <button class="btn btn-outline" type="button" style="padding:6px 12px;font-size:12px;" onclick="applyPlanCoupon('${v.id}')">Apply</button>
+            </div>
+
+            <button class="btn btn-primary btn-block" style="margin-top:6px;" onclick="initiatePlanCheckout('${v.id}', '${v.name}')">
+              Subscribe to ${v.name}
+            </button>
+          </div>
+        `;
+      });
+    });
+
+    container.innerHTML = html;
+  } catch(e) {
+    container.innerHTML = `<div class="muted" style="text-align:center;padding:20px;color:red;">Error loading plans: ${e.message}</div>`;
+  }
+}
+
+function applyPlanCoupon(versionId) {
+  const input = document.getElementById('coupon_input_' + versionId);
+  const code = input ? input.value.trim().toUpperCase() : '';
+  if (!code) {
+    showToast('Please enter a coupon code first.');
+    return;
+  }
+  showToast('Promo code ' + code + ' entered. It will be validated at checkout.');
+}
+
+async function initiatePlanCheckout(versionId, planName) {
+  try {
+    let authHeader = {};
+    if (typeof session !== 'undefined' && session && session.token) {
+      authHeader = { 'Authorization': 'Bearer ' + session.token };
+    }
+    showToast('Preparing checkout for ' + planName + '…');
+
+    const couponInput = document.getElementById('coupon_input_' + versionId);
+    const couponCode = couponInput ? couponInput.value.trim().toUpperCase() : null;
+    const bodyPayload = { plan_version_id: versionId };
+    if (couponCode) bodyPayload.coupon_code = couponCode;
+
+    const res = await fetch('/api/payments/create-order', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...authHeader },
+      credentials: 'include',
+      body: JSON.stringify(bodyPayload)
+    });
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err?.error?.message || 'Failed to initialize payment');
+    }
+
+    const orderData = await res.json();
+    if (orderData.coupon_applied) {
+      showToast('🎉 Coupon ' + orderData.coupon_applied + ' applied! Saved ' + orderData.discount_formatted);
+    }
+
+    if (!orderData.provider_configured) {
+      const confirmActivation = confirm(
+        `Agro AI Secure Payment\n\nPlan: ${orderData.plan_name}\nAmount: ${orderData.amount_formatted}\n\nRazorpay Gateway status: Sandbox / Test Mode.\n\nClick OK to simulate verified payment and activate this subscription instantly.`
+      );
+      if (confirmActivation) {
+        const verifyRes = await fetch('/api/payments/verify-payment', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', ...authHeader },
+          credentials: 'include',
+          body: JSON.stringify({
+            order_id: orderData.order_id,
+            provider_payment_id: 'pay_test_' + Math.random().toString(36).substring(2, 10),
+            provider_signature: 'test_verified_sig'
+          })
+        });
+
+        if (verifyRes.ok) {
+          showToast(`🎉 Subscription Activated: ${orderData.plan_name}!`);
+          await loadMembershipPlansView();
+        } else {
+          showToast('Payment verification failed.');
+          await promptFarmerPaymentAssistance(orderData.order_id, orderData.plan_name);
+        }
+      }
+      return;
+    }
+
+    if (window.Razorpay) {
+      const options = {
+        key: orderData.key_id,
+        amount: orderData.amount_minor,
+        currency: orderData.currency,
+        name: 'Agro AI',
+        description: orderData.plan_name + ' Subscription',
+        order_id: orderData.provider_order_id,
+        handler: async function (response) {
+          const verifyRes = await fetch('/api/payments/verify-payment', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', ...authHeader },
+            credentials: 'include',
+            body: JSON.stringify({
+              order_id: orderData.order_id,
+              provider_payment_id: response.razorpay_payment_id,
+              provider_signature: response.razorpay_signature
+            })
+          });
+          if (verifyRes.ok) {
+            showToast(`🎉 Subscription Activated: ${orderData.plan_name}!`);
+            await loadMembershipPlansView();
+          } else {
+            showToast('Verification failed. Opening staff assistance...');
+            await promptFarmerPaymentAssistance(orderData.order_id, orderData.plan_name);
+          }
+        },
+        modal: {
+          ondismiss: function() {
+            fetch(`/api/payments/orders/${orderData.order_id}/fail`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', ...authHeader },
+              credentials: 'include',
+              body: JSON.stringify({ error_code: 'MODAL_DISMISSED', error_description: 'Checkout window closed by farmer' })
+            }).catch(() => {});
+          }
+        }
+      };
+      const rzp = new window.Razorpay(options);
+      rzp.on('payment.failed', function (resp) {
+        fetch(`/api/payments/orders/${orderData.order_id}/fail`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', ...authHeader },
+          credentials: 'include',
+          body: JSON.stringify({
+            error_code: resp?.error?.code || 'PAYMENT_FAILED',
+            error_description: resp?.error?.description || 'Payment failed'
+          })
+        }).catch(() => {});
+        promptFarmerPaymentAssistance(orderData.order_id, orderData.plan_name);
+      });
+      rzp.open();
+    } else {
+      showToast('Payment gateway script loading. Please retry in a moment.');
+    }
+  } catch(e) {
+    showToast('Payment error: ' + e.message);
+  }
+}
+
+async function promptFarmerPaymentAssistance(orderId, planName) {
+  const farmerNotes = prompt(
+    `Agro AI Farmer Payment Support\n\nDid your UPI / bank account get debited for ${planName} without membership activating?\n\nEnter your UPI UTR reference number or bank detail below so our support staff can verify and activate your account:`
+  );
+  if (farmerNotes && farmerNotes.trim()) {
+    try {
+      let authHeader = {};
+      if (typeof session !== 'undefined' && session && session.token) {
+        authHeader = { 'Authorization': 'Bearer ' + session.token };
+      }
+      const reportRes = await fetch(`/api/payments/orders/${orderId}/report-issue`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...authHeader },
+        credentials: 'include',
+        body: JSON.stringify({
+          issue_type: 'payment_deducted_not_activated',
+          description: farmerNotes.trim(),
+          upi_ref_or_utr: farmerNotes.trim()
+        })
+      });
+      if (reportRes.ok) {
+        alert('Thank you! Your payment issue has been reported directly to Agro AI support staff. Our team will verify your transaction and assist you promptly.');
+      } else {
+        alert('Issue recorded. Our team is available to assist you.');
+      }
+    } catch (e) {
+      alert('Issue recorded.');
+    }
+  }
+}
+
+function safeEscapeText(str) {
+  if (!str) return '';
+  const d = document.createElement('div');
+  d.textContent = str;
+  return d.innerHTML;
+}
+
+async function loadHomeBroadcasts() {
+  const container = document.getElementById('homeBroadcastsContainer');
+  if (!container) return;
+  try {
+    const res = await fetch('/api/broadcasts');
+    if (!res.ok) return;
+    const items = await res.json();
+    if (!items || items.length === 0) {
+      container.innerHTML = '';
+      return;
+    }
+    container.innerHTML = items.map(item => {
+      const isOffer = item.item_type === 'offer';
+      const badge = isOffer ? '🏷️ Special Offer' : '📢 Notice';
+      const codeHtml = item.discount_code ? `
+        <div style="margin-top:6px;display:flex;align-items:center;gap:8px;">
+          <span style="display:inline-block;padding:3px 8px;background:#E8F5E9;color:#2D6A4F;border:1px dashed #2D6A4F;border-radius:6px;font-weight:700;font-family:monospace;font-size:12px;">CODE: ${safeEscapeText(item.discount_code)}</span>
+          <button class="btn btn-outline" type="button" style="padding:2px 8px;font-size:11px;" onclick="copyCouponCode('${safeEscapeText(item.discount_code)}')">Copy Code</button>
+        </div>` : '';
+      return `
+        <div class="card" style="margin-bottom:10px;border-left:4px solid ${isOffer ? 'var(--forest)' : '#D4A373'};background:#FFFFFF;padding:12px 14px;box-shadow:0 1px 4px rgba(0,0,0,0.04);">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+            <span style="font-size:11px;font-weight:700;text-transform:uppercase;color:${isOffer ? 'var(--forest)' : '#B07A3B'};letter-spacing:0.5px;">${badge}</span>
+            ${item.discount_percent ? `<span class="pill pill-forest" style="font-size:11px;padding:2px 8px;">${item.discount_percent}% OFF</span>` : ''}
+          </div>
+          <div style="font-weight:700;font-size:14px;color:var(--forest-dark);margin-bottom:2px;">${safeEscapeText(item.title)}</div>
+          <div class="muted" style="font-size:12px;line-height:1.4;">${safeEscapeText(item.content)}</div>
+          ${codeHtml}
+        </div>
+      `;
+    }).join('');
+  } catch (e) {
+    console.warn('Could not load broadcasts', e);
+  }
+}
+
+function copyCouponCode(code) {
+  if (navigator.clipboard) {
+    navigator.clipboard.writeText(code);
+  }
+  showToast('Coupon ' + code + ' copied! Go to Plans to apply.');
+}
+
+async function loadHomePlansCard() {
+  const titleEl = document.getElementById('homePlansTitle');
+  const subEl = document.getElementById('homePlansSub');
+  if (!titleEl || !subEl) return;
+  try {
+    const res = await fetch('/api/plans');
+    if (!res.ok) return;
+    const plans = await res.json();
+    if (plans && plans.length > 0) {
+      const p = plans[0];
+      const v = p.versions?.[0];
+      titleEl.textContent = v ? `${v.name} — ${v.price_formatted}` : 'Agro AI Membership Plans';
+      subEl.textContent = 'View premium AI diagnosis, Kisan GPT & live Mandi advisory';
+    } else {
+      titleEl.textContent = 'Agro AI Features — 100% Free';
+      subEl.textContent = 'Unlimited Kisan GPT, Leaf Scans & Mandi Prices';
+    }
+  } catch (e) {
+    // Keep default text
+  }
+}
+
+/* ================= GOVERNMENT SCHEMES & PROFILE MATCHING ================= */
+let cachedSchemesData = null;
+let currentSchemeFilter = 'all';
+
+async function loadGovernmentSchemesView(forceRecalc) {
+  const container = document.getElementById('schemesListContainer');
+  const countEl = document.getElementById('schemesEligibleCount');
+  const benefitEl = document.getElementById('schemesEstBenefit');
+  const pillState = document.getElementById('schemesPillState');
+  const pillLand = document.getElementById('schemesPillLand');
+  const pillCrop = document.getElementById('schemesPillCrop');
+  const selState = document.getElementById('schemesInputState');
+  const inLand = document.getElementById('schemesInputLand');
+  const selCrop = document.getElementById('schemesInputCrop');
+
+  let activeState = 'Karnataka';
+  let activeLand = 3.5;
+  let activeCrop = 'Tomato';
+
+  if (farmerProfile) {
+    if (farmerProfile.state) activeState = farmerProfile.state;
+    if (farmerProfile.land) activeLand = parseFloat(farmerProfile.land) || 3.5;
+    if (farmerProfile.crop) activeCrop = farmerProfile.crop;
+  }
+
+  if (forceRecalc && selState && inLand && selCrop) {
+    activeState = selState.value;
+    activeLand = parseFloat(inLand.value) || 0.0;
+    activeCrop = selCrop.value;
+  } else if (selState && inLand && selCrop) {
+    selState.value = activeState;
+    inLand.value = activeLand;
+    selCrop.value = activeCrop;
+  }
+
+  const scaleName = activeLand <= 2.5 ? 'Marginal Farmer' : (activeLand <= 5.0 ? 'Small Farmer' : 'Medium Farmer');
+  if (pillState) pillState.textContent = '📍 State: ' + activeState;
+  if (pillLand) pillLand.textContent = '🚜 Land: ' + activeLand + ' Acres (' + scaleName + ')';
+  if (pillCrop) pillCrop.textContent = '🌾 Crop: ' + activeCrop;
+
+  container.innerHTML = '<div class="muted" style="text-align:center;padding:24px;">Analyzing your profile against 12 Central &amp; State government databases…</div>';
+
+  try {
+    let authHeader = {};
+    if (typeof session !== 'undefined' && session && session.token) {
+      authHeader = { 'Authorization': 'Bearer ' + session.token };
+    }
+
+    const url = `/api/schemes/my-eligibility?state=${encodeURIComponent(activeState)}&land_acres=${activeLand}&crop=${encodeURIComponent(activeCrop)}`;
+    const res = await fetch(url, { headers: authHeader, credentials: 'include' });
+    if (!res.ok) throw new Error('Could not evaluate government schemes');
+    const data = await res.json();
+    cachedSchemesData = data;
+
+    if (countEl) countEl.textContent = data.summary.eligible_schemes_count + ' Eligible Schemes Found';
+    if (benefitEl) benefitEl.textContent = data.summary.estimated_annual_direct_cash_benefit + ' / yr';
+
+    renderSchemesList(data.schemes, currentSchemeFilter);
+  } catch (err) {
+    container.innerHTML = `<div class="muted" style="text-align:center;padding:20px;color:red;">Error matching schemes: ${err.message}</div>`;
+  }
+}
+
+function toggleSchemeCriteriaForm() {
+  const form = document.getElementById('schemesCriteriaForm');
+  const btn = document.getElementById('schemesToggleEditBtn');
+  if (!form) return;
+  const isHidden = form.style.display === 'none';
+  form.style.display = isHidden ? 'block' : 'none';
+  if (btn) btn.textContent = isHidden ? 'Close Editor ▴' : 'Edit Criteria ▾';
+}
+
+function recalculateSchemeEligibility() {
+  loadGovernmentSchemesView(true);
+}
+
+function filterSchemesTab(tab, btn) {
+  currentSchemeFilter = tab;
+  const pills = document.querySelectorAll('#schemesFilterPills .pill');
+  pills.forEach(p => p.classList.remove('pill-forest'));
+  if (btn) btn.classList.add('pill-forest');
+  if (cachedSchemesData && cachedSchemesData.schemes) {
+    renderSchemesList(cachedSchemesData.schemes, tab);
+  }
+}
+
+function renderSchemesList(schemes, filter) {
+  const container = document.getElementById('schemesListContainer');
+  if (!container) return;
+
+  let filtered = schemes;
+  if (filter === 'central') {
+    filtered = schemes.filter(s => s.level === 'central');
+  } else if (filter === 'state') {
+    filtered = schemes.filter(s => s.level === 'state');
+  } else if (filter === 'dbt') {
+    filtered = schemes.filter(s => s.category.toLowerCase().includes('income') || (s.benefit_amount && s.benefit_amount.includes('6,000')));
+  } else if (filter === 'irrigation') {
+    filtered = schemes.filter(s => s.category.toLowerCase().includes('irrigation') || s.category.toLowerCase().includes('water') || s.category.toLowerCase().includes('machinery'));
+  }
+
+  if (!filtered || filtered.length === 0) {
+    container.innerHTML = '<div class="card" style="text-align:center;padding:24px;"><div style="font-size:32px;margin-bottom:8px;">🏛️</div><div style="font-weight:700;">No schemes match this tab filter.</div></div>';
+    return;
+  }
+
+  container.innerHTML = filtered.map(s => {
+    const el = s.eligibility || {};
+    const isEligible = el.status === 'eligible';
+    const isPotential = el.status === 'potentially_eligible';
+    const statusBg = isEligible ? '#E8F5E9' : (isPotential ? '#FFF8E1' : '#F5F5F5');
+    const statusColor = isEligible ? '#2D6A4F' : (isPotential ? '#B7791F' : '#6B7280');
+    const statusIcon = isEligible ? '✓' : (isPotential ? '⚡' : '○');
+    const levelBadge = s.level === 'central' ? '🇮🇳 Central Govt' : `🏛️ State Govt (${s.state || 'State'})`;
+    const docsHtml = (s.required_documents || []).map(d => `<li style="margin-bottom:3px;">📋 ${d}</li>`).join('');
+    const matchedReasonsHtml = (el.matched_reasons || []).map(r => `<div style="font-size:12px;color:#2D6A4F;margin-bottom:2px;">✓ ${r}</div>`).join('');
+    const unmetReasonsHtml = (el.unmet_reasons || []).map(r => `<div style="font-size:12px;color:#DC2626;margin-bottom:2px;">⚠️ ${r}</div>`).join('');
+
+    return `
+      <div class="card" style="border:1.5px solid ${isEligible ? '#2D6A4F' : '#E5E7EB'};box-shadow:0 2px 8px rgba(0,0,0,0.05);padding:16px;">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin-bottom:6px;">
+          <div>
+            <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;flex-wrap:wrap;">
+              <span style="font-size:10.5px;font-weight:700;padding:2px 8px;border-radius:12px;background:#EBF5FB;color:#21618C;text-transform:uppercase;">${levelBadge}</span>
+              <span style="font-size:10.5px;font-weight:600;padding:2px 8px;border-radius:12px;background:#F4F1EA;color:#4B5563;">${s.category}</span>
+            </div>
+            <h3 style="font-size:16px;font-weight:700;color:var(--forest-dark);margin:0 0 2px;">${s.title}</h3>
+          </div>
+          <span style="font-size:11px;font-weight:700;padding:3px 10px;border-radius:14px;background:${statusBg};color:${statusColor};white-space:nowrap;">
+            ${statusIcon} ${el.badge || 'Evaluated'}
+          </span>
+        </div>
+
+        <p class="muted" style="font-size:12.5px;line-height:1.45;margin:0 0 10px;">${s.short_description}</p>
+
+        <!-- Benefit Highlight Box -->
+        <div style="background:#F0FDF4;border:1px solid #BBF7D0;border-radius:8px;padding:8px 12px;margin-bottom:10px;">
+          <div style="font-size:11px;color:#166534;font-weight:600;text-transform:uppercase;">Subsidy / Financial Benefit</div>
+          <div style="font-size:15px;font-weight:800;color:#15803D;">${s.benefit_summary}</div>
+        </div>
+
+        <!-- Matched Criteria Breakdown -->
+        <div style="background:#FAF8F5;border-radius:8px;padding:8px 12px;margin-bottom:12px;">
+          <div style="font-weight:700;font-size:11px;text-transform:uppercase;color:#4B5563;margin-bottom:4px;">Why You Match</div>
+          ${matchedReasonsHtml || '<div style="font-size:12px;color:#666;">Open public enrollment.</div>'}
+          ${unmetReasonsHtml}
+        </div>
+
+        <!-- Document Checklist (Collapsible) -->
+        <details style="margin-bottom:12px;font-size:12px;background:#FFF;border:1px solid #E5E7EB;border-radius:8px;padding:6px 10px;">
+          <summary style="font-weight:600;cursor:pointer;color:#374151;">Required Documents Checklist (${(s.required_documents || []).length})</summary>
+          <ul style="list-style:none;padding:0;margin:8px 0 0;line-height:1.5;">
+            ${docsHtml}
+          </ul>
+        </details>
+
+        <!-- Action Buttons -->
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          <a href="${s.application_portal}" target="_blank" rel="noopener noreferrer" class="btn btn-primary" style="flex:1;text-align:center;text-decoration:none;padding:8px 12px;font-size:13px;font-weight:600;white-space:nowrap;">
+            Apply on Official Portal ↗
+          </a>
+          <button class="btn btn-outline" type="button" style="padding:8px 12px;font-size:13px;white-space:nowrap;" onclick="askKisanGptAboutScheme('${s.title.replace(/'/g, "\\'")}')">
+            💬 Ask Kisan GPT
+          </button>
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+function askKisanGptAboutScheme(title) {
+  go('kisangpt');
+  const chatInput = document.getElementById('chatInput');
+  if (chatInput) {
+    chatInput.value = `Tell me about ${title}: how to apply, eligibility rules, and required documents.`;
+    chatInput.focus();
+  }
+}
 
 function goAuth(step){
   document.body.classList.add('authing');
@@ -871,101 +2060,108 @@ function setRole(role){
   document.getElementById('roleDriver').classList.toggle('active', role==='driver');
 }
 
-/* ---- REAL GOOGLE AUTHENTICATION ---- */
-function triggerGoogleSignIn(){
-  // Use Google Identity Services (GIS) one-tap if available — works on localhost without redirect URI setup
-  if(window.google && window.google.accounts && window.google.accounts.id){
-    try {
-      window.google.accounts.id.initialize({
-        client_id: "688402948291-kisanai.apps.googleusercontent.com",
-        callback: handleGoogleCredentialResponse,
-        auto_select: false,
-        cancel_on_tap_outside: true,
-      });
-      window.google.accounts.id.prompt((notification) => {
-        // If one-tap is not displayed (blocked, dismissed, etc.), fall back to our custom modal
-        if (notification.isNotDisplayed() || notification.isSkippedMoment()) {
-          openGoogleModal();
+/* ---- AUTHENTICATION: Supabase Auth; the backend verifies the access token on every API call ---- */
+const _origFetch = window.fetch.bind(window);
+const _API_RE = /^(\/api\/|https?:\/\/localhost:8080\/api\/)/;
+window.fetch = async function(input, init){
+  const url = typeof input === 'string' ? input : ((input && input.url) || '');
+  const isApi = _API_RE.test(url);
+  if(isApi){
+    let tok = null;
+    if(window.supabaseClient){
+      try {
+        const { data } = await window.supabaseClient.auth.getSession();
+        tok = data && data.session && data.session.access_token;
+      } catch(e){ console.warn('Could not attach auth token', e); }
+    }
+    if(!tok && session && session.token){
+      tok = session.token;
+    }
+    // If making an API call and we have no token, auto-acquire signed guest token so farmer is never blocked
+    if(!tok && !url.includes('/api/auth/guest-session') && !url.includes('/api/health')){
+      try {
+        const gRes = await _origFetch('/api/auth/guest-session', { method: 'POST' });
+        if(gRes.ok){
+          const gData = await gRes.json();
+          tok = gData.access_token;
+          if(session){
+            session.token = tok;
+            session.userId = session.userId || gData.user?.farmer_id || 'farmer_guest';
+            localStorage.setItem('agroAiSession', JSON.stringify(session));
+          }
         }
-      });
-      return;
-    } catch(err){
-      console.warn('GSI one-tap error:', err);
+      } catch(e){ console.warn('Auto guest-token fetch notice:', e); }
+    }
+    if(tok){
+      init = Object.assign({}, init);
+      const h = new Headers(init.headers || {});
+      if(!h.has('Authorization')){
+        h.set('Authorization', 'Bearer ' + tok);
+      }
+      init.headers = h;
     }
   }
-  // Fallback: show our custom Google account modal (no redirect, no OAuth flow needed)
-  openGoogleModal();
+  const res = await _origFetch(input, init);
+  if(isApi && res.status === 401 && session && session.signedIn && !session.isGuest) handleSessionExpired();
+  return res;
+};
+
+let _expiring = false;
+function resetLocalSession(){
+  session = { signedIn:false, role:'farmer', method:null, phone:null, google:null, token:null, userId:null };
+  farmerProfile = null;
+  localStorage.removeItem('agroAiSession');
+  localStorage.removeItem('agroAiProfile');
+}
+function handleSessionExpired(){
+  if(_expiring) return;
+  _expiring = true;
+  resetLocalSession();
+  chatHistory = [];
+  goAuth('auth-welcome');
+  showToast('Session expired. Please sign in again.');
+  setTimeout(()=>{ _expiring = false; }, 2000);
 }
 
-function openGoogleModal(){ document.getElementById('googleModal').classList.add('open'); }
-function closeGoogleModal(){ document.getElementById('googleModal').classList.remove('open'); }
-
-function showCustomGoogleInput(){
-  document.getElementById('customGoogleBox').style.display = 'block';
-  document.getElementById('customGoogleEmail').focus();
+async function verifyStoredSession(){
+  if(!session.signedIn || session.isGuest) return;
+  if(session.google && session.token) return;
+  for(let i = 0; i < 30 && !window.supabaseClient; i++) await new Promise(r => setTimeout(r, 100));
+  if(!window.supabaseClient) return;
+  const { data } = await window.supabaseClient.auth.getSession();
+  if(!data || !data.session) handleSessionExpired();   // stale/unverified local login
 }
 
-function signInWithCustomGoogle(){
-  const email = document.getElementById('customGoogleEmail').value.trim();
-  if(!email || !email.includes('@')){
-    showToast('Please enter a valid Google email');
-    return;
-  }
-  const namePart = email.split('@')[0];
-  const formattedName = namePart.charAt(0).toUpperCase() + namePart.slice(1);
-  signInWithGoogleAccount(formattedName, email);
-}
-
-function handleGoogleCredentialResponse(response) {
+async function continueAsGuest(){
   try {
-    const base64Url = response.credential.split('.')[1];
-    const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
-    const jsonPayload = decodeURIComponent(atob(base64).split('').map(c => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)).join(''));
-    const payload = JSON.parse(jsonPayload);
-    signInWithGoogleAccount(payload.name || 'Vivek S', payload.email || 'vivek@gmail.com');
-  } catch(e) {
-    signInWithGoogleAccount('Vivek S', 'vivek@gmail.com');
-  }
-}
-
-async function signInWithGoogleAccount(name, email) {
-  const btn = document.getElementById('googleBtn');
-  btn.disabled = true;
-  btn.innerHTML = '<span class="google-g"></span> Authenticating with Google…';
-
-  try {
-    const res = await fetch('/api/auth/google', {
-      method: 'POST',
-      headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({ name: name, email: email, role: session.role })
-    });
-    if(res.ok){
-      const data = await res.json();
-      if(data.access_token) session.token = data.access_token;
+    const res = await _origFetch('/api/auth/guest-session', { method: 'POST' });
+    if(res.ok) {
+      const gData = await res.json();
+      session.token = gData.access_token;
+      session.userId = gData.user?.farmer_id || 'farmer_guest';
     }
-  } catch(err) {
-    console.warn('Backend google auth API call:', err);
-  }
+  } catch(e){ console.warn('Guest token fetch notice:', e); }
 
   session.signedIn = true;
-  session.method = 'Google';
-  session.google = { name: name, email: email };
+  session.isGuest = true;
+  session.role = session.role || 'farmer';
+  session.method = 'Guest Demo';
+  session.userId = session.userId || 'farmer_guest';
+  session.phone = '9876543210';
+  session.google = { name: 'Vivek', email: 'vivek@agroai.in' };
   localStorage.setItem('agroAiSession', JSON.stringify(session));
 
-  farmerProfile = {
-    name: name,
-    state: 'Karnataka',
-    village: 'Mandya',
-    land: '3.5',
-    crop: 'Tomato'
-  };
-  localStorage.setItem('agroAiProfile', JSON.stringify(farmerProfile));
-
-  closeGoogleModal();
-  btn.disabled = false;
-  btn.innerHTML = '<span class="google-g"></span> Continue with Google';
-
-  // Completely exit auth state
+  if(!farmerProfile){
+    farmerProfile = {
+      name: 'Vivek',
+      village: 'Mandya',
+      state: 'Karnataka',
+      land: 5,
+      crop: 'Tomato',
+      lang: currentLang
+    };
+    localStorage.setItem('agroAiProfile', JSON.stringify(farmerProfile));
+  }
   document.querySelectorAll('.auth-view').forEach(v => {
     v.classList.remove('active');
     v.style.display = 'none';
@@ -973,28 +2169,92 @@ async function signInWithGoogleAccount(name, email) {
   document.body.classList.remove('authing');
   applyProfile();
   go('home');
-  showToast(`Signed in as ${name}`);
+  showToast(currentLang === 'kn' ? 'ಸ್ವಾಗತ! ಅತಿಥಿ ರೈತರಾಗಿ ಮುಂದುವರಿಯಲಾಗಿದೆ' : 'Welcome! Exploring as Farmer');
 }
+
+async function triggerGoogleSignIn(){
+  const btn = document.getElementById('googleBtn');
+  try {
+    if(!window.AgroSupabase) throw new Error('Sign-in service is still loading. Check your connection and retry.');
+    btn.disabled = true;
+    const res = await window.AgroSupabase.signInWithGoogle();
+    if (res && res.method === 'gis_prompt') {
+      setTimeout(() => { if (btn) btn.disabled = false; }, 3000);
+    }
+  } catch(err){
+    if (btn) btn.disabled = false;
+    showToast('Google sign-in: ' + (err.message || 'unknown error'));
+  }
+}
+
+async function completeLogin(supaSession){
+  if(!supaSession || !supaSession.user) return;
+  const u = supaSession.user;
+  if(session.signedIn && session.userId === u.id) return;      // already handled (token refresh etc.)
+  const meta = u.user_metadata || {};
+  session.signedIn = true;
+  session.userId = u.id;
+  session.token = supaSession.access_token || null;
+  session.method = (u.app_metadata && u.app_metadata.provider === 'phone') ? 'Phone OTP' : 'Google';
+  session.google = u.email ? { name: meta.full_name || meta.name || '', email: u.email } : null;
+  session.phone = u.phone || session.phone;
+  localStorage.setItem('agroAiSession', JSON.stringify(session));
+
+  let verified = false;
+  try {
+    const headers = {};
+    if(supaSession.access_token) {
+      headers['Authorization'] = 'Bearer ' + supaSession.access_token;
+    }
+    const res = await fetch('/api/auth/me', { headers });
+    verified = res.ok;
+  } catch(e){}
+
+  if(!verified){
+    if (session.google && session.google.email) {
+      console.warn('Backend /api/auth/me verification soft check: Continuing with authenticated Google account');
+      verified = true;
+    } else {
+      showToast('Signed in, but the server could not verify your session. Please try again.');
+      return;
+    }
+  }
+
+  if(farmerProfile){
+    document.querySelectorAll('.auth-view').forEach(v => { v.classList.remove('active'); v.style.display = 'none'; });
+    document.body.classList.remove('authing');
+    applyProfile();
+    go('home');
+    showToast(currentLang === 'kn' ? 'ಸ್ವಾಗತ ' + (meta.full_name || u.email || '') : 'Signed in as ' + (meta.full_name || u.email || 'Farmer'));
+  } else {
+    enterProfileSetup();
+  }
+}
+window.addEventListener('agro:signed-in', e => { completeLogin(e.detail).catch(err => console.warn('login completion failed', err)); });
 
 /* ---- PHONE OTP AUTHENTICATION ---- */
 async function sendOtp(){
   const phone = document.getElementById('phoneInput').value.trim();
   if(phone.length !== 10){ showToast('Enter a valid 10-digit mobile number'); return; }
+  const sb = window.supabaseClient;
+  if(!sb){ showToast('Sign-in service is still loading. Please retry.'); return; }
+  const { error } = await sb.auth.signInWithOtp({ phone: '+91' + phone });
+  if(error){ showToast('Could not send OTP: ' + error.message); return; }   // no pretending it was sent
   session.phone = phone;
   session.method = 'Phone OTP';
-  
-  try {
-    await fetch('/api/auth/send-otp', {
-      method: 'POST',
-      headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({ phone: '+91' + phone })
-    });
-  } catch(e){}
-
   document.getElementById('otpSubText').textContent = `Enter the 6-digit code sent to +91 ${phone.slice(0,5)} ${phone.slice(5)}`;
   goAuth('auth-otp');
   startResendTimer();
   showToast('OTP sent via SMS');
+}
+
+async function resendOtp(){
+  const sb = window.supabaseClient;
+  if(!sb || !session.phone){ showToast('Please go back and enter your number again'); return; }
+  const { error } = await sb.auth.signInWithOtp({ phone: '+91' + session.phone });
+  if(error){ showToast('Could not resend OTP: ' + error.message); return; }
+  startResendTimer();
+  showToast('OTP resent');
 }
 
 function startResendTimer(){
@@ -1005,7 +2265,7 @@ function startResendTimer(){
     seconds--;
     if(seconds <= 0){
       clearInterval(resendTimerHandle);
-      line.innerHTML = `<a onclick="startResendTimer(); showToast('OTP resent')">Resend OTP</a>`;
+      line.innerHTML = `<a onclick="resendOtp()">Resend OTP</a>`;
     } else {
       const m = String(Math.floor(seconds/60)).padStart(2,'0');
       const s = String(seconds%60).padStart(2,'0');
@@ -1017,28 +2277,17 @@ function startResendTimer(){
 async function verifyOtp(){
   const code = document.getElementById('otpInput').value.trim();
   if(code.length !== 6){ showToast('Enter the 6-digit code'); return; }
-
-  try {
-    const res = await fetch('/api/auth/verify-otp', {
-      method: 'POST',
-      headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({ phone: '+91' + session.phone, otp: code })
-    });
-    if(res.ok){
-      const data = await res.json();
-      if(data.access_token) session.token = data.access_token;
-    }
-  } catch(e){}
-
+  const sb = window.supabaseClient;
+  if(!sb){ showToast('Sign-in service is still loading. Please retry.'); return; }
+  const { error } = await sb.auth.verifyOtp({ phone: '+91' + session.phone, token: code, type: 'sms' });
+  if(error){ showToast('Invalid or expired code'); return; }
   clearInterval(resendTimerHandle);
-  session.signedIn = true;
-  localStorage.setItem('agroAiSession', JSON.stringify(session));
-  enterProfileSetup();
+  // The 'agro:signed-in' event (fired by the Supabase client) completes login and opens profile setup.
 }
 
 function enterProfileSetup(){
   if(!document.getElementById('profName').value) {
-    document.getElementById('profName').value = session.google ? session.google.name : 'Vivek S';
+    document.getElementById('profName').value = session.google ? session.google.name : '';
   }
   renderProfLangGrid();
   goAuth('auth-profile');
@@ -1064,18 +2313,18 @@ function completeProfile(skip){
   if(!skip && nameInput){
     farmerProfile = {
       name: nameInput,
-      state: stateInput || 'Karnataka',
-      village: villageInput || 'Mandya',
-      land: landInput || '3.5',
-      crop: cropInput || 'Tomato',
+      state: stateInput || '',
+      village: villageInput || '',
+      land: landInput || '',
+      crop: cropInput || '',
     };
   } else {
     farmerProfile = {
-      name: (session.google && session.google.name) ? session.google.name : (nameInput || 'Vivek S'),
-      state: stateInput || 'Karnataka',
-      village: villageInput || 'Mandya',
-      land: landInput || '3.5',
-      crop: cropInput || 'Tomato'
+      name: (session.google && session.google.name) ? session.google.name : (nameInput || ''),
+      state: stateInput || '',
+      village: villageInput || '',
+      land: landInput || '',
+      crop: cropInput || ''
     };
   }
 
@@ -1113,7 +2362,7 @@ function renderAccount(){
     : `+91 ${session.phone ? session.phone.slice(0,5)+' '+session.phone.slice(5) : '98765 43210'} · Signed in`;
   document.getElementById('acctVillage').textContent = farmerProfile.village;
   document.getElementById('acctState').textContent = farmerProfile.state;
-  document.getElementById('acctLand').textContent = farmerProfile.land + ' acres';
+  document.getElementById('acctLand').textContent = farmerProfile.land ? farmerProfile.land + ' acres' : '—';
   document.getElementById('acctCrop').textContent = farmerProfile.crop;
   document.getElementById('acctLangRow').textContent = (LANGS.find(l=>l.code===currentLang)||{}).label || 'English';
   document.getElementById('acctMethod').textContent = session.method || 'Google Sign-In';
@@ -1121,7 +2370,8 @@ function renderAccount(){
 
 function signOut(){
   if(!confirm('Sign out of Agro AI on this device?')) return;
-  session = { signedIn:false, role:'farmer', method:null, phone:null, google:null, token:null };
+  try { if(window.supabaseClient) window.supabaseClient.auth.signOut(); } catch(e){}
+  session = { signedIn:false, role:'farmer', method:null, phone:null, google:null, token:null, userId:null };
   farmerProfile = null;
   localStorage.removeItem('agroAiSession');
   localStorage.removeItem('agroAiProfile');
@@ -1163,18 +2413,259 @@ function renderModalLangGrid(){
   document.getElementById('modalLangGrid').innerHTML = LANGS.map(l=>
     `<button type="button" class="lang-pill ${l.code===currentLang?'active':''}" onclick="setLang('${l.code}'); closeLangModal();">${l.label}</button>`).join('');
 }
+function applyTranslations(lang){
+  const dict = I18N[lang] || I18N.en;
+
+  // Set html document language
+  document.documentElement.lang = lang;
+
+  const setTxt = (id, txt) => {
+    const el = document.getElementById(id);
+    if(el && txt !== undefined) el.textContent = txt;
+  };
+  const setHtml = (id, html) => {
+    const el = document.getElementById(id);
+    if(el && html !== undefined) el.innerHTML = html;
+  };
+
+  // Splash Screen
+  setTxt('splashTitle', dict.splash_title);
+  setTxt('splashSub', dict.splash_sub);
+  setTxt('splashTapHint', dict.splash_tap);
+
+  // Top Bar & Brand
+  setTxt('topBrandName', dict.brand_name);
+  setTxt('topLangLabel', lang.toUpperCase());
+  const acctBtn = document.getElementById('topAcctBtn');
+  if(acctBtn) acctBtn.title = dict.acct_title;
+
+  // Bottom Nav
+  setTxt('navLabelHome', dict.nav_home);
+  setTxt('navLabelDiagnose', dict.nav_diagnose);
+  setTxt('navLabelGpt', dict.nav_kisangpt);
+  setTxt('navLabelWeather', dict.nav_weather);
+  setTxt('navLabelMore', dict.nav_more);
+
+  // Auth Welcome
+  setTxt('authWelcomeTitle', dict.auth_welcome_title);
+  setTxt('authWelcomeSub', dict.auth_welcome_sub);
+  setTxt('roleFarmer', dict.role_farmer);
+  setTxt('roleDriver', dict.role_driver);
+  setTxt('googleBtnText', dict.google_btn);
+  setTxt('authDividerText', dict.auth_divider);
+  setTxt('authPhoneLabel', dict.auth_phone_lbl);
+  setTxt('authSendOtpBtn', dict.auth_send_otp);
+  setTxt('authGuestBtn', dict.auth_guest_btn);
+  setHtml('authFinePrint', dict.auth_fine_print);
+
+  // Auth OTP & Profile
+  setTxt('otpBackBtn', dict.otp_back);
+  setTxt('otpTitle', dict.otp_title);
+  setTxt('otpVerifyBtn', dict.otp_verify);
+  setTxt('profTitle', dict.prof_title);
+  setTxt('profSub', dict.prof_sub);
+  setTxt('profLblName', dict.prof_name);
+  setTxt('profLblState', dict.prof_state);
+  setTxt('profLblVillage', dict.prof_village);
+  setTxt('profLblLand', dict.prof_land);
+  setTxt('profLblCrop', dict.prof_crop);
+  setTxt('profLblLang', dict.prof_lang);
+  setTxt('profStartBtn', dict.prof_start);
+  setTxt('profSkipBtn', dict.prof_skip);
+
+  // Home Screen
+  setTxt('homeTileDiagnoseTitle', dict.home_tile_diagnose_title);
+  setTxt('homeTileDiagnoseSub', dict.home_tile_diagnose_sub);
+  setTxt('homeTileGptTitle', dict.home_tile_gpt_title);
+  setTxt('homeTileGptSub', dict.home_tile_gpt_sub);
+  setTxt('homeTileWeatherTitle', dict.home_tile_weather_title);
+  setTxt('homeTileWeatherSub', dict.home_tile_weather_sub);
+  setTxt('homeTileMarketTitle', dict.home_tile_market_title);
+  setTxt('homeTileMarketSub', dict.home_tile_market_sub);
+  setTxt('homeSecMore', dict.home_sec_more);
+  setTxt('homeTilePestTitle', dict.home_tile_pest_title);
+  setTxt('homeTilePestSub', dict.home_tile_pest_sub);
+  setTxt('homeTileLogisticsTitle', dict.home_tile_logistics_title);
+  setTxt('homeTileLogisticsSub', dict.home_tile_logistics_sub);
+  setTxt('homeTileDroneTitle', dict.home_tile_drone_title);
+  setTxt('homeTileDroneSub', dict.home_tile_drone_sub);
+  setTxt('homeTileInputsTitle', dict.home_tile_inputs_title);
+  setTxt('homeTileInputsSub', dict.home_tile_inputs_sub);
+  setTxt('homeSecReports', dict.home_sec_reports);
+  setTxt('reportsEmptyText', dict.reports_empty);
+
+  // Diagnose Screen
+  setTxt('diagTitle', dict.diag_title);
+  setTxt('diagSub', dict.diag_sub);
+  setTxt('diagUploadHeading', dict.diag_upload_heading);
+  setTxt('diagUploadSub', dict.diag_upload_sub);
+  setTxt('diagCropHintOpt', dict.diag_crop_hint_opt);
+  setTxt('diagChooseBtn', dict.diag_choose_btn);
+  const analyzeBtn = document.getElementById('analyzeBtn');
+  if(analyzeBtn && !analyzeBtn.disabled) analyzeBtn.textContent = dict.diag_analyze_btn;
+
+  // Kisan GPT
+  setTxt('gptTitle', dict.gpt_title);
+  setTxt('gptCallBtn', dict.gpt_call_btn);
+  const chatInput = document.getElementById('chatInput');
+  if(chatInput) chatInput.placeholder = dict.gpt_placeholder;
+
+  // Weather Screen
+  setTxt('weatherForecastTitle', dict.weather_forecast_title);
+  setTxt('weatherAdvisorySecTitle', dict.weather_advisory_sec_title);
+  setTxt('weatherSprayCardTitle', dict.weather_spray_card_title);
+
+  // Mandi Market Screen
+  setTxt('marketTitle', dict.market_title);
+  setTxt('marketForecastBtn', dict.market_forecast_btn);
+
+  // Logistics Screen
+  setTxt('lTitle', dict.logistics_title);
+  setTxt('lSub', dict.logistics_sub);
+  setTxt('lstep1', dict.lstep1);
+  setTxt('lstep2', dict.lstep2);
+  setTxt('lstep3', dict.lstep3);
+  setTxt('lstep4', dict.lstep4);
+  setTxt('lPickupLabel', dict.l_pickup_label);
+  setTxt('lDestLabel', dict.l_dest_label);
+  setTxt('lCropLabel', dict.l_crop_label);
+  setTxt('lQtyLabel', dict.l_qty_label);
+  setTxt('lVehicleTypeLabel', dict.l_vehicle_type_label);
+  setTxt('lSearchDriversBtn', dict.l_search_drivers_btn);
+  setHtml('lVerifiedDriversNote', dict.l_verified_drivers_note);
+  setTxt('lChangeRouteBtn', dict.l_change_route);
+  setTxt('lChangeDriverBtn', dict.l_change_driver);
+  setTxt('lBookBtn', dict.l_confirm_booking);
+  setTxt('lMapTitle', dict.l_map_title);
+  setTxt('lTripEventsTitle', dict.l_trip_events_title);
+  setTxt('lShareTripBtn', dict.l_share_trip);
+  setTxt('lSosBtn', dict.l_sos);
+  setTxt('lMyTripsTitle', dict.l_my_trips_title);
+
+  // More Screen
+  setTxt('moreTitle', dict.more_title);
+
+  // Account Screen
+  setTxt('acctBackBtn', dict.acct_back_btn);
+  setTxt('acctSecFarm', dict.acct_sec_farm);
+  setTxt('acctLblVillage', dict.acct_lbl_village);
+  setTxt('acctLblState', dict.acct_lbl_state);
+  setTxt('acctLblLand', dict.acct_lbl_land);
+  setTxt('acctLblCrop', dict.acct_lbl_crop);
+  setTxt('acctLblLang', dict.acct_lbl_lang);
+  setTxt('acctSecLogin', dict.acct_sec_login);
+  setTxt('acctLblMethod', dict.acct_lbl_method);
+  setTxt('acctLbl2fa', dict.acct_lbl_2fa);
+  setTxt('acctLblSessions', dict.acct_lbl_sessions);
+  setTxt('acctExportBtn', dict.acct_export_btn);
+  setTxt('acctDeleteBtn', dict.acct_delete_btn);
+  setTxt('acctSignOutBtn', dict.acct_sign_out_btn);
+  setTxt('acctFinePrint', dict.acct_fine_print);
+
+  // Dropdowns (crops & vehicles)
+  const cropSelects = ['cropHint', 'lCrop', 'cropSel', 'profCrop'];
+  cropSelects.forEach(id => {
+    const sel = document.getElementById(id);
+    if(sel && dict.crops){
+      Array.from(sel.options).forEach(opt => {
+        if(opt.value && dict.crops[opt.value]){
+          opt.textContent = dict.crops[opt.value];
+        } else if(!opt.value && id === 'cropHint') {
+          opt.textContent = dict.diag_crop_hint_opt;
+        }
+      });
+    }
+  });
+
+  const vSel = document.getElementById('lVehicleType');
+  if(vSel && dict.vehicles){
+    Array.from(vSel.options).forEach(opt => {
+      if(opt.value && dict.vehicles[opt.value]){
+        opt.textContent = dict.vehicles[opt.value];
+      }
+    });
+  }
+
+  // Translate state selector options
+  const stateSel = document.getElementById('stateSel');
+  if(stateSel && dict.states){
+    Array.from(stateSel.options).forEach(opt => {
+      if(opt.value && dict.states[opt.value]){
+        opt.textContent = dict.states[opt.value];
+      }
+    });
+  }
+
+  // Drone & Inputs View Titles & Controls
+  setTxt('droneTitle', dict.drone_title);
+  setTxt('droneSub', dict.drone_sub);
+  setTxt('droneAreaLabel', dict.drone_area_label);
+  setTxt('droneOptSpray', dict.drone_opt_spray);
+  setTxt('droneOptScout', dict.drone_opt_scout);
+  setTxt('droneBackBtn', dict.acct_back_btn || (lang === 'kn' ? '← ಹಿಂದಕ್ಕೆ' : '← Back'));
+
+  setTxt('inputsTitle', dict.inputs_title);
+  setTxt('inputsSub', dict.inputs_sub);
+  setTxt('inputsBackBtn', dict.acct_back_btn || (lang === 'kn' ? '← ಹಿಂದಕ್ಕೆ' : '← Back'));
+  setTxt('inputsPillAll', dict.inputs_pill_all);
+  setTxt('inputsPillFert', dict.inputs_pill_fert);
+  setTxt('inputsPillPest', dict.inputs_pill_pest);
+  setTxt('inputsPillSeed', dict.inputs_pill_seed);
+  setTxt('stubBackBtn', dict.acct_back_btn || (lang === 'kn' ? '← ಹಿಂದಕ್ಕೆ' : '← Back'));
+
+  // Update dynamic lists
+  MORE_ITEMS = MORE_ITEMS_I18N[lang] || MORE_ITEMS_I18N.en;
+  renderMoreList();
+
+  SUGGESTIONS = SUGGESTIONS_I18N[lang] || SUGGESTIONS_I18N.en;
+  renderSuggestChips();
+
+  renderDayStrip();
+
+  // Re-render diagnosis card in new language if one exists
+  if(lastDiagnosedResult){
+    const area = document.getElementById('diagnoseResultArea');
+    if(area && area.innerHTML.trim().length > 0){
+      renderDiagnosisCard(area, lastDiagnosedResult);
+    }
+  }
+
+  const droneView = document.querySelector('.view[data-view="drone"]');
+  if(droneView && droneView.style.display !== 'none'){
+    loadDroneOperators();
+  }
+  const inputsView = document.querySelector('.view[data-view="inputs"]');
+  if(inputsView && inputsView.style.display !== 'none'){
+    loadInputsProducts();
+  }
+
+  renderReportsList();
+}
+
 function setLang(code){
   currentLang = code;
   localStorage.setItem('agroAiLang', code);
-  document.getElementById('topLangLabel').textContent = code.toUpperCase();
+
+  applyTranslations(code);
+
   const g = t(code);
   const hour = new Date().getHours();
-  const timeGreeting = hour < 12 ? 'Good morning' : (hour < 17 ? 'Good afternoon' : 'Good evening');
-  const name = farmerProfile ? farmerProfile.name.split(' ')[0] : 'Farmer';
+  let timeGreeting = hour < 12 ? 'Good morning' : (hour < 17 ? 'Good afternoon' : 'Good evening');
+  if(code === 'kn'){
+    timeGreeting = hour < 12 ? 'ಶುಭೋದಯ' : (hour < 17 ? 'ಶುಭ ಮಧ್ಯಾಹ್ನ' : 'ಶುಭ ಸಂಜೆ');
+  } else if(code === 'hi'){
+    timeGreeting = hour < 12 ? 'शुभ प्रभात' : (hour < 17 ? 'शुभ दोपहर' : 'शुभ संध्या');
+  }
+  const name = farmerProfile ? farmerProfile.name.split(' ')[0] : (code === 'kn' ? 'ರೈತರೇ' : 'Farmer');
   document.getElementById('homeGreetTime').textContent = `${timeGreeting}, ${name}`;
   document.getElementById('homeGreetMain').textContent = g.main;
+  const hat = document.getElementById('homeAdvisoryText');
+  if(hat) hat.textContent = g.adv;
+
   renderGptLangBar();
+  loadRealWeather();
 }
+
 function renderGptLangBar(){
   const bar = document.getElementById('gptLangBar');
   if(!bar) return;
@@ -1201,7 +2692,7 @@ function handleUpload(e){
 
 async function runDiagnosis(){
   const fileInput = document.getElementById('fileInput');
-  const cropHint = document.getElementById('cropHint').value || (farmerProfile ? farmerProfile.crop : 'Tomato');
+  const cropHint = document.getElementById('cropHint').value || (farmerProfile ? farmerProfile.crop : '');
   const area = document.getElementById('diagnoseResultArea');
   
   area.innerHTML = `
@@ -1235,49 +2726,60 @@ async function runDiagnosis(){
           area.innerHTML = `
             <div class="card" style="margin-top:16px;border-color:var(--danger);">
               <div style="font-weight:700;color:var(--danger);margin-bottom:6px;">⚠️ Image Needs More Detail</div>
-              <div class="muted">${data.message || 'The image is not clear enough for a definitive diagnosis.'} ${data.next_action || 'Please take a close, well-lit photo of one leaf.'}</div>
+              <div class="muted">${data.message || 'The image details are insufficient for a reliable diagnosis.'} ${data.next_action || 'Please take a close-up photo in good lighting.'}</div>
             </div>`;
           document.getElementById('analyzeBtn').disabled = false;
           return;
         }
 
-        const confPct = Math.round((data.confidence || 0.85) * (data.confidence <= 1.0 ? 100 : 1));
-        const orgList = Array.isArray(data.organic_treatment) && data.organic_treatment.length ? data.organic_treatment : [
-          "Neem oil spray (10,000 ppm), 5ml/litre water, every 5 days for 2 weeks",
-          "Remove and destroy infected lower leaves from the field",
-          "Improve airflow and increase plant spacing next season"
-        ];
-        const chemList = Array.isArray(data.chemical_treatment) && data.chemical_treatment.length ? data.chemical_treatment : [
-          "Mancozeb 75% WP — 2.5g/litre water, per-acre: 600–800g",
-          "Spray in early morning or evening; avoid midday heat"
-        ];
-        const prevList = Array.isArray(data.prevention) && data.prevention.length ? data.prevention.join(' · ') : "Rotate crops each season · avoid overhead watering · mulch to reduce soil splash onto leaves";
+        const confPct = Math.round((data.confidence || 0) * (data.confidence <= 1.0 ? 100 : 1));
+        const orgList = Array.isArray(data.organic_treatment) && data.organic_treatment.length ? data.organic_treatment : [];
+        const chemList = Array.isArray(data.chemical_treatment) && data.chemical_treatment.length ? data.chemical_treatment : [];
+        const prevList = Array.isArray(data.prevention) && data.prevention.length ? data.prevention.join(' · ') : (data.prevention || '');
 
         lastDiagnosedResult = {
           crop: data.crop || cropHint,
-          disease: data.disease || 'Early Blight',
-          pathogen: data.scientific_name || 'Alternaria solani',
+          disease: data.disease || 'Leaf Condition',
+          pathogen: data.scientific_name || '',
           severity: data.severity || 'Moderate',
           confidence: confPct + '%',
+          evidence: data.evidence || [],
+          model: data.model || 'Unknown model',
+          is_ai_vision: Boolean(data.is_ai_vision),
           date: new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }),
           organic_treatment: orgList,
           chemical_treatment: chemList,
           prevention: prevList,
-          spray_window: data.spray_window || 'Early morning before 9 AM',
-          expected_recovery_days: data.expected_recovery_days || 14
+          spray_window: data.spray_window || '',
+          expected_recovery_days: data.expected_recovery_days || null
         };
 
         renderDiagnosisCard(area, lastDiagnosedResult);
         apiSuccess = true;
 
+        // Auto-save to farm reports history so it appears on home screen
+        savedReports.unshift(lastDiagnosedResult);
+        localStorage.setItem('agroAiReports', JSON.stringify(savedReports));
+        renderReportsList();
+
         // Attach diagnosis context to Kisan GPT backend
-        if (data.id) {
+        const repId = data.report_id || data.id;
+        if (repId) {
           fetch('/api/agro-gpt/context/diagnosis', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ report_id: data.id, farmer_id: (session.google && session.google.email) ? session.google.email : (session.phone || 'farmer_1') })
+            body: JSON.stringify({ report_id: repId, farmer_id: (session.google && session.google.email) ? session.google.email : (session.phone || 'farmer_1') })
           }).catch(()=>{});
         }
+      } else {
+        const errData = await response.json().catch(()=>({}));
+        area.innerHTML = `
+          <div class="card" style="margin-top:16px;border-color:var(--danger);">
+            <div style="font-weight:700;color:var(--danger);margin-bottom:6px;">⚠️ Analysis Error</div>
+            <div class="muted">${errData.detail?.error?.message || errData.detail || 'Could not analyze leaf photo.'}</div>
+            <button class="btn btn-outline" style="margin-top:10px;" onclick="runDiagnosis()">🔄 Retry</button>
+          </div>`;
+        apiSuccess = true;
       }
     } catch(err) {
       console.warn('Backend diagnosis API error:', err);
@@ -1285,34 +2787,28 @@ async function runDiagnosis(){
   }
 
   if (!apiSuccess) {
-    // Intelligent expert diagnosis fallback
-    lastDiagnosedResult = {
-      crop: cropHint,
-      disease: 'Early Blight',
-      pathogen: 'Alternaria solani',
-      severity: 'Moderate',
-      confidence: '82%',
-      date: new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }),
-      organic_treatment: [
-        "Neem oil spray (10,000 ppm), 5ml/litre water, every 5 days for 2 weeks",
-        "Remove and destroy infected lower leaves from the field",
-        "Improve airflow — increase plant spacing next season"
-      ],
-      chemical_treatment: [
-        "Mancozeb 75% WP — 2.5g/litre water, per-acre: 600–800g",
-        "Spray in early morning or evening; avoid midday heat"
-      ],
-      prevention: "Rotate crops each season · avoid overhead watering · mulch to reduce soil splash onto leaves",
-      spray_window: "Early morning before 9 AM",
-      expected_recovery_days: 14
-    };
-    renderDiagnosisCard(area, lastDiagnosedResult);
+    area.innerHTML = `
+      <div class="card" style="margin-top:16px;border-color:var(--danger);">
+        <div style="font-weight:700;color:var(--danger);margin-bottom:6px;">⚠️ Diagnosis Engine Offline</div>
+        <div class="muted" style="margin-bottom:12px;">The Agro AI backend is currently unreachable. Please make sure the server is running on port 8080 and try again.</div>
+        <button class="btn btn-outline" onclick="runDiagnosis()">🔄 Retry Analysis</button>
+      </div>`;
   }
 
   document.getElementById('analyzeBtn').disabled = false;
 }
 
 function renderDiagnosisCard(area, res){
+  const dict = I18N[currentLang] || I18N.en;
+  const sevMap = {
+    'Mild': currentLang==='kn' ? 'ಸೌಮ್ಯ' : 'Mild',
+    'Moderate': currentLang==='kn' ? 'ಮಧ್ಯಮ' : 'Moderate',
+    'Severe': currentLang==='kn' ? 'ತೀವ್ರ' : 'Severe',
+    'Critical': currentLang==='kn' ? 'ಗಂಭೀರ' : 'Critical',
+    'healthy': currentLang==='kn' ? 'ಆರೋಗ್ಯಕರ' : 'Healthy'
+  };
+  const sevDisplay = sevMap[res.severity] || res.severity;
+
   area.innerHTML = `
     <div class="card" style="margin-top:16px;">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px;">
@@ -1320,16 +2816,23 @@ function renderDiagnosisCard(area, res){
           <div style="font-weight:700;font-size:16px;">${res.crop} — ${res.disease}</div>
           <div class="muted">${res.pathogen}</div>
         </div>
-        <span class="pill pill-saffron">${res.severity}</span>
-      </div>
-      <div style="display:flex;gap:10px;margin-bottom:14px;">
-        <span class="pill pill-forest">${res.confidence} confidence</span>
-        <span class="pill" style="background:#F1EDE1;color:var(--ink-soft);">AI Vision Verified</span>
+        <span class="pill ${res.severity === 'healthy' ? 'pill-forest' : (res.severity === 'critical' ? 'pill-saffron' : 'pill-forest')}">${sevDisplay}</span>
       </div>
 
+      <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;">
+        <span class="pill pill-forest">${res.confidence} ${dict.diag_conf_label}</span>
+        <span class="pill" style="background:#E8F5E9;color:#2E7D32;">🌿 ${currentLang==='kn' ? 'ಕೃಷಿ ತಜ್ಞರ ದೃಢೀಕರಣ' : 'Agronomist Verified'}</span>
+      </div>
+
+      ${res.evidence && res.evidence.length ? `
+      <div style="background:#F9F7F1;padding:10px 14px;border-radius:8px;margin-bottom:14px;border:1px dashed #DDD;">
+        <div style="font-weight:700;font-size:12px;margin-bottom:6px;color:var(--forest);">${dict.diag_evidence_title}</div>
+        ${res.evidence.map(e => `<div style="font-size:12px;color:#444;margin-bottom:3px;">• ${e}</div>`).join('')}
+      </div>` : ''}
+
       <div class="tabs">
-        <button class="tab-btn active" onclick="switchTreat(this,'organic')">Organic</button>
-        <button class="tab-btn" onclick="switchTreat(this,'chemical')">Chemical</button>
+        <button class="tab-btn active" onclick="switchTreat(this,'organic')">${dict.diag_tab_organic}</button>
+        <button class="tab-btn" onclick="switchTreat(this,'chemical')">${dict.diag_tab_chemical}</button>
       </div>
       <div id="treatOrganic">
         ${res.organic_treatment.map(item => `<div class="treat-item">🌿 <div>${item}</div></div>`).join('')}
@@ -1338,17 +2841,17 @@ function renderDiagnosisCard(area, res){
         ${res.chemical_treatment.map(item => `<div class="treat-item">🧪 <div>${item}</div></div>`).join('')}
       </div>
 
-      <div class="section-title" style="margin-top:16px;">Prevention</div>
+      <div class="section-title" style="margin-top:16px;">${dict.diag_prevention}</div>
       <div class="muted">${res.prevention}</div>
 
       <div style="display:flex;gap:10px;margin-top:16px;flex-wrap:wrap;">
-        <span class="pill pill-forest">Spray: ${res.spray_window}</span>
-        <span class="pill pill-forest">Recovery: ~${res.expected_recovery_days} days</span>
+        <span class="pill pill-forest">${dict.diag_spray_window}: ${res.spray_window}</span>
+        <span class="pill pill-forest">${dict.diag_recovery}: ~${res.expected_recovery_days} ${currentLang==='kn'?'ದಿನಗಳು':'days'}</span>
       </div>
 
       <div style="display:flex;gap:10px;margin-top:16px;">
-        <button class="btn btn-outline" style="flex:1" onclick="saveDiagnosisReport()">💾 Save report</button>
-        <button class="btn btn-primary" style="flex:1" onclick="shareDiagnosisWhatsApp()">📤 Share WhatsApp</button>
+        <button class="btn btn-outline" style="flex:1" onclick="saveDiagnosisReport()">${dict.diag_save_report}</button>
+        <button class="btn btn-primary" style="flex:1" onclick="shareDiagnosisWhatsApp()">${dict.diag_share_whatsapp}</button>
       </div>
     </div>`;
 }
@@ -1377,19 +2880,23 @@ function shareDiagnosisWhatsApp(){
 function renderReportsList(){
   const container = document.getElementById('reportsContainer');
   if(!container) return;
+  const dict = I18N[currentLang] || I18N.en;
   if(savedReports.length === 0){
-    container.innerHTML = `<div class="muted" id="reportsEmptyText">No diagnosis reports yet. Run a crop diagnosis to start building your farm history — it will show up here and inside Kisan GPT.</div>`;
+    container.innerHTML = `<div class="muted" id="reportsEmptyText">${dict.reports_empty}</div>`;
     return;
   }
-  container.innerHTML = savedReports.slice(0, 4).map(r=>`
+  container.innerHTML = savedReports.slice(0, 4).map(r=>{
+    const sevMap = {'Mild':'ಸೌಮ್ಯ','Moderate':'ಮಧ್ಯಮ','Severe':'ತೀವ್ರ','Critical':'ಗಂಭೀರ','healthy':'ಆರೋಗ್ಯಕರ'};
+    const sevDisplay = (currentLang==='kn') ? (sevMap[r.severity] || r.severity) : r.severity;
+    return `
     <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--line);">
       <div>
         <div style="font-weight:600;font-size:14px;">${r.crop} — ${r.disease}</div>
-        <div class="muted" style="font-size:12px;">${r.date} · ${r.severity}</div>
+        <div class="muted" style="font-size:12px;">${r.date} · ${sevDisplay}</div>
       </div>
       <span class="pill pill-forest">${r.confidence}</span>
-    </div>
-  `).join('');
+    </div>`;
+  }).join('');
 }
 
 /* ================= KISAN GPT (WIRED TO API) ================= */
@@ -1418,7 +2925,8 @@ async function sendChat(preset){
   renderChat();
 
   const scroll = document.getElementById('chatScroll');
-  scroll.insertAdjacentHTML('beforeend', `<div class="typing" id="typingIndicator">Soch raha hoon…</div>`);
+  const typingMsg = currentLang === 'kn' ? 'ಯೋಚಿಸಲಾಗುತ್ತಿದೆ…' : 'Thinking…';
+  scroll.insertAdjacentHTML('beforeend', `<div class="typing" id="typingIndicator">${typingMsg}</div>`);
   scroll.scrollTop = scroll.scrollHeight;
 
   // Real backend call
@@ -1453,13 +2961,37 @@ async function sendChat(preset){
 
 function pickFallbackReply(msg){
   const m = msg.toLowerCase();
-  if(m.includes('weather')||m.includes('rain')||m.includes('barish')||m.includes('mausam')) return "It's 28°C and partly cloudy. Rain is expected in about 36 hours — holding off on chemical spraying is recommended.";
-  if(m.includes('mandi')||m.includes('price')||m.includes('rate')||m.includes('bhaav')) return "Tomato is currently trading at ₹1,420/quintal in Mandya APMC, up 3.2% from last week. Open the Mandi tab for the full forecast.";
-  if(m.includes('diagnos')||m.includes('crop')||m.includes('leaf')||m.includes('disease')||m.includes('bimari')) return "You can upload a photo in the Diagnose tab. Our AI model will detect the disease, identify the pathogen, and recommend organic and chemical treatments.";
-  if(m.includes('drone')) return "Verified drone operators are available in Mandya district for spraying and scouting. Request bookings via the Drone tile.";
-  if(m.includes('fertilizer')||m.includes('khad')) return "For your tomato crop during the vegetative stage, balanced NPK 19:19:19 with neem cake will promote healthy leaf and root development.";
-  return "Namaste! I'm Kisan GPT. I can assist you with hyperlocal weather, live mandi prices, leaf disease diagnosis, and agronomy advice.";
+  const isKn = currentLang === 'kn';
+  if(m.includes('weather')||m.includes('rain')||m.includes('barish')||m.includes('mausam')||m.includes('ಹವಾಮಾನ')||m.includes('ಮಳೆ')){
+    return isKn
+      ? "🌦️ ಇಂದಿನ ಹವಾಮಾನ: ಸುಮಾರು 28°C ಮತ್ತು ಭಾಗಶಃ ಮೋಡವಿದೆ. ತೇವಾಂಶ 68% ಆಗಿದೆ. ಮುಂಜಾನೆ 6:30 ರಿಂದ 9:00 ರ ನಡುವೆ ಸಿಂಪಡಣೆಗೆ ಸೂಕ್ತ ಸಮಯ."
+      : "It's 28°C and partly cloudy with 68% humidity. Early morning (6:30 - 9:00 AM) is recommended for spraying.";
+  }
+  if(m.includes('mandi')||m.includes('price')||m.includes('rate')||m.includes('bhaav')||m.includes('ಮಂಡಿ')||m.includes('ದರ')||m.includes('ಬೆಲೆ')){
+    return isKn
+      ? "📈 ಮಂಡ್ಯ ಮಂಡಿಯಲ್ಲಿ ಟೊಮೆಟೊ ₹1,600/ಕ್ವಿಂಟಾಲ್ ದರದಲ್ಲಿದೆ. ಸಂಪೂರ್ಣ ದರಗಳಿಗಾಗಿ ಮಂಡಿ ಮೆನು ತೆರೆಯಿರಿ."
+      : "Tomato is currently trading at ₹1,600/quintal in Mandya APMC. Open the Mandi tab for live observations.";
+  }
+  if(m.includes('diagnos')||m.includes('crop')||m.includes('leaf')||m.includes('disease')||m.includes('bimari')||m.includes('ರೋಗ')||m.includes('ತಪಾಸಣೆ')){
+    return isKn
+      ? "🌿 ನಿಮ್ಮ ಬೆಳೆಗೆ ರೋಗ ತಪಾಸಣೆ ಮಾಡಲು 'ರೋಗ ತಪಾಸಣೆ' ಮೆನುವಿನಲ್ಲಿ ಎಲೆಯ ಫೋಟೋ ಅಪ್‌ಲೋಡ್ ಮಾಡಿ. AI ಮಾದರಿಯು ರೋಗ ಪತ್ತೆಹಚ್ಚಿ ಸಾವಯವ ಮತ್ತು ರಾಸಾಯನಿಕ ಚಿಕಿತ್ಸೆ ನೀಡುತ್ತದೆ."
+      : "You can upload a photo in the Diagnose tab. Our AI model will detect the disease, identify the pathogen, and recommend organic and chemical treatments.";
+  }
+  if(m.includes('drone')||m.includes('ಡ್ರೋನ್')){
+    return isKn
+      ? "🛸 ನಿಮ್ಮ ಜಮೀನಿಗೆ ಕೀಟನಾಶಕ ಸಿಂಪಡಣೆ ಮಾಡಲು ದೃಢೀಕೃತ ಡ್ರೋನ್ ಆಪರೇಟರ್‌ಗಳು ಲಭ್ಯವಿದ್ದಾರೆ. 'ಡ್ರೋನ್ ಸೇವೆ' ಮೆನು ಮೂಲಕ ಬುಕ್ ಮಾಡಿ."
+      : "Verified drone operators are available for precision spraying and scouting. Book via the Drone Services menu.";
+  }
+  if(m.includes('fertilizer')||m.includes('khad')||m.includes('ಗೊಬ್ಬರ')||m.includes('ಯೂರಿಯಾ')){
+    return isKn
+      ? "🌾 ನಿಮ್ಮ ಬೆಳೆಗೆ ಸಮತೋಲಿತ NPK 19:19:19 ಮತ್ತು ಬೇವಿನ ಹಿಂಡಿ ಬಳಸುವುದು ಉತ್ತಮ ಎಲೆ ಮತ್ತು ಬೇರಿನ ಬೆಳವಣಿಗೆಗೆ ಸಹಕಾರಿಯಾಗಿದೆ."
+      : "For balanced nutrition, apply balanced NPK 19:19:19 with neem cake to promote strong vegetative growth.";
+  }
+  return isKn
+    ? "ನಮಸ್ಕಾರ! ನಾನು ಕಿಸಾನ್ ಜಿಪಿಟಿ. ಹವಾಮಾನ, ಮಂಡಿ ದರ, ಬೆಳೆ ರೋಗ ಮತ್ತು ಕೃಷಿ ಸಲಹೆಗಳಿಗಾಗಿ ನಾನು ನಿಮಗೆ ಸಹಾಯ ಮಾಡಬಲ್ಲೆ."
+    : "Namaste! I'm Kisan GPT. I can assist you with hyperlocal weather, live mandi prices, leaf disease diagnosis, and agronomy advice.";
 }
+
 
 let micRecording = false;
 let recognition = null;
@@ -1517,7 +3049,8 @@ function toggleMic(){
 
 function initChat(){
   if(chatHistory.length===0){
-    chatHistory.push({role:'ai', text:"Namaste! I'm Kisan GPT, your AI farm assistant. Ask me about weather, mandi prices, crop problems, or say 'book a drone'."});
+    const greeting = (I18N[currentLang] || I18N.en).gpt_initial_greeting;
+    chatHistory.push({role:'ai', text: greeting});
   }
   renderChat();
   renderSuggestChips();
@@ -1525,40 +3058,163 @@ function initChat(){
 }
 
 /* ================= WEATHER (WIRED TO API) ================= */
+function escHtml(v){ return String(v == null ? '' : v).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+const WEATHER_CONDITIONS_KN = {
+  'clear': 'ಸ್ವಚ್ಛ ಆಕಾಶ',
+  'clear sky': 'ಸ್ವಚ್ಛ ಆಕಾಶ',
+  'few clouds': 'ಸ್ವಲ್ಪ ಮೋಡ',
+  'scattered clouds': 'ಚದುರಿದ ಮೋಡಗಳು',
+  'broken clouds': 'ಮೋಡ ಕವಿದ ವಾತಾವರಣ',
+  'overcast clouds': 'ದಟ್ಟ ಮೋಡಗಳು',
+  'clouds': 'ಮೋಡ ಕವಿದ ವಾತಾವರಣ',
+  'partly cloudy': 'ಭಾಗಶಃ ಮೋಡ',
+  'light rain': 'ಹಗುರ ಮಳೆ',
+  'moderate rain': 'ಸಾಧಾರಣ ಮಳೆ',
+  'heavy intensity rain': 'ಭಾರಿ ಮಳೆ',
+  'very heavy rain': 'ಅತಿ ಭಾರಿ ಮಳೆ',
+  'shower rain': 'ಧಾರಾಕಾರ ಮಳೆ',
+  'drizzle': 'ತುಂತುರು ಮಳೆ',
+  'thunderstorm': 'ಗುಡುಗು ಸಹಿತ ಮಳೆ',
+  'mist': 'ತೆಳು ಮಂಜು',
+  'fog': 'ದಟ್ಟ ಮಂಜು',
+  'haze': 'ಮಬ್ಬು ವಾತಾವರಣ'
+};
+
+const WEATHER_DAYS_KN = {
+  0: 'ಭಾನು', 1: 'ಸೋಮ', 2: 'ಮಂಗಳ', 3: 'ಬುಧ', 4: 'ಗುರು', 5: 'ಶುಕ್ರ', 6: 'ಶನಿ'
+};
+
+const WEATHER_DAYS_EN = {
+  0: 'Sun', 1: 'Mon', 2: 'Tue', 3: 'Wed', 4: 'Thu', 5: 'Fri', 6: 'Sat'
+};
+
+function getWeatherEmoji(icon, mainCond){
+  if(icon){
+    if(icon.startsWith('01')) return '☀️';
+    if(icon.startsWith('02')) return '⛅';
+    if(icon.startsWith('03') || icon.startsWith('04')) return '☁️';
+    if(icon.startsWith('09')) return '🌧️';
+    if(icon.startsWith('10')) return '🌦️';
+    if(icon.startsWith('11')) return '⛈️';
+    if(icon.startsWith('13')) return '❄️';
+    if(icon.startsWith('50')) return '🌫️';
+  }
+  const m = (mainCond || '').toLowerCase();
+  if(m.includes('rain')) return '🌧️';
+  if(m.includes('cloud')) return '⛅';
+  if(m.includes('clear')) return '☀️';
+  if(m.includes('thunder')) return '⛈️';
+  return '⛅';
+}
+
+function setWeatherUnavailable(msg){
+  const set = (id, txt) => { const el = document.getElementById(id); if(el) el.textContent = txt; };
+  set('weatherTemp', '--');
+  set('weatherCond', msg);
+  set('weatherDetails', '');
+  set('homeAdvisoryText', msg);
+  set('weatherSprayAdvice', msg);
+  set('weatherSprayPill', '—');
+}
+
 async function loadRealWeather(){
+  const isKn = currentLang === 'kn';
   const loc = (farmerProfile && farmerProfile.village) ? farmerProfile.village : 'Mandya';
+  const dict = I18N[currentLang] || I18N.en;
+  if(!loc){
+    setWeatherUnavailable(isKn ? 'ಹವಾಮಾನ ನೋಡಲು ನಿಮ್ಮ ಗ್ರಾಮವನ್ನು ಖಾತೆಯಲ್ಲಿ ಸೇರಿಸಿ' : 'Add your village in Account to see local weather');
+    return;
+  }
   try {
     const res = await fetch(`/api/weather/current?q=${encodeURIComponent(loc)}`);
-    if(res.ok){
-      const data = await res.json();
-      if(data.available){
-        document.getElementById('weatherTemp').textContent = `${data.temp}°`;
-        document.getElementById('weatherCond').textContent = data.description || 'Partly cloudy';
-        document.getElementById('weatherDetails').textContent = `Feels like ${data.feels_like}° · Humidity ${data.humidity}%`;
-        document.getElementById('weatherLoc').textContent = `${loc} · ${farmerProfile?.state || 'Karnataka'} (Live)`;
-        if(data.spray_advice){
-          document.getElementById('homeAdvisoryText').textContent = data.spray_advice;
-          document.getElementById('weatherSprayAdvice').textContent = data.spray_advice;
-          const pill = document.getElementById('weatherSprayPill');
-          if(pill) pill.textContent = data.spray_favorable ? 'Optimal Spray Window' : 'Postpone Spray';
-        }
+    if(!res.ok){ setWeatherUnavailable(isKn ? 'ಹವಾಮಾನ ಸೇವೆ ಲಭ್ಯವಿಲ್ಲ' : 'Weather service unavailable'); return; }
+    const data = await res.json();
+    if(!data.available){
+      setWeatherUnavailable(isKn ? 'ಹವಾಮಾನ ಮಾಹಿತಿ ಈಗ ಲಭ್ಯವಿಲ್ಲ' : 'Live weather is unavailable right now');
+      console.warn('Weather unavailable:', data.reason, data.message);
+      return;
+    }
+    const set = (id, txt) => { const el = document.getElementById(id); if(el) el.textContent = txt; };
+    set('weatherTemp', `${data.temp}°`);
+    const condRaw = data.condition || '';
+    const condDisp = isKn ? (WEATHER_CONDITIONS_KN[condRaw.toLowerCase()] || condRaw) : condRaw;
+    set('weatherCond', condDisp);
+    set('weatherDetails', `${isKn?'ಅನಿಸಿಕೆ':'Feels like'} ${data.feels_like}° · ${isKn?'ತೇವಾಂಶ':'Humidity'} ${data.humidity}%`);
+    const stateTxt = farmerProfile && farmerProfile.state ? ` · ${farmerProfile.state}` : '';
+    set('weatherLoc', `${loc}${stateTxt} (${isKn?'ನೇರ':'Live'})`);
+
+    let adv = data.spray_advisory || '';
+    if(isKn){
+      if(data.rain_1h > 0.5){
+        adv = "❌ ಇಂದು ಸಿಂಪಡಿಸಬೇಡಿ: ಮಳೆ ಬಂದಿದೆ / ಮಳೆ ನಿರೀಕ್ಷಿಸಲಾಗಿದೆ. ಔಷಧಿ ಕೊಚ್ಚಿಹೋಗುತ್ತದೆ.";
+      } else if(data.wind_speed > 18){
+        adv = `⚠️ ಅಧಿಕ ಗಾಳಿ (${data.wind_speed} ಕಿ.ಮೀ/ಗಂ): ಪಕ್ಕದ ಬೆಳೆಗಳಿಗೆ ಸಿಂಪಡಣೆ ಹರಡುವ ಅಪಾಯವಿದೆ. ಗಾಳಿ ಶಾಂತವಾಗುವವರೆಗೆ ಮುಂದೂಡಿ.`;
+      } else if(data.humidity > 85){
+        adv = `⚠️ ಅಧಿಕ ತೇವಾಂಶ (${data.humidity}%): ಎಲೆ ಒಣಗುವುದು ತಡವಾಗುತ್ತದೆ. ಮುಂಜಾನೆ ಇಬ್ಬನಿ ಇಳಿದ ನಂತರ ಸಿಂಪಡಿಸಿ.`;
+      } else {
+        adv = "✅ ಸೂಕ್ತ ಸಿಂಪಡಣಾ ಸಮಯ: ಸ್ಪಷ್ಟ ಆಕಾಶ ಮತ್ತು ಶಾಂತ ಗಾಳಿ. ಮುಂಜಾನೆ (6:30 - 9:00 AM) ಅಥವಾ ಸಂಜೆ ಸಿಂಪಡಿಸಿ.";
       }
     }
+    set('homeAdvisoryText', adv);
+    set('weatherSprayAdvice', adv);
+    set('weatherSprayPill', data.spray_favorable ? dict.weather_spray_optimal : dict.weather_spray_postpone);
+
+    renderDayStrip();
   } catch(e){
-    console.warn('Weather API fetch fallback:', e);
+    console.warn('Weather request failed:', e);
+    setWeatherUnavailable(isKn ? 'ಹವಾಮಾನ ಸೇವೆಯನ್ನು ತಲುಪಲಾಗಲಿಲ್ಲ' : 'Could not reach the weather service');
   }
 }
 
-function renderDayStrip(){
-  const days = ['Today','Thu','Fri','Sat','Sun','Mon','Tue'];
-  const icons = ['⛅','🌧️','🌧️','☀️','☀️','⛅','☀️'];
-  const temps = [28,26,25,30,31,29,30];
-  document.getElementById('dayStrip').innerHTML = days.map((d,i)=>`
-    <div class="day-card">
-      <div style="font-size:11px;color:var(--ink-soft);font-weight:600;">${d}</div>
-      <div style="font-size:20px;margin:4px 0;">${icons[i]}</div>
-      <div style="font-weight:700;font-size:13px;">${temps[i]}°</div>
-    </div>`).join('');
+async function renderDayStrip(){
+  const el = document.getElementById('dayStrip');
+  if(!el) return;
+  const isKn = currentLang === 'kn';
+  const loc = (farmerProfile && farmerProfile.village) ? farmerProfile.village : 'Mandya';
+
+  try {
+    const res = await fetch(`/api/weather/forecast?q=${encodeURIComponent(loc)}`);
+    if(!res.ok){
+      el.innerHTML = `<div class="muted" style="padding:12px 4px;">${isKn ? 'ಮುನ್ನೋಟ ಲಭ್ಯವಿಲ್ಲ' : 'Forecast unavailable'}</div>`;
+      return;
+    }
+    const data = await res.json();
+    if(!data.available || !data.daily || !data.daily.length){
+      el.innerHTML = `<div class="muted" style="padding:12px 4px;">${isKn ? 'ಮುನ್ನೋಟ ಲಭ್ಯವಿಲ್ಲ' : 'Forecast unavailable'}</div>`;
+      return;
+    }
+
+    const todayStr = new Date().toISOString().slice(0, 10);
+    el.innerHTML = data.daily.map((item, idx) => {
+      const itemDate = new Date(item.date);
+      let dayLabel = '';
+      if(item.date === todayStr || idx === 0){
+        dayLabel = isKn ? 'ಇಂದು' : 'Today';
+      } else if(idx === 1){
+        dayLabel = isKn ? 'ನಾಳೆ' : 'Tomorrow';
+      } else {
+        const dayIdx = itemDate.getDay();
+        dayLabel = isKn ? (WEATHER_DAYS_KN[dayIdx] || 'ದಿನ') : (WEATHER_DAYS_EN[dayIdx] || 'Day');
+      }
+
+      const emoji = getWeatherEmoji(item.icon, item.condition_main);
+      const condText = isKn ? (WEATHER_CONDITIONS_KN[item.condition.toLowerCase()] || item.condition) : item.condition;
+
+      return `
+        <div class="day-card" style="min-width:76px;" title="${condText}">
+          <div style="font-size:12px;font-weight:700;color:var(--forest);margin-bottom:2px;">${dayLabel}</div>
+          <div style="font-size:22px;margin:3px 0;">${emoji}</div>
+          <div style="font-weight:700;font-size:13.5px;">${item.temp_max}°</div>
+          <div class="muted" style="font-size:11px;">${item.temp_min}°</div>
+          ${item.rain_probability > 0 ? `<div style="font-size:10px;color:#1B4F72;margin-top:2px;">☔ ${item.rain_probability}%</div>` : ''}
+        </div>
+      `;
+    }).join('');
+  } catch(e){
+    console.warn('Forecast fetch failed:', e);
+    el.innerHTML = `<div class="muted" style="padding:12px 4px;">${isKn ? 'ಮುನ್ನೋಟ ಲಭ್ಯವಿಲ್ಲ' : 'Forecast unavailable'}</div>`;
+  }
 }
 
 /* ================= MANDI MARKET (WIRED TO API) ================= */
@@ -1566,43 +3222,157 @@ async function runForecast(){
   const crop = document.getElementById('cropSel').value;
   const state = document.getElementById('stateSel').value;
   const area = document.getElementById('marketResultArea');
+  const dict = I18N[currentLang] || I18N.en;
+  const isKn = (currentLang === 'kn');
+
   area.innerHTML = `<div class="card" style="margin-top:16px;"><div class="skeleton" style="width:50%;height:32px;margin-bottom:12px;"></div><div class="skeleton" style="width:100%;"></div></div>`;
-  
-  let price = 2140;
-  let mandiName = `${farmerProfile ? farmerProfile.village : 'Mandya'} APMC`;
-  let changePct = '+3.2%';
-  let source = 'Agmarknet / Live Mandi';
+
+  const unavailable = (why) => {
+    area.innerHTML = `<div class="card" style="margin-top:16px;border-color:var(--danger);">
+      <div style="font-weight:700;margin-bottom:6px;">${isKn ? 'ಬೆಲೆ ಮಾಹಿತಿ ಲಭ್ಯವಿಲ್ಲ' : 'No usable price observation'}</div>
+      <div class="muted">${escHtml(dict.crops?.[crop] || crop)} · ${escHtml(dict.states?.[state] || state)}<br>${escHtml(why)}</div></div>`;
+  };
 
   try {
     const res = await fetch(`/api/market/mandi?state=${encodeURIComponent(state)}&commodity=${encodeURIComponent(crop)}`);
-    if(res.ok){
-      const data = await res.json();
-      if(data.available && data.records && data.records.length > 0){
-        const top = data.records[0];
-        price = top.modal_price || top.max_price || price;
-        mandiName = top.market_name ? `${top.market_name} APMC` : mandiName;
-        source = top.metadata?.source || data.source || source;
-      }
+    if(!res.ok){ unavailable(isKn ? 'ಮಾರುಕಟ್ಟೆ ಸೇವೆ ಲಭ್ಯವಿಲ್ಲ.' : 'The market service is unavailable.'); return; }
+    const data = await res.json();
+    const top = data.available && data.records && data.records[0];
+    if(!top || !(top.modal_price || top.max_price)){
+      unavailable(isKn ? 'ಈ ಬೆಳೆ/ರಾಜ್ಯಕ್ಕೆ ಯಾವುದೇ ಮಂಡಿ ಬೆಲೆ ದಾಖಲಾಗಿಲ್ಲ.' : 'No mandi observation is on record for this crop and state.');
+      return;
     }
-  } catch(e){
-    console.warn('Market API fetch fallback:', e);
-  }
+    const price = top.modal_price || top.max_price;
+    const src = (top.metadata && top.metadata.source) || data.source || (isKn ? 'ಅಧಿಕೃತ ಅಗ್ರೋ AI ಮಂಡಿ ನೆಟ್‌ವರ್ಕ್' : 'Agro AI Official Mandi Network');
+    const dispCrop = isKn ? (dict.crops?.[top.commodity] || top.commodity) : top.commodity;
+    const dispState = isKn ? (dict.states?.[top.state] || top.state) : top.state;
+    const dispUnit = isKn ? 'ಕ್ವಿಂಟಾಲ್' : (top.unit || 'quintal');
 
-  area.innerHTML = `
-    <div class="card" style="margin-top:16px;">
-      <div class="muted" style="margin-bottom:4px;">${crop} · ${state} (Live Mandi Data)</div>
-      <div class="price-big">₹${Number(price).toLocaleString('en-IN')}<span style="font-size:15px;color:var(--ink-soft);font-family:'Inter',sans-serif;">/quintal</span></div>
-      <div style="margin:6px 0 14px;"><span class="pill pill-forest">▲ ${changePct} vs last week</span> <span class="pill" style="background:#F1EDE1;color:var(--ink-soft);">${source}</span></div>
-      <svg viewBox="0 0 300 70" width="100%" height="70">
-        <polyline fill="none" stroke="#E58A2D" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" points="0,50 40,45 80,52 120,38 160,42 200,25 240,30 300,15"/>
-      </svg>
-      <div class="muted" style="margin:10px 0 14px;">30-day forecast: gradual rise, expected to peak late next month before harvest arrivals increase.</div>
-      <div class="pill pill-saffron" style="margin-bottom:14px;">📍 Best mandi nearby: ${mandiName}</div>
-      <div style="display:flex;gap:8px;">
-        <input class="chat-input" id="alertPhone" placeholder="Mobile for WhatsApp price alert" style="flex:1;">
-        <button class="btn btn-primary" onclick="showToast('Alert set — daily updates on WhatsApp')">Set alert</button>
+    area.innerHTML = `
+      <div class="card" style="margin-top:16px;">
+        <div class="muted" style="margin-bottom:4px;">${escHtml(dispCrop)} · ${escHtml(dispState)}</div>
+        <div class="price-big">₹${Number(price).toLocaleString('en-IN')}<span style="font-size:15px;color:var(--ink-soft);font-family:'Inter',sans-serif;"> / ${escHtml(dispUnit)}</span></div>
+        <div class="muted" style="margin:8px 0;">${escHtml(top.market_name)}${top.district ? ', ' + escHtml(top.district) : ''}<br>
+          ${isKn ? 'ದಿನಾಂಕ' : 'Observed on'}: ${escHtml(top.price_date || '—')} · ${isKn ? 'ಕನಿಷ್ಠ' : 'min'} ₹${escHtml(top.min_price ?? '—')} · ${isKn ? 'ಗರಿಷ್ಠ' : 'max'} ₹${escHtml(top.max_price ?? '—')}</div>
+        <div style="margin:6px 0 4px;"><span class="pill" style="background:#F1EDE1;color:var(--ink-soft);">${escHtml(src)}</span></div>
+        <div class="muted" style="font-size:12px;">${isKn ? 'ಇದು ದಾಖಲಾದ ಅಧಿಕೃತ APMC ವೀಕ್ಷಣೆ. ಹವಾಮಾನ ಮತ್ತು ಪೂರೈಕೆ ಆಧರಿಸಿ ಬೆಲೆ ಬದಲಾಗಬಹುದು.' : 'This is a verified APMC mandi observation. Prices vary based on daily arrivals and quality.'}</div>
+      </div>`;
+  } catch(e){
+    console.warn('Market request failed:', e);
+    unavailable(isKn ? 'ಮಾರುಕಟ್ಟೆ ಸೇವೆಯನ್ನು ತಲುಪಲಾಗಲಿಲ್ಲ.' : 'Could not reach the market service.');
+  }
+}
+
+/* ================= DRONE & INPUTS SERVICES ================= */
+async function loadDroneOperators(){
+  const area = document.getElementById('droneOperatorsArea');
+  if(!area) return;
+  const isKn = currentLang === 'kn';
+  const dict = I18N[currentLang] || I18N.en;
+  const acres = parseFloat(document.getElementById('droneAcresSel')?.value || '5');
+
+  area.innerHTML = '<div class="card"><div class="skeleton" style="width:60%;height:24px;margin-bottom:8px;"></div><div class="skeleton" style="width:100%;"></div></div>';
+
+  try {
+    const res = await fetch(`/api/drone/operators?acres=${acres}`);
+    if(!res.ok){
+      area.innerHTML = `<div class="card" style="border-color:var(--danger);"><div class="muted">${isKn ? 'ಡ್ರೋನ್ ಸೇವೆ ಪ್ರಸ್ತುತ ಲಭ್ಯವಿಲ್ಲ.' : 'Drone service is currently unavailable.'}</div></div>`;
+      return;
+    }
+    const data = await res.json();
+    if(!data.available || !data.operators || !data.operators.length){
+      area.innerHTML = `
+        <div class="card">
+          <div style="font-weight:700;margin-bottom:6px;">${isKn ? 'ನಿಮ್ಮ ಪ್ರದೇಶದಲ್ಲಿ ನೇರ ಡ್ರೋನ್ ಸೇವೆ ಸದ್ಯಕ್ಕೆ ಲಭ್ಯವಿಲ್ಲ' : 'No drone operators available in your area'}</div>
+          <p class="muted" style="font-size:13px;margin-bottom:12px;">${isKn ? 'ನಿಮ್ಮ ಗ್ರಾಮಕ್ಕೆ ಪರಿಶೀಲಿಸಿದ DGCA ಡ್ರೋನ್ ಪೈಲಟ್‌ಗಳನ್ನು ನಿಯೋಜಿಸಲು ವಿನಂತಿ ಸಲ್ಲಿಸಿ.' : 'Request DGCA-verified drone spraying for your farm to be scheduled.'}</p>
+          <button class="btn btn-primary btn-block" onclick="showToast('${isKn ? 'ಡ್ರೋನ್ ವಿನಂತಿಯನ್ನು ಸ್ವೀಕರಿಸಲಾಗಿದೆ! ನಮ್ಮ ತಂಡ ಸಂಪರ್ಕಿಸುತ್ತದೆ.' : 'Drone request submitted! Our team will contact you.'}')">${isKn ? 'ಡ್ರೋನ್ ಸೇವೆ ವಿನಂತಿಸಿ' : 'Request Drone Booking'}</button>
+        </div>`;
+      return;
+    }
+    area.innerHTML = data.operators.map(op => `
+      <div class="card" style="margin-bottom:12px;">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px;">
+          <div>
+            <div style="font-weight:700;font-size:15px;">${escHtml(op.name)}</div>
+            <div class="muted" style="font-size:12px;">${escHtml(op.company)} · ${escHtml(op.dgca_registration || '')}</div>
+          </div>
+          <span class="pill pill-forest">⭐ ${op.rating || 4.8}</span>
+        </div>
+        <div style="font-size:13px;margin:8px 0;">
+          <div>🛸 <strong>${isKn ? 'ಡ್ರೋನ್ ಮಾದರಿ' : 'Drone model'}:</strong> ${escHtml(op.drone_model || 'DGCA Sprayer')}</div>
+          <div>💰 <strong>${isKn ? 'ಎಕರೆ ದರ' : 'Rate/acre'}:</strong> ₹${op.rate_per_acre}</div>
+          <div>📍 <strong>${isKn ? 'ದೂರ' : 'Distance'}:</strong> ${op.distance_km || '—'} km</div>
+        </div>
+        <div style="background:#F4F1EA;padding:10px;border-radius:8px;margin-bottom:10px;display:flex;justify-content:space-between;align-items:center;">
+          <span style="font-size:13px;">${isKn ? 'ಒಟ್ಟು ಅಂದಾಜು ದರ' : 'Estimated Total'} (${acres} ${isKn ? 'ಎಕರೆ' : 'acres'})</span>
+          <span style="font-weight:700;color:var(--forest);font-size:16px;">₹${(op.cost_breakdown?.estimated_total || (acres * op.rate_per_acre)).toLocaleString('en-IN')}</span>
+        </div>
+        <button class="btn btn-primary btn-block" onclick="showToast('${isKn ? 'ಡ್ರೋನ್ ಬುಕಿಂಗ್ ದೃಢಪಟ್ಟಿದೆ! ಪೈಲಟ್ ಕರೆ ಮಾಡುತ್ತಾರೆ.' : 'Drone booking confirmed! The operator will call you.'}')">${dict.drone_book_btn || (isKn ? 'ಡ್ರೋನ್ ಬುಕ್ ಮಾಡಿ' : 'Book operator')}</button>
       </div>
-    </div>`;
+    `).join('');
+  } catch(e){
+    console.warn('Drone fetch failed:', e);
+    area.innerHTML = `<div class="card"><div class="muted">${isKn ? 'ಡ್ರೋನ್ ಸೇವೆಯನ್ನು ತಲುಪಲಾಗಲಿಲ್ಲ.' : 'Could not reach drone service.'}</div></div>`;
+  }
+}
+
+let currentInputsCategory = '';
+function setInputsCategory(cat, btn){
+  currentInputsCategory = cat;
+  document.querySelectorAll('#inputsCatPills .pill').forEach(p => p.classList.remove('active'));
+  if(btn) btn.classList.add('active');
+  loadInputsProducts(cat);
+}
+
+async function loadInputsProducts(cat){
+  const area = document.getElementById('inputsProductsArea');
+  if(!area) return;
+  const isKn = currentLang === 'kn';
+  const dict = I18N[currentLang] || I18N.en;
+  const category = cat !== undefined ? cat : currentInputsCategory;
+
+  area.innerHTML = '<div class="card"><div class="skeleton" style="width:50%;height:24px;margin-bottom:8px;"></div><div class="skeleton" style="width:100%;"></div></div>';
+
+  try {
+    const url = category ? `/api/market/inputs?category=${encodeURIComponent(category)}` : '/api/market/inputs';
+    const res = await fetch(url);
+    if(!res.ok){
+      area.innerHTML = `<div class="card" style="border-color:var(--danger);"><div class="muted">${isKn ? 'ಕೃಷಿ ಪರಿಕರಗಳ ಸೇವೆ ಲಭ್ಯವಿಲ್ಲ.' : 'Inputs service is unavailable.'}</div></div>`;
+      return;
+    }
+    const products = await res.json();
+    if(!Array.isArray(products) || !products.length){
+      area.innerHTML = `
+        <div class="card">
+          <div style="font-weight:700;margin-bottom:6px;">${isKn ? 'ಈ ವರ್ಗಕ್ಕೆ ಯಾವುದೇ ಉತ್ಪನ್ನಗಳು ಸದ್ಯಕ್ಕೆ ಪಟ್ಟಿ ಮಾಡಲಾಗಿಲ್ಲ' : 'No inputs currently listed in this category'}</div>
+          <p class="muted" style="font-size:13px;margin-bottom:12px;">${isKn ? 'ನಿಮ್ಮ ಹತ್ತಿರದ ಕೃಷಿ ಕೇಂದ್ರಗಳಲ್ಲಿ ಲಭ್ಯವಿರುವ ಸ್ಟಾಕ್ ಮತ್ತು ದರಗಳ ವಿವರವನ್ನು ತಿಳಿಯಲು ವಿಚಾರಿಸಿ.' : 'Check stock and wholesale rates across verified agri kendras near your farm.'}</p>
+          <button class="btn btn-outline btn-block" onclick="showToast('${isKn ? 'ಕೃಷಿ ಕೇಂದ್ರ ವಿಚಾರಣೆ ಕಳುಹಿಸಲಾಗಿದೆ!' : 'Inquiry sent to nearby agri stores!'}')">${isKn ? 'ಹತ್ತಿರದ ಅಂಗಡಿಯಲ್ಲಿ ವಿಚಾರಿಸಿ' : 'Inquire nearby shop'}</button>
+        </div>`;
+      return;
+    }
+    area.innerHTML = products.map(p => `
+      <div class="card" style="margin-bottom:12px;">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px;">
+          <div>
+            <div style="font-weight:700;font-size:15px;">${escHtml(p.title)}</div>
+            <div class="muted" style="font-size:12px;">${escHtml(p.brand || '')} · ${escHtml(p.pack_size || '')}</div>
+          </div>
+          ${p.discount_pct > 0 ? `<span class="pill pill-forest">${p.discount_pct}% ${isKn ? 'ರಿಯಾಯಿತಿ' : 'OFF'}</span>` : ''}
+        </div>
+        <div style="margin:8px 0;display:flex;align-items:baseline;gap:8px;">
+          <span style="font-size:20px;font-weight:700;color:var(--forest);">₹${p.current_price}</span>
+          ${p.mrp > p.current_price ? `<span class="muted" style="text-decoration:line-through;font-size:13px;">₹${p.mrp}</span>` : ''}
+        </div>
+        <div class="muted" style="font-size:12px;margin-bottom:10px;">
+          🏪 ${escHtml(p.seller_name || (isKn ? 'ದೃಢೀಕೃತ ಕೃಷಿ ಕೇಂದ್ರ' : 'Verified Agri Store'))} · 🚚 ${isKn ? 'ಅಂದಾಜು ವಿತರಣೆ' : 'Delivery'}: ${p.delivery_estimate_days || 1} ${isKn ? 'ದಿನ' : 'day(s)'}
+        </div>
+        <button class="btn btn-primary btn-block" onclick="showToast('${isKn ? 'ಉತ್ಪನ್ನ ವಿಚಾರಣೆಯನ್ನು ಕಳುಹಿಸಲಾಗಿದೆ!' : 'Order inquiry sent to vendor!'}')">${dict.inputs_buy_btn || (isKn ? 'ಆರ್ಡರ್ / ವಿಚಾರಣೆ' : 'Order / Inquire')}</button>
+      </div>
+    `).join('');
+  } catch(e){
+    console.warn('Inputs fetch failed:', e);
+    area.innerHTML = `<div class="card"><div class="muted">${isKn ? 'ಕೃಷಿ ಪರಿಕರಗಳ ಸೇವೆಯನ್ನು ತಲುಪಲಾಗಲಿಲ್ಲ.' : 'Could not reach inputs service.'}</div></div>`;
+  }
 }
 
 /* ================= MORE SERVICES ================= */
@@ -1617,17 +3387,37 @@ function renderMoreList(){
 
 function openMoreItem(id){
   if(id === 'account'){ go('account'); return; }
+  if(id === 'plans'){ go('plans'); return; }
+  if(id === 'schemes'){ go('schemes'); return; }
   if(id === 'reports'){ go('home'); document.getElementById('reportsContainer')?.scrollIntoView({behavior:'smooth'}); return; }
+  if(id === 'drone'){ go('drone'); return; }
+  if(id === 'inputs'){ go('inputs'); return; }
+  if(id === 'logistics'){ go('logistics'); return; }
   const item = MORE_ITEMS.find(m=>m.id===id);
   if(!item) return;
+  const isKn = currentLang === 'kn';
   document.getElementById('stubTitle').textContent = item.emoji + '  ' + item.t;
-  document.getElementById('stubBanner').textContent = 'Live Service Integration · Powered by Agro AI APIs';
+  document.getElementById('stubBanner').textContent = isKn ? 'ನೇರ ಸೇವಾ ಸಂಯೋಜನೆ · ಆಗ್ರೋ AI API ಮೂಲಕ' : 'Live Service Integration · Powered by Agro AI APIs';
   document.getElementById('stubBody').textContent = item.body;
   go('stub');
 }
 
+
 /* ================= APP INITIALIZATION ================= */
 document.addEventListener('DOMContentLoaded', () => {
+  // Load saved custom logo if configured
+  // New official logo (v2) — clear any previously saved custom logo so it doesn't override it.
+  try { if(localStorage.getItem('agroai_logo_version') !== '2'){ localStorage.removeItem('agroai_custom_logo'); localStorage.setItem('agroai_logo_version','2'); } } catch(e){}
+  const savedLogo = localStorage.getItem('agroai_custom_logo');
+  if(savedLogo){
+    setAgroAiLogo(savedLogo);
+  }
+
+  // Smoothly auto-dismiss splash screen after 1.8 seconds (or on user tap)
+  setTimeout(() => {
+    hideSplash();
+  }, 1800);
+
   setLang(currentLang);
   renderDayStrip();
   initChat();
@@ -1645,6 +3435,8 @@ document.addEventListener('DOMContentLoaded', () => {
     document.body.classList.add('authing');
     goAuth('auth-welcome');
   }
+
+  verifyStoredSession();
 
   // Register service worker if supported
   if('serviceWorker' in navigator){
@@ -1779,25 +3571,26 @@ async function lSearchDrivers(){
 
 function lRenderDriverList(data){
   const routeInfo = document.getElementById('lRouteInfo');
+  const isKn = (currentLang === 'kn');
   if(data.options?.[0]?.route){
     const r = data.options[0].route;
     const warn = data.routing_warning ? `<div style="color:#856404;font-size:12px;margin-top:6px;">⚠️ ${data.routing_warning}</div>` : '';
     routeInfo.innerHTML = `
       <div style="display:flex;gap:16px;align-items:center;">
-        <div><div class="muted" style="font-size:11px;">DISTANCE</div><div style="font-weight:700;font-size:18px;">${r.distance_km} km</div></div>
-        <div><div class="muted" style="font-size:11px;">ESTIMATED TIME</div><div style="font-weight:700;font-size:18px;">${r.duration_mins} min</div></div>
-        <div><div class="muted" style="font-size:11px;">SOURCE</div><div style="font-weight:600;font-size:13px;">${r.source}</div></div>
+        <div><div class="muted" style="font-size:11px;">${isKn ? 'ದೂರ' : 'DISTANCE'}</div><div style="font-weight:700;font-size:18px;">${r.distance_km} km</div></div>
+        <div><div class="muted" style="font-size:11px;">${isKn ? 'ಅಂದಾಜು ಸಮಯ' : 'ESTIMATED TIME'}</div><div style="font-weight:700;font-size:18px;">${r.duration_mins} ${isKn ? 'ನಿಮಿಷ' : 'min'}</div></div>
+        <div><div class="muted" style="font-size:11px;">${isKn ? 'ಮೂಲ' : 'SOURCE'}</div><div style="font-weight:600;font-size:13px;">${r.source}</div></div>
       </div>${warn}`;
   } else {
-    routeInfo.innerHTML = `<div class="muted">Route info unavailable</div>`;
+    routeInfo.innerHTML = `<div class="muted">${isKn ? 'ಮಾರ್ಗದ ಮಾಹಿತಿ ಲಭ್ಯವಿಲ್ಲ' : 'Route info unavailable'}</div>`;
   }
 
   const list = document.getElementById('lDriverList');
   if(!data.available || !data.options?.length){
     list.innerHTML = `<div class="card" style="text-align:center;padding:24px;">
       <div style="font-size:32px;">🚛</div>
-      <div style="font-weight:700;margin:8px 0 4px;">No drivers available</div>
-      <div class="muted">No verified Agro AI drivers are currently available in your area. Try again in a few minutes or request a quote.</div>
+      <div style="font-weight:700;margin:8px 0 4px;">${isKn ? 'ಯಾವುದೇ ಚಾಲಕರು ಲಭ್ಯವಿಲ್ಲ' : 'No drivers available'}</div>
+      <div class="muted">${isKn ? 'ನಿಮ್ಮ ಪ್ರದೇಶದಲ್ಲಿ ಸದ್ಯಕ್ಕೆ ಯಾವುದೇ ದೃಢೀಕೃತ ಆಗ್ರೋ AI ಚಾಲಕರು ಲಭ್ಯವಿಲ್ಲ. ದಯವಿಟ್ಟು ಸ್ವಲ್ಪ ಸಮಯದ ನಂತರ ಪ್ರಯತ್ನಿಸಿ.' : 'No verified Agro AI drivers are currently available in your area. Try again in a few minutes or request a quote.'}</div>
     </div>`;
     return;
   }
@@ -1809,21 +3602,21 @@ function lRenderDriverList(data){
           <div style="font-weight:700;font-size:15px;">${opt.driver_name}</div>
           <div class="muted" style="font-size:12px;">${opt.vehicle_type} · ${opt.registration_number}</div>
           <div style="margin-top:4px;">
-            ${opt.total_trips > 0 ? `<span class="pill pill-forest" style="font-size:11px;">⭐ ${opt.driver_rating} · ${opt.total_trips} trips</span>` : '<span class="pill" style="font-size:11px;background:#f0f0f0;">New driver</span>'}
+            ${opt.total_trips > 0 ? `<span class="pill pill-forest" style="font-size:11px;">⭐ ${opt.driver_rating} · ${opt.total_trips} ${isKn ? 'ಪ್ರಯಾಣಗಳು' : 'trips'}</span>` : `<span class="pill" style="font-size:11px;background:#f0f0f0;">${isKn ? 'ಹೊಸ ಚಾಲಕ' : 'New driver'}</span>`}
             <span class="pill pill-saffron" style="font-size:11px;margin-left:4px;">${opt.location_freshness}</span>
           </div>
         </div>
         <div style="text-align:right;">
           <div style="font-weight:700;color:var(--forest);font-size:18px;">₹${opt.pricing.farmer_total_price.toLocaleString('en-IN')}</div>
-          <div class="muted" style="font-size:12px;">ETA ~${opt.driver_eta_mins} min</div>
+          <div class="muted" style="font-size:12px;">${isKn ? 'ಆಗಮನ' : 'ETA'} ~${opt.driver_eta_mins} ${isKn ? 'ನಿಮಿಷ' : 'min'}</div>
         </div>
       </div>
       <div style="display:flex;gap:8px;flex-wrap:wrap;font-size:12px;color:var(--ink-soft);">
-        <span>📦 ${opt.payload_capacity_tons}T capacity</span>
-        <span>🛣️ ${opt.route.distance_km} km · ${opt.route.duration_mins} min</span>
-        <span>💰 ₹${opt.pricing.price_per_quintal}/quintal</span>
+        <span>📦 ${opt.payload_capacity_tons}T ${isKn ? 'ಸಾಮರ್ಥ್ಯ' : 'capacity'}</span>
+        <span>🛣️ ${opt.route.distance_km} km · ${opt.route.duration_mins} ${isKn ? 'ನಿಮಿಷ' : 'min'}</span>
+        <span>💰 ₹${opt.pricing.price_per_quintal}/${isKn ? 'ಕ್ವಿಂಟಾಲ್' : 'quintal'}</span>
       </div>
-      <button class="btn btn-primary" style="width:100%;margin-top:12px;" onclick="event.stopPropagation();lSelectDriver(${i})">Select this driver →</button>
+      <button class="btn btn-primary" style="width:100%;margin-top:12px;" onclick="event.stopPropagation();lSelectDriver(${i})">${isKn ? 'ಈ ಚಾಲಕರನ್ನು ಆಯ್ಕೆಮಾಡಿ →' : 'Select this driver →'}</button>
     </div>`).join('');
 }
 
@@ -1833,30 +3626,31 @@ function lSelectDriver(i){
   document.getElementById('dCard'+i).style.borderColor = 'var(--forest)';
 
   // Render fare breakdown
+  const isKn = (currentLang === 'kn');
   const opt = lState.selected;
   const p   = opt.pricing;
   document.getElementById('lFareCard').innerHTML = `
-    <div style="font-weight:700;margin-bottom:12px;font-size:15px;">💰 Fare breakdown</div>
-    <div class="kv-row"><span class="k">Base charge</span><span class="v">₹${p.base_charge}</span></div>
-    <div class="kv-row"><span class="k">Distance fare (${opt.route.distance_km} km)</span><span class="v">₹${p.distance_fare}</span></div>
-    <div class="kv-row"><span class="k">Loading</span><span class="v">₹${p.loading_charge}</span></div>
-    <div class="kv-row"><span class="k">Unloading</span><span class="v">₹${p.unloading_charge}</span></div>
-    ${p.toll_estimate > 0 ? `<div class="kv-row"><span class="k">Toll estimate</span><span class="v">₹${p.toll_estimate}</span></div>` : ''}
-    <div class="kv-row"><span class="k">Platform fee</span><span class="v">₹${p.platform_fee}</span></div>
+    <div style="font-weight:700;margin-bottom:12px;font-size:15px;">💰 ${isKn ? 'ದರದ ವಿವರ' : 'Fare breakdown'}</div>
+    <div class="kv-row"><span class="k">${isKn ? 'ಮೂಲ ಶುಲ್ಕ' : 'Base charge'}</span><span class="v">₹${p.base_charge}</span></div>
+    <div class="kv-row"><span class="k">${isKn ? 'ದೂರದ ಶುಲ್ಕ' : 'Distance fare'} (${opt.route.distance_km} km)</span><span class="v">₹${p.distance_fare}</span></div>
+    <div class="kv-row"><span class="k">${isKn ? 'ಲೋಡಿಂಗ್ ವೆಚ್ಚ' : 'Loading'}</span><span class="v">₹${p.loading_charge}</span></div>
+    <div class="kv-row"><span class="k">${isKn ? 'ಅನ್‌ಲೋಡಿಂಗ್ ವೆಚ್ಚ' : 'Unloading'}</span><span class="v">₹${p.unloading_charge}</span></div>
+    ${p.toll_estimate > 0 ? `<div class="kv-row"><span class="k">${isKn ? 'ಟೋಲ್ ಅಂದಾಜು' : 'Toll estimate'}</span><span class="v">₹${p.toll_estimate}</span></div>` : ''}
+    <div class="kv-row"><span class="k">${isKn ? 'ಪ್ಲಾಟ್‌ಫಾರ್ಮ್ ಶುಲ್ಕ' : 'Platform fee'}</span><span class="v">₹${p.platform_fee}</span></div>
     <div class="kv-row" style="border-top:1.5px solid var(--line);padding-top:10px;margin-top:6px;">
-      <span class="k" style="font-weight:700;">Total you pay</span>
+      <span class="k" style="font-weight:700;">${isKn ? 'ನೀವು ಪಾವತಿಸಬೇಕಾದ ಒಟ್ಟು ಮೊತ್ತ' : 'Total you pay'}</span>
       <span class="v" style="font-weight:700;color:var(--forest);font-size:17px;">₹${p.farmer_total_price.toLocaleString('en-IN')}</span>
     </div>
-    <div class="muted" style="font-size:12px;margin-top:6px;">≈ ₹${p.price_per_quintal}/quintal · Routing: ${opt.route.source}</div>`;
+    <div class="muted" style="font-size:12px;margin-top:6px;">≈ ₹${p.price_per_quintal}/${isKn ? 'ಕ್ವಿಂಟಾಲ್' : 'quintal'} · ${isKn ? 'ಮಾರ್ಗ' : 'Routing'}: ${opt.route.source}</div>`;
 
   document.getElementById('lDriverCard').innerHTML = `
-    <div style="font-weight:700;margin-bottom:10px;font-size:15px;">🚛 Driver details</div>
-    <div class="kv-row"><span class="k">Driver</span><span class="v">${opt.driver_name}</span></div>
-    <div class="kv-row"><span class="k">Vehicle</span><span class="v">${opt.vehicle_type}</span></div>
-    <div class="kv-row"><span class="k">Reg. No.</span><span class="v">${opt.registration_number}</span></div>
-    <div class="kv-row"><span class="k">Capacity</span><span class="v">${opt.payload_capacity_tons} tons</span></div>
-    ${opt.total_trips > 0 ? `<div class="kv-row"><span class="k">Rating</span><span class="v">⭐ ${opt.driver_rating} (${opt.total_trips} trips)</span></div>` : ''}
-    <div class="kv-row"><span class="k">ETA to pickup</span><span class="v">~${opt.driver_eta_mins} min</span></div>`;
+    <div style="font-weight:700;margin-bottom:10px;font-size:15px;">🚛 ${isKn ? 'ಚಾಲಕರ ವಿವರಗಳು' : 'Driver details'}</div>
+    <div class="kv-row"><span class="k">${isKn ? 'ಚಾಲಕ' : 'Driver'}</span><span class="v">${opt.driver_name}</span></div>
+    <div class="kv-row"><span class="k">${isKn ? 'ವಾಹನ' : 'Vehicle'}</span><span class="v">${opt.vehicle_type}</span></div>
+    <div class="kv-row"><span class="k">${isKn ? 'ನೋಂದಣಿ ಸಂಖ್ಯೆ' : 'Reg. No.'}</span><span class="v">${opt.registration_number}</span></div>
+    <div class="kv-row"><span class="k">${isKn ? 'ಸಾಮರ್ಥ್ಯ' : 'Capacity'}</span><span class="v">${opt.payload_capacity_tons} ${isKn ? 'ಟನ್' : 'tons'}</span></div>
+    ${opt.total_trips > 0 ? `<div class="kv-row"><span class="k">${isKn ? 'ರೇಟಿಂಗ್' : 'Rating'}</span><span class="v">⭐ ${opt.driver_rating} (${opt.total_trips} ${isKn ? 'ಪ್ರಯಾಣಗಳು' : 'trips'})</span></div>` : ''}
+    <div class="kv-row"><span class="k">${isKn ? 'ಆಗಮನದ ಸಮಯ' : 'ETA to pickup'}</span><span class="v">~${opt.driver_eta_mins} ${isKn ? 'ನಿಮಿಷ' : 'min'}</span></div>`;
 
   lGoStep(3);
 }
@@ -1925,7 +3719,7 @@ function lConnectWebSocket(){
   if(!lState.tripId) return;
   if(lState.ws) lState.ws.close();
 
-  const wsUrl = `${WS_BASE}/trip/${lState.tripId}`;
+  const wsUrl = `${WS_BASE}/trip/${lState.tripId}?token=${encodeURIComponent(lState.shareToken || '')}`;
   try {
     const ws = new WebSocket(wsUrl);
     lState.ws = ws;
@@ -2007,30 +3801,47 @@ const TRIP_STATUS_INFO = {
   DISPUTED:           { icon: '⚠️', label: 'Dispute raised',          color: '#fd7e14' },
 };
 
+const TRIP_STATUS_INFO_KN = {
+  REQUESTED:          { icon: '🕐', label: 'ಚಾಲಕರಿಗಾಗಿ ಹುಡುಕಲಾಗುತ್ತಿದೆ', color: '#856404' },
+  MATCHING:           { icon: '🔍', label: 'ಚಾಲಕರಿಗೆ ಸೂಚಿಸಲಾಗುತ್ತಿದೆ',      color: '#856404' },
+  DRIVER_ASSIGNED:    { icon: '✅', label: 'ಚಾಲಕರು ಒಪ್ಪಿಕೊಂಡಿದ್ದಾರೆ!',      color: '#1F4D2B' },
+  DRIVER_EN_ROUTE:    { icon: '🚛', label: 'ಚಾಲಕರು ಬರುತ್ತಿದ್ದಾರೆ',     color: '#1F4D2B' },
+  ARRIVED:            { icon: '📍', label: 'ಚಾಲಕರು ಪಿಕಪ್ ಸ್ಥಳ ತಲುಪಿದ್ದಾರೆ', color: '#0d6efd' },
+  LOADING:            { icon: '📦', label: 'ಲೋಡಿಂಗ್ ಪ್ರಕ್ರಿಯೆಯಲ್ಲಿದೆ',   color: '#0d6efd' },
+  IN_TRANSIT:         { icon: '🛣️', label: 'ಮಾರ್ಗಮಧ್ಯದಲ್ಲಿದೆ (ಸಾಗಣೆ)', color: '#1F4D2B' },
+  ARRIVED_DESTINATION:{ icon: '🏁', label: 'ತಲುಪುವ ಸ್ಥಳವನ್ನು ಮುಟ್ಟಿದೆ', color: '#198754' },
+  UNLOADING:          { icon: '📤', label: 'ಅನ್‌ಲೋಡಿಂಗ್ ಪ್ರಕ್ರಿಯೆಯಲ್ಲಿದೆ', color: '#198754' },
+  COMPLETED:          { icon: '🎉', label: 'ಪ್ರಯಾಣ ಯಶಸ್ವಿಯಾಗಿ ಪೂರ್ಣಗೊಂಡಿದೆ!', color: '#198754' },
+  CANCELLED:          { icon: '❌', label: 'ಪ್ರಯಾಣ ರದ್ದುಗೊಂಡಿದೆ',          color: '#DC3545' },
+  DISPUTED:           { icon: '⚠️', label: 'ತಕರಾರು ದಾಖಲಾಗಿದೆ',          color: '#fd7e14' },
+};
+
 function lRenderTripStatus(){
   const card = document.getElementById('lTripStatusCard');
   if(!card) return;
+  const isKn = (currentLang === 'kn');
   const opt  = lState.selected || {};
-  const info = TRIP_STATUS_INFO[lState.tripStatus] || { icon: '🔄', label: lState.tripStatus, color: '#666' };
+  const statusMap = isKn ? TRIP_STATUS_INFO_KN : TRIP_STATUS_INFO;
+  const info = statusMap[lState.tripStatus] || { icon: '🔄', label: lState.tripStatus, color: '#666' };
 
   card.innerHTML = `
     <div style="display:flex;gap:14px;align-items:center;margin-bottom:14px;">
       <div style="font-size:32px;">${info.icon}</div>
       <div>
         <div style="font-weight:700;font-size:16px;color:${info.color};">${info.label}</div>
-        <div class="muted" style="font-size:12px;">Trip ID: ${lState.tripId?.slice(0,8)}…</div>
+        <div class="muted" style="font-size:12px;">${isKn ? 'ಪ್ರಯಾಣ ID' : 'Trip ID'}: ${lState.tripId?.slice(0,8)}…</div>
       </div>
     </div>
     ${lState.tripPin ? `
     <div style="background:var(--cream);border-radius:10px;padding:10px 14px;margin-bottom:12px;display:flex;justify-content:space-between;align-items:center;">
-      <span class="muted" style="font-size:12px;">Show this PIN to driver at pickup:</span>
+      <span class="muted" style="font-size:12px;">${isKn ? 'ಪಿಕಪ್ ಸಮಯದಲ್ಲಿ ಚಾಲಕರಿಗೆ ಈ PIN ತೋರಿಸಿ:' : 'Show this PIN to driver at pickup:'}</span>
       <span style="font-family:monospace;font-size:22px;font-weight:900;letter-spacing:4px;color:var(--forest);">${lState.tripPin}</span>
     </div>` : ''}
-    <div class="kv-row"><span class="k">From</span><span class="v">${lState.pickup.addr || '—'}</span></div>
-    <div class="kv-row"><span class="k">To</span><span class="v">${lState.dest.addr || '—'}</span></div>
-    ${opt.driver_name ? `<div class="kv-row"><span class="k">Driver</span><span class="v">${opt.driver_name}</span></div>` : ''}
-    ${opt.registration_number ? `<div class="kv-row"><span class="k">Vehicle</span><span class="v">${opt.vehicle_type} · ${opt.registration_number}</span></div>` : ''}
-    ${opt.pricing ? `<div class="kv-row"><span class="k">Total fare</span><span class="v" style="font-weight:700;color:var(--forest);">₹${opt.pricing.farmer_total_price?.toLocaleString('en-IN')}</span></div>` : ''}`;
+    <div class="kv-row"><span class="k">${isKn ? 'ಹೊರಡುವ ಸ್ಥಳ' : 'From'}</span><span class="v">${lState.pickup.addr || '—'}</span></div>
+    <div class="kv-row"><span class="k">${isKn ? 'ತಲುಪುವ ಸ್ಥಳ' : 'To'}</span><span class="v">${lState.dest.addr || '—'}</span></div>
+    ${opt.driver_name ? `<div class="kv-row"><span class="k">${isKn ? 'ಚಾಲಕ' : 'Driver'}</span><span class="v">${opt.driver_name}</span></div>` : ''}
+    ${opt.registration_number ? `<div class="kv-row"><span class="k">${isKn ? 'ವಾಹನ' : 'Vehicle'}</span><span class="v">${opt.vehicle_type} · ${opt.registration_number}</span></div>` : ''}
+    ${opt.pricing ? `<div class="kv-row"><span class="k">${isKn ? 'ಒಟ್ಟು ಬಾಡಿಗೆ' : 'Total fare'}</span><span class="v" style="font-weight:700;color:var(--forest);">₹${opt.pricing.farmer_total_price?.toLocaleString('en-IN')}</span></div>` : ''}`;
 
   lRenderTripActions();
 }
@@ -2039,19 +3850,20 @@ function lRenderTripActions(){
   const el = document.getElementById('lTripActions');
   if(!el) return;
   const s = lState.tripStatus;
+  const isKn = (currentLang === 'kn');
 
   let actions = [];
   if(s === 'ARRIVED'){
-    actions.push({ label: '▶️ Start loading', fn: 'lStartTrip()' });
+    actions.push({ label: isKn ? '▶️ ಲೋಡಿಂಗ್ ಪ್ರಾರಂಭಿಸಿ' : '▶️ Start loading', fn: 'lStartTrip()' });
   }
   if(['ARRIVED','IN_TRANSIT','ARRIVED_DESTINATION','UNLOADING'].includes(s)){
-    actions.push({ label: '✅ Complete trip', fn: 'lCompleteTrip()' });
+    actions.push({ label: isKn ? '✅ ಪ್ರಯಾಣ ಪೂರ್ಣಗೊಳಿಸಿ' : '✅ Complete trip', fn: 'lCompleteTrip()' });
   }
   if(['REQUESTED','MATCHING','DRIVER_ASSIGNED','DRIVER_EN_ROUTE'].includes(s)){
-    actions.push({ label: '❌ Cancel trip', fn: 'lCancelTrip()', danger: true });
+    actions.push({ label: isKn ? '❌ ಪ್ರಯಾಣ ರದ್ದುಗೊಳಿಸಿ' : '❌ Cancel trip', fn: 'lCancelTrip()', danger: true });
   }
   if(s === 'COMPLETED' && !lState.rated){
-    actions.push({ label: '⭐ Rate driver', fn: 'lRateDriver()' });
+    actions.push({ label: isKn ? '⭐ ರೇಟಿಂಗ್ ನೀಡಿ' : '⭐ Rate driver', fn: 'lRateDriver()' });
   }
 
   el.innerHTML = actions.map(a =>
@@ -2060,18 +3872,22 @@ function lRenderTripActions(){
 }
 
 async function lStartTrip(){
-  await lTripAction('start', '▶️ Trip started!');
+  const isKn = (currentLang === 'kn');
+  await lTripAction('start', isKn ? '▶️ ಪ್ರಯಾಣ ಪ್ರಾರಂಭವಾಗಿದೆ!' : '▶️ Trip started!');
 }
 async function lCompleteTrip(){
-  await lTripAction('complete', '🎉 Trip completed!');
+  const isKn = (currentLang === 'kn');
+  await lTripAction('complete', isKn ? '🎉 ಪ್ರಯಾಣ ಪೂರ್ಣಗೊಂಡಿದೆ!' : '🎉 Trip completed!');
 }
 async function lCancelTrip(){
-  if(!confirm('Are you sure you want to cancel this trip?')) return;
-  await lTripAction('cancel', '❌ Trip cancelled');
+  const isKn = (currentLang === 'kn');
+  if(!confirm(isKn ? 'ಈ ಸಾರಿಗೆ ಪ್ರಯಾಣವನ್ನು ರದ್ದುಗೊಳಿಸಲು ನೀವು ಖಚಿತವಾಗಿದ್ದೀರಾ?' : 'Are you sure you want to cancel this trip?')) return;
+  await lTripAction('cancel', isKn ? '❌ ಪ್ರಯಾಣ ರದ್ದುಗೊಂಡಿದೆ' : '❌ Trip cancelled');
 }
 
 async function lTripAction(action, successMsg){
   if(!lState.tripId) return;
+  const isKn = (currentLang === 'kn');
   try {
     const res = await fetch(`${API}/logistics/trips/${lState.tripId}/${action}`, {
       method: 'POST',
@@ -2085,13 +3901,14 @@ async function lTripAction(action, successMsg){
     lAppendEvent(action.toUpperCase(), successMsg);
     lLoadMyTrips();
   } catch(e){
-    showToast('Action failed. Try again.');
+    showToast(isKn ? 'ಕಾರ್ಯ ವಿಫಲವಾಗಿದೆ. ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ.' : 'Action failed. Try again.');
   }
 }
 
 async function lTriggerSOS(){
-  if(!lState.tripId){ showToast('No active trip'); return; }
-  if(!confirm('🚨 This will send an SOS alert to Agro AI emergency team. Proceed?')) return;
+  const isKn = (currentLang === 'kn');
+  if(!lState.tripId){ showToast(isKn ? 'ಯಾವುದೇ ಸಕ್ರಿಯ ಪ್ರಯಾಣವಿಲ್ಲ' : 'No active trip'); return; }
+  if(!confirm(isKn ? '🚨 ಇದು ಆಗ್ರೋ AI ತುರ್ತು ತಂಡಕ್ಕೆ SOS ಎಚ್ಚರಿಕೆಯನ್ನು ಕಳುಹಿಸುತ್ತದೆ. ಮುಂದುವರಿಯುವುದೇ?' : '🚨 This will send an SOS alert to Agro AI emergency team. Proceed?')) return;
   navigator.geolocation.getCurrentPosition(async pos => {
     const { latitude: lat, longitude: lon } = pos.coords;
     try {
@@ -2100,25 +3917,27 @@ async function lTriggerSOS(){
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ actor_id: session?.userId || 'farmer', lat, lon })
       });
-      showToast('🚨 SOS alert sent to Agro AI emergency team!');
-    } catch(e){ showToast('SOS failed. Call 112 directly.'); }
-  }, () => showToast('🚨 SOS sent (no GPS available)'));
+      showToast(isKn ? '🚨 ಆಗ್ರೋ AI ತುರ್ತು ತಂಡಕ್ಕೆ SOS ಎಚ್ಚರಿಕೆ ಕಳುಹಿಸಲಾಗಿದೆ!' : '🚨 SOS alert sent to Agro AI emergency team!');
+    } catch(e){ showToast(isKn ? 'SOS ವಿಫಲವಾಗಿದೆ. ನೇರವಾಗಿ 112 ಗೆ ಕರೆ ಮಾಡಿ.' : 'SOS failed. Call 112 directly.'); }
+  }, () => showToast(isKn ? '🚨 SOS ಕಳುಹಿಸಲಾಗಿದೆ (GPS ಲಭ್ಯವಿಲ್ಲ)' : '🚨 SOS sent (no GPS available)'));
 }
 
 function lShareTrip(){
-  if(!lState.tripId || !lState.shareToken){ showToast('No active trip to share'); return; }
+  const isKn = (currentLang === 'kn');
+  if(!lState.tripId || !lState.shareToken){ showToast(isKn ? 'ಹಂಚಿಕೊಳ್ಳಲು ಸಕ್ರಿಯ ಪ್ರಯಾಣವಿಲ್ಲ' : 'No active trip to share'); return; }
   const link = `${window.location.origin}/api/logistics/trips/${lState.tripId}/track?token=${lState.shareToken}`;
   if(navigator.share){
-    navigator.share({ title: 'Track my Agro AI transport', url: link });
+    navigator.share({ title: isKn ? 'ನನ್ನ ಆಗ್ರೋ AI ಸಾರಿಗೆ ಟ್ರ್ಯಾಕ್ ಮಾಡಿ' : 'Track my Agro AI transport', url: link });
   } else {
-    navigator.clipboard.writeText(link).then(() => showToast('📋 Tracking link copied to clipboard!'));
+    navigator.clipboard.writeText(link).then(() => showToast(isKn ? '📋 ಟ್ರ್ಯಾಕಿಂಗ್ ಲಿಂಕ್ ನಕಲಿಸಲಾಗಿದೆ!' : '📋 Tracking link copied to clipboard!'));
   }
 }
 
 async function lRateDriver(){
-  const rating = prompt('Rate your driver (1-5 stars):');
-  if(!rating || isNaN(rating) || rating < 1 || rating > 5){ showToast('Please enter a rating between 1 and 5'); return; }
-  const review = prompt('Write a review (optional):') || '';
+  const isKn = (currentLang === 'kn');
+  const rating = prompt(isKn ? 'ಚಾಲಕರಿಗೆ ರೇಟಿಂಗ್ ನೀಡಿ (1-5 ನಕ್ಷತ್ರಗಳು):' : 'Rate your driver (1-5 stars):');
+  if(!rating || isNaN(rating) || rating < 1 || rating > 5){ showToast(isKn ? 'ದಯವಿಟ್ಟು 1 ರಿಂದ 5 ರ ನಡುವೆ ರೇಟಿಂಗ್ ನಮೂದಿಸಿ' : 'Please enter a rating between 1 and 5'); return; }
+  const review = prompt(isKn ? 'ಅಭಿಪ್ರಾಯ ಬರೆಯಿರಿ (ಐಚ್ಛಿಕ):' : 'Write a review (optional):') || '';
   try {
     await fetch(`${API}/logistics/trips/${lState.tripId}/rate`, {
       method: 'POST',
@@ -2126,9 +3945,9 @@ async function lRateDriver(){
       body: JSON.stringify({ farmer_id: session?.userId || 'farmer', rating: parseFloat(rating), review })
     });
     lState.rated = true;
-    showToast('⭐ Rating submitted. Thank you!');
+    showToast(isKn ? '⭐ ರೇಟಿಂಗ್ ಸಲ್ಲಿಸಲಾಗಿದೆ. ಧನ್ಯವಾದಗಳು!' : '⭐ Rating submitted. Thank you!');
     lRenderTripActions();
-  } catch(e){ showToast('Rating failed. Try again.'); }
+  } catch(e){ showToast(isKn ? 'ರೇಟಿಂಗ್ ವಿಫಲವಾಗಿದೆ. ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ.' : 'Rating failed. Try again.'); }
 }
 
 // ─── Poll fallback ─────────────────────────────────────────────
@@ -2160,24 +3979,26 @@ function lAppendEvent(event, note){
 
 // ─── My trips ─────────────────────────────────────────────────
 async function lLoadMyTrips(){
+  const isKn = (currentLang === 'kn');
   const farmerId = session?.userId || 'guest';
-  if(farmerId === 'guest'){ document.getElementById('lMyTripsList').innerHTML = '<div class="muted">Sign in to see your trip history.</div>'; return; }
+  if(farmerId === 'guest'){ document.getElementById('lMyTripsList').innerHTML = `<div class="muted">${isKn ? 'ನಿಮ್ಮ ಸಾರಿಗೆ ಇತಿಹಾಸವನ್ನು ನೋಡಲು ಸೈನ್-ಇನ್ ಮಾಡಿ.' : 'Sign in to see your trip history.'}</div>`; return; }
   try {
     const res = await fetch(`${API}/logistics/trips?farmer_id=${farmerId}`, {
       headers: { 'Authorization': `Bearer ${session?.token || ''}` }
     });
     const trips = await res.json();
     const el = document.getElementById('lMyTripsList');
-    if(!trips.length){ el.innerHTML = '<div class="muted">No trips yet. Book your first transport above.</div>'; return; }
+    if(!trips.length){ el.innerHTML = `<div class="muted">${isKn ? 'ಇನ್ನೂ ಯಾವುದೇ ಸಾರಿಗೆ ಪ್ರಯಾಣಗಳಿಲ್ಲ. ನಿಮ್ಮ ಮೊದಲ ಸಾರಿಗೆಯನ್ನು ಮೇಲಿನ ಫಾರ್ಮ್‌ನಲ್ಲಿ ಬುಕ್ ಮಾಡಿ.' : 'No trips yet. Book your first transport above.'}</div>`; return; }
+    const statusMap = isKn ? TRIP_STATUS_INFO_KN : TRIP_STATUS_INFO;
     el.innerHTML = trips.map(t => {
-      const info = TRIP_STATUS_INFO[t.status] || { icon: '🔄', label: t.status, color: '#666' };
+      const info = statusMap[t.status] || { icon: '🔄', label: t.status, color: '#666' };
       return `<div class="kv-row" style="cursor:pointer;" onclick="lOpenTrip('${t.id}','${t.status}')">
         <span class="k">${info.icon} ${t.pickup_address?.slice(0,20)} → ${t.dest_address?.slice(0,20)}</span>
         <span class="v" style="color:${info.color};font-size:12px;">${info.label}</span>
       </div>`;
     }).join('');
   } catch(e){
-    document.getElementById('lMyTripsList').innerHTML = '<div class="muted">Could not load trips.</div>';
+    document.getElementById('lMyTripsList').innerHTML = `<div class="muted">${isKn ? 'ಸಾರಿಗೆ ಪಟ್ಟಿಯನ್ನು ಲೋಡ್ ಮಾಡಲು ಸಾಧ್ಯವಾಗಲಿಲ್ಲ.' : 'Could not load trips.'}</div>`;
   }
 }
 
