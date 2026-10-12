@@ -247,3 +247,79 @@ def test_data_privacy_requests_processing():
     })
     assert proc_res.status_code == 200
     assert proc_res.json()["status"] == "completed"
+
+
+def test_super_admin_can_delete_published_plan():
+    """Head Super Admin has executive authority to delete a published subscription plan."""
+    admin_auth = auth("farmer_rajesh")
+    plan_slug = f"test-delete-plan-{int(time.time())}"
+
+    # 1. Create plan
+    c_res = client.post("/api/admin/plans", headers=admin_auth, json={"slug": plan_slug})
+    assert c_res.status_code == 200
+    plan_id = c_res.json()["id"]
+
+    # 2. Create version
+    v_res = client.post(f"/api/admin/plans/{plan_id}/versions", headers=admin_auth, json={
+        "name": "Kisan Test To Delete",
+        "description": "Plan to be deleted",
+        "price_minor": 19900,
+        "currency": "INR",
+        "billing_interval": "monthly",
+        "trial_days": 7,
+        "benefits": ["Benefit 1"],
+        "entitlements": {
+            "kisan_chat": {"enabled": True, "usage_limit": None, "limit_period": "monthly"},
+            "diagnose_leaf": {"enabled": True, "usage_limit": 50, "limit_period": "monthly"}
+        }
+    })
+    assert v_res.status_code == 200
+    ver_id = v_res.json()["id"]
+
+    # 3. Publish version (makes plan published)
+    pub_res = client.post(f"/api/admin/plans/{plan_id}/versions/{ver_id}/publish", headers=admin_auth)
+    assert pub_res.status_code == 200
+
+    # 4. Delete the published plan as Super Admin
+    del_res = client.delete(f"/api/admin/plans/{plan_id}", headers=admin_auth)
+    assert del_res.status_code == 200
+    assert "successfully deleted" in del_res.json()["message"]
+
+    # 5. Verify plan is no longer returned in plans list
+    plans = client.get("/api/admin/plans", headers=admin_auth).json()
+    assert not any(p["id"] == plan_id for p in plans)
+
+
+def test_super_admin_can_delete_published_plan_version():
+    """Super Admin can delete a specific published version from a multi-version plan."""
+    admin_auth = auth("farmer_rajesh")
+    plan_slug = f"test-multiversion-{int(time.time())}"
+
+    # Create plan
+    p = client.post("/api/admin/plans", headers=admin_auth, json={"slug": plan_slug}).json()
+    plan_id = p["id"]
+
+    # Create v1
+    v1 = client.post(f"/api/admin/plans/{plan_id}/versions", headers=admin_auth, json={
+        "name": "Version 1",
+        "price_minor": 19900,
+        "billing_interval": "monthly",
+        "entitlements": {"kisan_chat": {"enabled": True}}
+    }).json()
+
+    # Publish v1
+    client.post(f"/api/admin/plans/{plan_id}/versions/{v1['id']}/publish", headers=admin_auth)
+
+    # Delete v1
+    del_v = client.delete(f"/api/admin/plans/{plan_id}/versions/{v1['id']}", headers=admin_auth)
+    assert del_v.status_code == 200
+    assert "successfully deleted" in del_v.json()["message"]
+
+
+def test_non_super_admin_forbidden_from_deleting_plan():
+    """Only Super Admin can delete plans; regular users or non-super admins are forbidden."""
+    # Farmer Suresh has no super admin rights
+    suresh_auth = auth("farmer_suresh")
+    res = client.delete("/api/admin/plans/some-plan-id", headers=suresh_auth)
+    assert res.status_code == 403
+

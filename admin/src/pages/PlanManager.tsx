@@ -14,7 +14,8 @@ import {
   ChevronDown,
   ChevronUp,
   Sparkles,
-  Shield
+  Shield,
+  Trash2
 } from 'lucide-react';
 
 interface Entitlement {
@@ -215,6 +216,55 @@ export const PlanManager: React.FC = () => {
     }
   };
 
+  const handleDeletePlan = async (planId: string, planSlug: string) => {
+    if (!isSuperAdmin) {
+      setError('Executive Authority Required: Only Head Super Admin can delete plans.');
+      return;
+    }
+    if (!confirm(`Permanently DELETE plan "${planSlug}" and ALL of its versions?\n\nWARNING: This will permanently remove this plan and unpublish its versions from the Farmer App.\n\nThis action cannot be undone.`)) {
+      return;
+    }
+    try {
+      const res = await adminFetch(`/api/admin/plans/${planId}`, {
+        method: 'DELETE',
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.detail?.error?.message || err.detail || 'Failed to delete plan');
+      }
+      setSuccessMsg(`Plan "${planSlug}" and all associated versions were successfully deleted.`);
+      await fetchPlans();
+    } catch (err: any) {
+      setError(err.message);
+    }
+  };
+
+  const handleDeleteVersion = async (planId: string, versionId: string, versionName: string, isPublished: boolean) => {
+    if (!isSuperAdmin) {
+      setError('Executive Authority Required: Only Head Super Admin can delete plan versions.');
+      return;
+    }
+    const warning = isPublished
+      ? `WARNING: Version "${versionName}" is currently PUBLISHED and live for farmers.\n\nAre you sure you want to permanently delete it?`
+      : `Are you sure you want to permanently delete draft version "${versionName}"?`;
+    if (!confirm(`${warning}\n\nThis action cannot be undone.`)) {
+      return;
+    }
+    try {
+      const res = await adminFetch(`/api/admin/plans/${planId}/versions/${versionId}`, {
+        method: 'DELETE',
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.detail?.error?.message || err.detail || 'Failed to delete plan version');
+      }
+      setSuccessMsg(`Version "${versionName}" was successfully deleted.`);
+      await fetchPlans();
+    } catch (err: any) {
+      setError(err.message);
+    }
+  };
+
   const statusBadge = (st: string) => {
     const map: Record<string, string> = {
       published: 'bg-emerald-50 text-emerald-700 border-emerald-200',
@@ -355,6 +405,16 @@ export const PlanManager: React.FC = () => {
                       </button>
                     )}
 
+                    {isSuperAdmin && (
+                      <button
+                        onClick={() => handleDeletePlan(plan.id, plan.slug)}
+                        title="Permanently Delete Plan & All Versions (Super Admin Only)"
+                        className="p-1.5 rounded-lg text-red-400 hover:text-red-700 hover:bg-red-50 transition cursor-pointer"
+                      >
+                        <Trash2 size={18} />
+                      </button>
+                    )}
+
                     <button
                       onClick={() => setExpandedPlanId(isExpanded ? null : plan.id)}
                       className="text-gray-400 hover:text-gray-700"
@@ -395,7 +455,7 @@ export const PlanManager: React.FC = () => {
                                 <p className="text-xs text-[#6B7280] mt-0.5">{v.description || 'No description'}</p>
                               </div>
 
-                              <div>
+                              <div className="flex items-center gap-1.5">
                                 {v.is_published ? (
                                   <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
                                     <Lock size={10} /> Published
@@ -404,6 +464,15 @@ export const PlanManager: React.FC = () => {
                                   <span className="text-[11px] font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200">
                                     Draft
                                   </span>
+                                )}
+                                {isSuperAdmin && (
+                                  <button
+                                    onClick={() => handleDeleteVersion(plan.id, v.id, v.name, v.is_published)}
+                                    title={`Delete ${v.is_published ? 'Published' : 'Draft'} Version (Super Admin Only)`}
+                                    className="p-1 rounded-md text-gray-400 hover:text-red-600 hover:bg-red-50 transition cursor-pointer"
+                                  >
+                                    <Trash2 size={13} />
+                                  </button>
                                 )}
                               </div>
                             </div>
@@ -456,21 +525,46 @@ export const PlanManager: React.FC = () => {
                               </div>
                             )}
 
-                            {/* Action to publish if draft */}
-                            {!v.is_published && (
+                            {/* Action for Published Version */}
+                            {v.is_published ? (
                               isSuperAdmin ? (
                                 <button
-                                  onClick={() => handlePublishVersion(plan.id, v.id, v.name)}
-                                  className="w-full mt-2 py-2 rounded-lg bg-[#2D6A4F] hover:bg-[#1B4332] text-white text-xs font-semibold flex items-center justify-center gap-1.5 transition cursor-pointer"
+                                  onClick={() => handleDeleteVersion(plan.id, v.id, v.name, true)}
+                                  className="w-full mt-2 py-2 rounded-lg border border-red-200 text-red-600 hover:bg-red-50 hover:border-red-300 text-xs font-semibold flex items-center justify-center gap-1.5 transition cursor-pointer"
                                 >
-                                  <Sparkles size={14} /> Publish this Version
+                                  <Trash2 size={13} /> Delete Published Plan Version
                                 </button>
                               ) : (
-                                <div className="w-full mt-2 py-2 px-3 rounded-lg bg-amber-50 border border-amber-200 text-amber-800 text-[11px] font-semibold flex items-center justify-center gap-1.5 text-center">
+                                <div className="w-full mt-2 py-2 px-3 rounded-lg bg-gray-50 border border-gray-200 text-gray-500 text-[11px] font-medium flex items-center justify-center gap-1.5 text-center">
                                   <Lock size={12} className="shrink-0" />
-                                  <span>Publishing Requires Head Super Admin Approval</span>
+                                  <span>Plan deletion reserved for Super Admin</span>
                                 </div>
                               )
+                            ) : (
+                              /* Action for Draft Version */
+                              <div className="space-y-1.5 mt-2">
+                                {isSuperAdmin ? (
+                                  <>
+                                    <button
+                                      onClick={() => handlePublishVersion(plan.id, v.id, v.name)}
+                                      className="w-full py-2 rounded-lg bg-[#2D6A4F] hover:bg-[#1B4332] text-white text-xs font-semibold flex items-center justify-center gap-1.5 transition cursor-pointer"
+                                    >
+                                      <Sparkles size={14} /> Publish this Version
+                                    </button>
+                                    <button
+                                      onClick={() => handleDeleteVersion(plan.id, v.id, v.name, false)}
+                                      className="w-full py-1.5 rounded-lg text-gray-500 hover:text-red-600 hover:bg-red-50 text-xs font-medium flex items-center justify-center gap-1.5 transition cursor-pointer"
+                                    >
+                                      <Trash2 size={13} /> Discard Draft Version
+                                    </button>
+                                  </>
+                                ) : (
+                                  <div className="w-full py-2 px-3 rounded-lg bg-amber-50 border border-amber-200 text-amber-800 text-[11px] font-semibold flex items-center justify-center gap-1.5 text-center">
+                                    <Lock size={12} className="shrink-0" />
+                                    <span>Publishing Requires Head Super Admin Approval</span>
+                                  </div>
+                                )}
+                              </div>
                             )}
                           </div>
                         ))}

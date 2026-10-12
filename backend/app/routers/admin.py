@@ -674,6 +674,91 @@ async def update_plan_status(
     return {"id": plan.id, "status": plan.status}
 
 
+@router.delete("/plans/{plan_id}")
+async def delete_plan(
+    plan_id: str,
+    admin: AdminUser = Depends(require_admin(AdminUserRole.super_admin)),
+    db: Session = Depends(get_db),
+    request: Request = None
+):
+    """
+    Permanently deletes a subscription plan (including published plans) and all its versions.
+    EXECUTIVE PRIVILEGE: Strictly restricted to Super Admin.
+    """
+    plan = db.query(SubscriptionPlan).filter(SubscriptionPlan.id == plan_id).first()
+    if not plan:
+        raise HTTPException(status_code=404, detail={"error": {"code": "PLAN_NOT_FOUND", "message": "Plan not found."}})
+
+    # Fetch associated version IDs
+    version_ids = [v.id for v in plan.versions]
+    if version_ids:
+        # Clean subscriptions & orders referencing these versions
+        db.query(UserSubscription).filter(UserSubscription.plan_version_id.in_(version_ids)).delete(synchronize_session=False)
+        db.query(PaymentOrder).filter(PaymentOrder.plan_version_id.in_(version_ids)).delete(synchronize_session=False)
+
+    slug = plan.slug
+    db.delete(plan)
+    db.commit()
+
+    log_admin_action(
+        db, admin, "DELETE_PLAN", "subscription_plans", plan_id,
+        {"slug": slug, "deleted_versions_count": len(version_ids)},
+        request
+    )
+
+    return {"message": f"Plan '{slug}' and all associated versions successfully deleted.", "plan_id": plan_id}
+
+
+@router.delete("/plans/{plan_id}/versions/{version_id}")
+async def delete_plan_version(
+    plan_id: str,
+    version_id: str,
+    admin: AdminUser = Depends(require_admin(AdminUserRole.super_admin)),
+    db: Session = Depends(get_db),
+    request: Request = None
+):
+    """
+    Permanently deletes a specific plan version (including published versions).
+    EXECUTIVE PRIVILEGE: Strictly restricted to Super Admin.
+    """
+    ver = db.query(SubscriptionPlanVersion).filter(
+        SubscriptionPlanVersion.id == version_id,
+        SubscriptionPlanVersion.plan_id == plan_id
+    ).first()
+    if not ver:
+        raise HTTPException(status_code=404, detail={"error": {"code": "VERSION_NOT_FOUND", "message": "Version not found."}})
+
+    # Clean subscriptions & orders referencing this specific version
+    db.query(UserSubscription).filter(UserSubscription.plan_version_id == version_id).delete(synchronize_session=False)
+    db.query(PaymentOrder).filter(PaymentOrder.plan_version_id == version_id).delete(synchronize_session=False)
+
+    ver_name = ver.name
+    ver_num = ver.version
+    db.delete(ver)
+
+    # Check remaining versions in plan
+    remaining = db.query(SubscriptionPlanVersion).filter(
+        SubscriptionPlanVersion.plan_id == plan_id,
+        SubscriptionPlanVersion.id != version_id
+    ).all()
+    plan = db.query(SubscriptionPlan).filter(SubscriptionPlan.id == plan_id).first()
+    if plan:
+        has_published = any(r.is_published for r in remaining)
+        if not has_published and plan.status == "published":
+            plan.status = "draft"
+
+    db.commit()
+
+    log_admin_action(
+        db, admin, "DELETE_PLAN_VERSION", "subscription_plan_versions", version_id,
+        {"plan_id": plan_id, "version": ver_num, "name": ver_name},
+        request
+    )
+
+    return {"message": f"Version '{ver_name}' (v{ver_num}) successfully deleted.", "version_id": version_id}
+
+
+
 # ── USERS & AUDIT LOGS ───────────────────────────────────────────
 @router.get("/users")
 async def list_admin_users(
