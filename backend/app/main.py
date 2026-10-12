@@ -1,4 +1,5 @@
-from fastapi import FastAPI, Request, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, Request, WebSocket, WebSocketDisconnect, HTTPException
+from fastapi.responses import FileResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from slowapi import Limiter, _rate_limit_exceeded_handler
@@ -175,10 +176,30 @@ async def websocket_trip_tracking(websocket: WebSocket, trip_id: str, token: str
         trip_manager.disconnect(trip_id, websocket)
         logger.info(f'[WS] Client disconnected from trip {trip_id}')
 
-# ─── Mount Frontend Static Files ──────────────────────────────
+# ─── Mount Frontend Static Files & Admin Console SPA ─────────
 project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 admin_dist = os.path.join(project_root, "admin", "dist")
+
 if os.path.exists(admin_dist):
-    app.mount("/admin", StaticFiles(directory=admin_dist, html=True), name="admin_frontend")
+    admin_assets = os.path.join(admin_dist, "assets")
+    if os.path.exists(admin_assets):
+        app.mount("/admin/assets", StaticFiles(directory=admin_assets), name="admin_assets")
+
+    @app.get("/admin")
+    @app.get("/admin/")
+    @app.get("/admin/{full_path:path}")
+    async def serve_admin_spa(full_path: str = ""):
+        # Check if requesting a direct existing file in admin_dist
+        if full_path:
+            target_file = os.path.join(admin_dist, full_path)
+            if os.path.isfile(target_file):
+                return FileResponse(target_file)
+        # Fallback to SPA index.html for client-side routing
+        index_file = os.path.join(admin_dist, "index.html")
+        if os.path.isfile(index_file):
+            return FileResponse(index_file)
+        raise HTTPException(status_code=404, detail="Admin console build not found")
+
 if os.path.exists(project_root):
     app.mount("/", StaticFiles(directory=project_root, html=True), name="frontend")
+

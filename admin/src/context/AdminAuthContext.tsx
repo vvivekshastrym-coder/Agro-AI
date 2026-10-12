@@ -93,17 +93,27 @@ export const AdminAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         }
       }
 
-      // Supabase session fallback
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session?.user && session?.access_token) {
-        const ok = await fetchAdminRole(session.access_token, session.user);
-        if (ok) {
-          setToken(session.access_token);
+      // Supabase session fallback with safety timeout
+      try {
+        const sessionPromise = supabase.auth.getSession();
+        const timeoutPromise = new Promise<{ data: { session: null } }>((resolve) =>
+          setTimeout(() => resolve({ data: { session: null } }), 1500)
+        );
+        const { data: { session } } = (await Promise.race([sessionPromise, timeoutPromise])) as any;
+        if (session?.user && session?.access_token) {
+          const ok = await fetchAdminRole(session.access_token, session.user);
+          if (ok) {
+            setToken(session.access_token);
+          } else {
+            setUser(null);
+            setProfile(null);
+          }
         } else {
           setUser(null);
           setProfile(null);
+          setToken(null);
         }
-      } else {
+      } catch {
         setUser(null);
         setProfile(null);
         setToken(null);

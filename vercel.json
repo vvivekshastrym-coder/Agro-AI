@@ -25,8 +25,16 @@
   ],
   "rewrites": [
     {
+      "source": "/admin/assets/:path*",
+      "destination": "/admin/dist/assets/:path*"
+    },
+    {
       "source": "/admin/:path*",
-      "destination": "/admin/index.html"
+      "destination": "/admin/dist/index.html"
+    },
+    {
+      "source": "/admin",
+      "destination": "/admin/dist/index.html"
     },
     {
       "source": "/api/:path*",

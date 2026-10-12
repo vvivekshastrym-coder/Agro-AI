@@ -23,12 +23,6 @@ export const AdminLogin: React.FC = () => {
   const [reqSuccess, setReqSuccess] = useState<string | null>(null);
   const [reqError, setReqError] = useState<string | null>(null);
 
-  const fillSuperAdmin = () => {
-    setEmail('vvivekshastrym@gmail.com');
-    setPassword('Vivek@123');
-    setLocalError(null);
-  };
-
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
     setLocalError(null);
@@ -134,23 +128,10 @@ export const AdminLogin: React.FC = () => {
           </button>
         </div>
 
-        {/* Super Admin Quick Notice */}
-        <div className="bg-[#E8F5E9] border border-[#C8E6C9] rounded-xl p-3 mb-4 flex items-center justify-between text-xs text-[#1B4332]">
-          <div className="flex items-center gap-2">
-            <Shield size={16} className="text-[#2D6A4F] shrink-0" />
-            <div>
-              <span className="font-semibold">Head Super Admin:</span> vvivekshastrym@gmail.com
-            </div>
-          </div>
-          {tab === 'signin' && (
-            <button
-              type="button"
-              onClick={fillSuperAdmin}
-              className="text-[11px] font-medium text-[#2D6A4F] hover:text-[#1B4332] bg-white px-2 py-1 rounded-md border border-[#A5D6A7] shadow-xs cursor-pointer"
-            >
-              Autofill
-            </button>
-          )}
+        {/* Enterprise Security Notice */}
+        <div className="bg-[#E8F5E9] border border-[#C8E6C9] rounded-xl p-3 mb-4 flex items-center gap-2 text-xs text-[#1B4332]">
+          <Shield size={16} className="text-[#2D6A4F] shrink-0" />
+          <span>Restricted administrative portal. Authorized operations staff and Super Administrators only.</span>
         </div>
 
         {/* Main Card */}
