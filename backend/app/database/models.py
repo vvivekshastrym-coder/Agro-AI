@@ -1063,4 +1063,44 @@ class MartWaitlist(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
 
+class MartHarvestOffer(Base):
+    """Agro AI Harvest Circle: Upcoming harvest lot offered by verified farmers."""
+    __tablename__ = 'mart_harvest_offers'
+
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    seller_id = Column(String, ForeignKey('mart_seller_profiles.id', ondelete='CASCADE'), nullable=False, index=True)
+    catalog_item_id = Column(String, ForeignKey('mart_catalog_items.id'), nullable=False)
+    crop_name = Column(String(150), nullable=False)
+    estimated_quantity = Column(Float, nullable=False)
+    unit = Column(String(20), default='kg')
+    target_harvest_start = Column(String(20), nullable=False) # YYYY-MM-DD
+    target_harvest_end = Column(String(20), nullable=False)
+    proposed_price_minor = Column(Integer, nullable=False)
+    min_demand_threshold = Column(Float, default=10.0) # minimum aggregated kg to commit
+    service_pincodes = Column(JSON, default=list) # e.g. ["560034", "571401"]
+    status = Column(String(30), default='PROPOSED') # PROPOSED, THRESHOLD_REACHED, CONFIRMED, CANCELLED
+    notes = Column(Text, nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    seller = relationship('MartSellerProfile')
+    catalog_item = relationship('MartCatalogItem')
+    demands = relationship('MartHarvestDemand', back_populates='offer', cascade='all, delete-orphan')
+
+
+class MartHarvestDemand(Base):
+    """Customer expressed interest in an upcoming harvest lot."""
+    __tablename__ = 'mart_harvest_demands'
+
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    offer_id = Column(String, ForeignKey('mart_harvest_offers.id', ondelete='CASCADE'), nullable=False, index=True)
+    customer_id = Column(String, ForeignKey('users.id', ondelete='SET NULL'), nullable=True)
+    pincode = Column(String(10), nullable=False, index=True)
+    quantity = Column(Float, nullable=False)
+    contact_phone = Column(String(20), nullable=False)
+    notes = Column(Text, nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    offer = relationship('MartHarvestOffer', back_populates='demands')
+
+
 
