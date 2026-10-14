@@ -9,7 +9,7 @@ import logging
 import time
 import os
 from .database.connection import engine, Base
-from .routers import auth, agri, weather, market, satellite, diagnosis, agro_gpt, logistics, marketplace, drone, admin, plans, payments, schemes
+from .routers import auth, agri, weather, market, satellite, diagnosis, agro_gpt, logistics, marketplace, drone, admin, plans, payments, schemes, mart
 from .routers.logistics import trip_manager
 
 logging.basicConfig(level=logging.INFO)
@@ -89,6 +89,8 @@ app.include_router(admin.router,       prefix='/api/admin',       tags=['Admin C
 app.include_router(plans.router,       prefix='/api/plans',       tags=['Subscription Plans'])
 app.include_router(payments.router,    prefix='/api/payments',    tags=['Payments'])
 app.include_router(schemes.router,     prefix='/api/schemes',     tags=['Government Schemes'])
+app.include_router(mart.router,        prefix='/api/mart',        tags=['Agro AI Mart'])
+app.include_router(mart.admin_router,  prefix='/api/admin/mart',  tags=['Agro AI Mart Admin'])
 
 # ─── Health & Honest Status ────────────────────────────────────
 @app.get('/api/health', tags=['Health'])

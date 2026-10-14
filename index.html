@@ -377,8 +377,89 @@
   @keyframes splashProgress{
     0%{ left:-40%; width:30%; }
     50%{ width:60%; }
-    100%{ left:100%; width:30%; }
+  /* ---- Agro AI Mart Styles ---- */
+  .mart-header{
+    display:flex; align-items:center; justify-content:space-between;
+    background:#166534; color:#fff; border-radius:20px; padding:14px 16px; margin-bottom:14px;
+    box-shadow:0 4px 14px rgba(22,101,52,0.18);
   }
+  .mart-loc-chip{
+    display:inline-flex; align-items:center; gap:6px;
+    background:#f0fdf4; border:1px solid #bbf7d0; color:#14532d;
+    padding:6px 12px; border-radius:999px; font-size:12px; font-weight:700;
+    cursor:pointer; margin-bottom:12px;
+  }
+  .mart-loc-chip:hover{ background:#dcfce7; }
+  .mart-cat-bar{
+    display:flex; gap:8px; overflow-x:auto; padding-bottom:6px; margin-bottom:14px;
+    scrollbar-width:none; -webkit-overflow-scrolling:touch;
+  }
+  .mart-cat-bar::-webkit-scrollbar{ display:none; }
+  .mart-cat-btn{
+    flex-shrink:0; display:inline-flex; align-items:center; gap:6px;
+    padding:8px 14px; border-radius:999px; font-size:12.5px; font-weight:600;
+    border:1.5px solid var(--line); background:#fff; color:var(--ink);
+    cursor:pointer; transition:all 0.15s ease;
+  }
+  .mart-cat-btn.active{
+    background:#166534; color:#fff; border-color:#166534; box-shadow:0 2px 8px rgba(22,101,52,0.25);
+  }
+  .mart-grid{
+    display:grid; grid-template-columns:repeat(2,1fr); gap:12px; margin-bottom:16px;
+  }
+  .mart-item-card{
+    background:#fff; border-radius:18px; border:1px solid var(--line);
+    padding:12px; display:flex; flex-direction:column; justify-content:space-between;
+    box-shadow:var(--shadow-soft); position:relative; overflow:hidden;
+  }
+  .mart-item-badge{
+    position:absolute; top:10px; left:10px; background:#fef3c7; color:#92400e;
+    font-size:9.5px; font-weight:800; padding:2px 6px; border-radius:6px; text-transform:uppercase;
+  }
+  .mart-item-img{
+    width:100%; height:96px; border-radius:12px; background:#f4fbf5;
+    display:flex; align-items:center; justify-content:center; font-size:42px; margin-bottom:8px;
+    object-fit:cover;
+  }
+  .mart-item-title{ font-weight:700; font-size:13.5px; color:#1f2937; line-height:1.25; margin-bottom:3px; }
+  .mart-item-farm{ font-size:11px; color:#6b7280; margin-bottom:6px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .mart-item-price{ font-weight:800; font-size:15px; color:#14532d; }
+  .mart-item-unit{ font-size:11px; color:#6b7280; font-weight:500; }
+  .mart-stepper{
+    display:inline-flex; align-items:center; justify-content:space-between;
+    background:#166534; color:#fff; border-radius:999px; height:32px; width:100%; margin-top:8px;
+    font-weight:700; font-size:13px;
+  }
+  .mart-step-btn{
+    background:transparent; border:none; color:#fff; width:32px; height:32px;
+    font-size:16px; font-weight:700; cursor:pointer; display:flex; align-items:center; justify-content:center;
+  }
+  .mart-add-btn{
+    width:100%; height:32px; border-radius:999px; border:1.5px solid #166534;
+    background:#f0fdf4; color:#166534; font-weight:700; font-size:12.5px;
+    cursor:pointer; margin-top:8px; display:flex; align-items:center; justify-content:center; gap:4px;
+    transition:all 0.15s;
+  }
+  .mart-add-btn:active{ background:#166534; color:#fff; }
+  .mart-sticky-cart{
+    position:fixed; bottom:76px; left:50%; transform:translateX(-50%); width:calc(100% - 32px); max-width:396px;
+    background:#15803d; color:#fff; border-radius:18px; padding:12px 18px;
+    display:flex; align-items:center; justify-content:space-between;
+    box-shadow:0 8px 24px rgba(21,128,61,0.4); z-index:45; cursor:pointer;
+    animation:fadein .2s ease;
+  }
+  .mart-empty-box{
+    background:#fff; border:1.5px dashed #cbd5e1; border-radius:20px;
+    padding:28px 18px; text-align:center; margin:16px 0;
+  }
+  .mart-tab-nav{
+    display:flex; border-bottom:1.5px solid var(--line); margin-bottom:16px;
+  }
+  .mart-tab-item{
+    flex:1; text-align:center; padding:10px 4px; font-size:13px; font-weight:600;
+    color:var(--ink-soft); cursor:pointer; border-bottom:2.5px solid transparent; margin-bottom:-1.5px;
+  }
+  .mart-tab-item.active{ color:#166534; border-bottom-color:#166534; font-weight:700; }
 </style>
 </head>
 <body class="authing">
@@ -552,9 +633,37 @@
           <button class="action-tile" onclick="go('inputs')"><span class="action-emoji">🛒</span><div class="action-label" id="homeTileInputsTitle">Inputs</div><div class="action-sub" id="homeTileInputsSub">Compare shop prices</div></button>
         </div>
       </div>
+      <!-- AGRO AI MART HERO ENTRY -->
+      <div style="margin: 14px 0 8px;">
+        <button class="card" style="width:100%;text-align:left;display:flex;align-items:center;justify-content:space-between;padding:14px 16px;cursor:pointer;border-left:4px solid #16a34a;background:linear-gradient(135deg, #f0fdf4 0%, #ffffff 100%);box-shadow:0 3px 10px rgba(22,163,74,0.1);" onclick="go('mart')">
+          <div style="display:flex;align-items:center;gap:12px;">
+            <span style="font-size:28px;">🏪</span>
+            <div>
+              <div style="display:flex;align-items:center;gap:6px;">
+                <div style="font-weight:800;font-size:15px;color:#14532d;">Agro AI Mart</div>
+                <span style="background:#dcfce7;color:#15803d;font-size:10.5px;font-weight:700;padding:2px 7px;border-radius:999px;">FARM DIRECT</span>
+              </div>
+              <div class="muted" style="font-size:12px;color:#374151;margin-top:2px;">Fresh vegetables, fruits &amp; greens directly from local farmers</div>
+            </div>
+          </div>
+          <span style="font-size:13px;color:#16a34a;font-weight:700;white-space:nowrap;">Shop Now →</span>
+        </button>
+      </div>
 
+      <div style="margin: 0 0 8px;">
+        <button class="card" style="width:100%;text-align:left;display:flex;align-items:center;justify-content:space-between;padding:12px 16px;cursor:pointer;border-left:4px solid #0284c7;background:#fff;" onclick="go('mart-seller')">
+          <div style="display:flex;align-items:center;gap:12px;">
+            <span style="font-size:24px;">🚜</span>
+            <div>
+              <div style="font-weight:700;font-size:14px;color:#0369a1;">Farmer Storefront · Sell on Mart</div>
+              <div class="muted" style="font-size:12px;">Direct customer sales · Pay on Delivery · 0% commission</div>
+            </div>
+          </div>
+          <span style="font-size:13px;color:#0284c7;font-weight:700;">Seller Hub →</span>
+        </button>
+      </div>
 
-      <div style="margin: 14px 0 6px;">
+      <div style="margin: 0 0 6px;">
         <button class="card" style="width:100%;text-align:left;display:flex;align-items:center;justify-content:space-between;padding:12px 16px;cursor:pointer;border-left:4px solid var(--forest);background:#fff;" onclick="go('plans')">
           <div style="display:flex;align-items:center;gap:12px;">
             <span style="font-size:24px;">🌱</span>
@@ -1031,8 +1140,119 @@
       <!-- MY TRIPS -->
       <div class="section-title" id="lMyTripsTitle" style="margin-top:24px;">My recent trips</div>
       <div id="lMyTripsList" class="card"><div class="muted">Loading your trips...</div></div>
+    <!-- ============ AGRO AI MART: CUSTOMER STOREFRONT ============ -->
+    <section class="view" data-view="mart" style="display:none;padding-bottom:120px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+        <button class="backlink" onclick="go('home')" style="margin-bottom:0;">← Agro AI Home</button>
+        <button class="btn btn-outline" style="padding:5px 12px;font-size:12px;border-radius:999px;" onclick="openMartOrdersModal()">📦 My Orders (<span id="martOrdersCount">0</span>)</button>
+      </div>
+
+      <!-- Mart Banner Header -->
+      <div class="mart-header">
+        <div>
+          <div style="font-size:11px;text-transform:uppercase;letter-spacing:1px;opacity:0.9;font-weight:700;">Farm-to-Consumer</div>
+          <h2 class="display" style="font-size:20px;margin:2px 0 4px;font-weight:700;">Agro AI Mart 🥬</h2>
+          <div style="font-size:11.5px;opacity:0.95;">Direct from verified local farms · 0 middleman</div>
+        </div>
+        <div style="background:rgba(255,255,255,0.18);padding:8px 12px;border-radius:14px;text-align:center;">
+          <div style="font-size:18px;">🚚</div>
+          <div style="font-size:10px;font-weight:700;">PAY ON DELIVERY</div>
+        </div>
+      </div>
+
+      <!-- Delivery PIN Chip -->
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+        <div class="mart-loc-chip" onclick="openMartPinModal()">
+          <span>📍</span>
+          <span>Delivering to: <strong id="martDeliveryPinLabel">560034 (Bangalore)</strong></span>
+          <span style="color:#166534;font-size:11px;text-decoration:underline;">Change</span>
+        </div>
+        <button class="btn btn-outline" style="padding:4px 10px;font-size:11px;border-radius:999px;border-color:#166534;color:#166534;" onclick="go('mart-seller')">🚜 Sell Produce</button>
+      </div>
+
+      <!-- Produce Search -->
+      <div style="margin-bottom:12px;">
+        <input type="text" id="martSearchInput" placeholder="🔍 Search fresh tomatoes, greens, fruits..." 
+               style="width:100%;padding:10px 14px;border:1.5px solid var(--line);border-radius:14px;font-size:13.5px;background:#fff;outline:none;"
+               oninput="filterMartListings()">
+      </div>
+
+      <!-- Category Filter Pills -->
+      <div class="mart-cat-bar" id="martCategoryBar">
+        <button class="mart-cat-btn active" data-cat="all" onclick="selectMartCategory('all')">✨ All Items</button>
+        <button class="mart-cat-btn" data-cat="cat_leafy_greens" onclick="selectMartCategory('cat_leafy_greens')">🥬 Leafy Greens</button>
+        <button class="mart-cat-btn" data-cat="cat_vegetables" onclick="selectMartCategory('cat_vegetables')">🍅 Fresh Veggies</button>
+        <button class="mart-cat-btn" data-cat="cat_fruits" onclick="selectMartCategory('cat_fruits')">🍎 Farm Fruits</button>
+        <button class="mart-cat-btn" data-cat="cat_herbs" onclick="selectMartCategory('cat_herbs')">🌿 Herbs &amp; Spices</button>
+      </div>
+
+      <!-- Harvested Today Rail (Rendered dynamically if any match) -->
+      <div id="martHarvestTodaySection" style="display:none;margin-bottom:16px;">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+          <div style="font-weight:700;font-size:14px;color:#14532d;">🌅 Harvested Today</div>
+          <span style="font-size:11px;background:#dcfce7;color:#15803d;padding:2px 8px;border-radius:999px;font-weight:700;">FARM FRESH</span>
+        </div>
+        <div class="mart-cat-bar" id="martHarvestTodayRail" style="gap:10px;padding-bottom:10px;"></div>
+      </div>
+
+      <!-- Main Produce Grid -->
+      <div style="font-weight:700;font-size:14px;color:#1f2937;margin-bottom:10px;" id="martListingsTitle">All Farm Produce</div>
+      <div class="mart-grid" id="martListingsGrid">
+        <div class="card" style="grid-column:span 2;text-align:center;padding:24px;"><div class="muted">Loading fresh produce from nearby farms...</div></div>
+      </div>
+
+      <!-- Honest Empty State when no farms serve the PIN code -->
+      <div class="mart-empty-box" id="martEmptyState" style="display:none;">
+        <div style="font-size:40px;margin-bottom:8px;">🌾</div>
+        <div style="font-weight:800;font-size:16px;color:#1f2937;margin-bottom:6px;">No farms are selling near you yet</div>
+        <p class="muted" style="font-size:12.5px;line-height:1.5;margin-bottom:16px;">
+          We strictly list verified farmers who cultivate real produce. As soon as a local grower near PIN <strong id="martWaitlistPinRef">560034</strong> is verified, we will open service.
+        </p>
+        <div class="card" style="background:#f8fafc;border-color:#e2e8f0;padding:14px;text-align:left;margin-bottom:12px;">
+          <div style="font-weight:700;font-size:13px;color:#0f172a;margin-bottom:6px;">🔔 Get notified when farms launch here</div>
+          <input type="tel" id="martWaitlistPhone" placeholder="Enter your mobile number" 
+                 style="width:100%;padding:9px 12px;border:1px solid #cbd5e1;border-radius:10px;font-size:13px;margin-bottom:8px;outline:none;">
+          <button class="btn btn-primary btn-block" style="padding:10px;font-size:13px;" onclick="submitMartWaitlist()">Notify Me on WhatsApp / SMS</button>
+        </div>
+        <button class="btn btn-outline btn-block" style="font-size:12.5px;" onclick="switchMartPinToDemo()">Try Sample Serviceable PIN: 560001 / 571401</button>
+      </div>
+
+      <!-- Sticky Bottom Cart Floating Bar -->
+      <div class="mart-sticky-cart" id="martStickyCart" style="display:none;" onclick="openMartCartModal()">
+        <div style="display:flex;align-items:center;gap:10px;">
+          <div style="background:rgba(255,255,255,0.25);border-radius:999px;width:32px;height:32px;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:14px;">
+            <span id="martCartItemCount">0</span>
+          </div>
+          <div>
+            <div style="font-weight:800;font-size:14px;" id="martCartTotalLabel">₹0.00</div>
+            <div style="font-size:11px;opacity:0.9;" id="martCartFarmSub">Direct Farm Order</div>
+          </div>
+        </div>
+        <div style="display:flex;align-items:center;gap:4px;font-weight:700;font-size:13.5px;">
+          <span>View Cart</span>
+          <span>→</span>
+        </div>
+      </div>
     </section>
 
+    <!-- ============ AGRO AI MART: FARMER SELLER PORTAL ============ -->
+    <section class="view" data-view="mart-seller" style="display:none;padding-bottom:100px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
+        <button class="backlink" onclick="go('home')" style="margin-bottom:0;">← Agro AI Home</button>
+        <button class="btn btn-outline" style="padding:5px 12px;font-size:12px;border-radius:999px;" onclick="go('mart')">🏪 Customer Mart</button>
+      </div>
+
+      <div style="background:#0369a1;color:#fff;border-radius:20px;padding:16px;margin-bottom:16px;box-shadow:0 4px 14px rgba(3,105,161,0.2);">
+        <div style="font-size:11px;text-transform:uppercase;letter-spacing:1px;opacity:0.9;font-weight:700;">Farmer Direct Selling</div>
+        <h2 class="display" style="font-size:21px;margin:2px 0 4px;font-weight:700;">Seller Hub 🚜</h2>
+        <div style="font-size:12px;opacity:0.95;">Sell directly to consumers · Cash / UPI on Delivery · Zero commission</div>
+      </div>
+
+      <!-- Seller Status Area (Application, Under Review, or Approved Dashboard) -->
+      <div id="martSellerPortalContainer">
+        <div class="card" style="text-align:center;padding:24px;"><div class="muted">Checking seller profile status...</div></div>
+      </div>
+    </section>
   </main>
 
   <!-- Bottom Nav -->
@@ -1055,6 +1275,96 @@
         <button class="btn btn-outline" style="padding:6px 12px;font-size:12px;" onclick="closeLangModal()">Done</button>
       </div>
       <div class="lang-grid" id="modalLangGrid"></div>
+    </div>
+  </div>
+
+  <!-- Agro AI Mart Delivery PIN Modal -->
+  <div class="modal-backdrop" id="martPinModal" onclick="if(event.target===this)closeMartPinModal()">
+    <div class="modal-sheet">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+        <h3 class="display" style="margin:0;font-size:18px;">📍 Select Delivery PIN Code</h3>
+        <button class="btn btn-outline" style="padding:4px 10px;font-size:12px;" onclick="closeMartPinModal()">✕</button>
+      </div>
+      <p class="muted" style="font-size:12.5px;margin-bottom:12px;">Enter your 6-digit postal PIN code to see produce available for direct delivery from nearby farms.</p>
+      <input type="text" id="martPinInput" maxlength="6" placeholder="e.g. 560034"
+             style="width:100%;padding:12px 14px;border:1.5px solid var(--line);border-radius:12px;font-size:16px;font-weight:700;letter-spacing:2px;margin-bottom:12px;outline:none;">
+      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px;">
+        <span class="pill pill-forest" style="cursor:pointer;" onclick="document.getElementById('martPinInput').value='560034'">560034 (Koramangala)</span>
+        <span class="pill pill-forest" style="cursor:pointer;" onclick="document.getElementById('martPinInput').value='571401'">571401 (Mandya)</span>
+        <span class="pill pill-forest" style="cursor:pointer;" onclick="document.getElementById('martPinInput').value='560001'">560001 (Bangalore Central)</span>
+      </div>
+      <button class="btn btn-primary btn-block" onclick="saveMartPin()">Check Produce Availability</button>
+    </div>
+  </div>
+
+  <!-- Agro AI Mart Cart & Checkout Modal -->
+  <div class="modal-backdrop" id="martCartModal" onclick="if(event.target===this)closeMartCartModal()">
+    <div class="modal-sheet" style="max-height:88vh;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;border-bottom:1px solid var(--line);padding-bottom:10px;">
+        <div>
+          <h3 class="display" style="margin:0;font-size:18px;">🛒 Your Farm Cart</h3>
+          <div class="muted" style="font-size:11.5px;" id="martCartModalFarmName">Direct from Farm</div>
+        </div>
+        <button class="btn btn-outline" style="padding:4px 10px;font-size:12px;" onclick="closeMartCartModal()">✕</button>
+      </div>
+
+      <!-- Single Farm Constraint Notice -->
+      <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:12px;padding:8px 12px;font-size:11.5px;color:#166534;margin-bottom:12px;display:flex;align-items:center;gap:6px;">
+        <span>🌱</span>
+        <span><strong>1-Farm Promise:</strong> All items in this order are harvested fresh from the same local grower.</span>
+      </div>
+
+      <!-- Cart Items List -->
+      <div id="martCartItemsList" style="margin-bottom:14px;"></div>
+
+      <!-- Fulfilment Mode (Delivery vs Pickup) -->
+      <div style="margin-bottom:14px;">
+        <label style="font-size:12px;font-weight:700;color:var(--ink);display:block;margin-bottom:6px;">Fulfilment Mode:</label>
+        <div style="display:flex;gap:8px;">
+          <button class="btn btn-outline" id="martFulfilDeliveryBtn" style="flex:1;padding:8px;font-size:12px;border-color:#166534;background:#f0fdf4;color:#166534;font-weight:700;" onclick="setMartFulfilment('DELIVERY')">🛵 Home Delivery (+₹25)</button>
+          <button class="btn btn-outline" id="martFulfilPickupBtn" style="flex:1;padding:8px;font-size:12px;" onclick="setMartFulfilment('PICKUP')">🚜 Farm Pickup (Free)</button>
+        </div>
+      </div>
+
+      <!-- Delivery Address Input -->
+      <div id="martAddressSection" style="margin-bottom:14px;">
+        <label style="font-size:12px;font-weight:700;color:var(--ink);display:block;margin-bottom:4px;">Delivery Address:</label>
+        <input type="text" id="martAddressInput" placeholder="House/Flat, Street name, Landmark" 
+               style="width:100%;padding:9px 12px;border:1.5px solid var(--line);border-radius:10px;font-size:13px;margin-bottom:6px;outline:none;">
+        <div style="display:flex;gap:8px;">
+          <input type="text" id="martCityInput" placeholder="City / Village" style="flex:1;padding:8px 10px;border:1px solid var(--line);border-radius:8px;font-size:12px;outline:none;">
+          <input type="text" id="martPinConfirmInput" placeholder="PIN" style="width:90px;padding:8px 10px;border:1px solid var(--line);border-radius:8px;font-size:12px;outline:none;">
+        </div>
+      </div>
+
+      <!-- Bill Summary -->
+      <div class="card" style="background:#f8fafc;padding:12px;margin-bottom:14px;">
+        <div class="kv-row" style="padding:4px 0;"><span class="k">Produce Subtotal</span><span class="v" id="martBillSubtotal">₹0.00</span></div>
+        <div class="kv-row" style="padding:4px 0;"><span class="k">Delivery Fee</span><span class="v" id="martBillDelivery">₹25.00</span></div>
+        <div class="kv-row" style="padding:6px 0;border-top:1.5px dashed var(--line);font-size:15px;font-weight:800;color:#14532d;"><span class="k" style="color:#14532d;font-weight:800;">To Pay</span><span class="v" id="martBillTotal">₹0.00</span></div>
+      </div>
+
+      <!-- Direct Payment Guarantee -->
+      <div style="background:#fffbeb;border:1px solid #fef3c7;border-radius:10px;padding:8px 12px;margin-bottom:14px;font-size:11.5px;color:#92400e;display:flex;align-items:center;gap:6px;">
+        <span>💵</span>
+        <span><strong>Pay on Delivery / Pickup:</strong> Pay directly to farmer using Cash or UPI (Google Pay, PhonePe, Paytm). Platform holds 0 funds.</span>
+      </div>
+
+      <!-- Place Order Button -->
+      <button class="btn btn-primary btn-block" id="martPlaceOrderBtn" style="padding:13px;font-size:15px;font-weight:700;" onclick="placeMartOrder()">
+        Confirm Order · Pay on Delivery
+      </button>
+    </div>
+  </div>
+
+  <!-- Agro AI Mart Orders Modal -->
+  <div class="modal-backdrop" id="martOrdersModal" onclick="if(event.target===this)closeMartOrdersModal()">
+    <div class="modal-sheet" style="max-height:85vh;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;border-bottom:1px solid var(--line);padding-bottom:10px;">
+        <h3 class="display" style="margin:0;font-size:18px;">📦 Your Mart Orders</h3>
+        <button class="btn btn-outline" style="padding:4px 10px;font-size:12px;" onclick="closeMartOrdersModal()">✕</button>
+      </div>
+      <div id="martOrdersList"><div class="muted">Loading orders...</div></div>
     </div>
   </div>
 </div>
@@ -1406,6 +1716,8 @@ const SUGGESTIONS_I18N = {
 
 const MORE_ITEMS_I18N = {
   en: [
+    {id:'mart', emoji:'🏪', t:'Agro AI Mart', s:'Fresh produce direct from farms', body:'Buy vegetables, fruits, and greens harvested directly by local farmers with zero middleman.'},
+    {id:'martseller', emoji:'🚜', t:'Sell on Agro AI Mart', s:'Farmer storefront & direct sales', body:'Apply to become a verified seller and sell your produce directly to consumers with zero platform fee.'},
     {id:'account', emoji:'👤', t:'Account & Security', s:'Profile, login method, sign out'},
     {id:'plans', emoji:'💎', t:'Membership & Plans', s:'View quotas, features & upgrades'},
     {id:'pest', emoji:'🦗', t:'Pest Radar', s:'Village-level outbreak risk', body:"Pest Radar analyses nearby farmer reports to flag outbreak risk in your area. Real detection requires reports from verified farmers near your village."},
@@ -1422,6 +1734,8 @@ const MORE_ITEMS_I18N = {
     {id:'reports', emoji:'📄', t:'My Reports', s:'Diagnosis & service history', body:"All your past diagnosis reports, weather alerts, and service bookings in one place."},
   ],
   kn: [
+    {id:'mart', emoji:'🏪', t:'ಆಗ್ರೋ AI ಮಾರ್ಟ್', s:'ನೇರ ತೋಟದ ತರಕಾರಿ, ಹಣ್ಣು & ಸೊಪ್ಪು', body:'ಸ್ಥಳೀಯ ರೈತರಿಂದ ನೇರವಾಗಿ ಕಟಾವು ಮಾಡಿದ ತಾಜಾ ತರಕಾರಿಗಳು ಮತ್ತು ಹಣ್ಣುಗಳನ್ನು ಮಧ್ಯವರ್ತಿಗಳಿಲ್ಲದೆ ಖರೀದಿಸಿ.'},
+    {id:'martseller', emoji:'🚜', t:'ಮಾರ್ಟ್‌ನಲ್ಲಿ ಬೆಳೆ ಮಾರಿ', s:'ರೈತರ ನೇರ ಮಳಿಗೆ & ಮಾರಾಟ', body:'ಪರಿಶೀಲಿಸಿದ ಮಾರಾಟಗಾರರಾಗಿ ನೋಂದಾಯಿಸಿ ಮತ್ತು ನಿಮ್ಮ ಬೆಳೆಯನ್ನು ಗ್ರಾಹಕರಿಗೆ 0% ಕಮಿಷನ್‌ನಲ್ಲಿ ನೇರವಾಗಿ ಮಾರಿ.'},
     {id:'account', emoji:'👤', t:'ಖಾತೆ ಮತ್ತು ಭದ್ರತೆ', s:'ಪ್ರೊಫೈಲ್, ಲಾಗಿನ್ ವಿಧಾನ, ಸೈನ್ ಔಟ್'},
     {id:'plans', emoji:'💎', t:'ಚಂದಾದಾರಿಕೆ ಯೋಜನೆಗಳು', s:'ಕೋಟಾಗಳು ಮತ್ತು ಸದಸ್ಯತ್ವ ವಿವರಗಳು'},
     {id:'pest', emoji:'🦗', t:'ಕೀಟ ರೇಡಾರ್', s:'ಗ್ರಾಮ ಮಟ್ಟದ ಕೀಟ ಬಾಧೆ ಅಪಾಯ', body:"ಕೀಟ ರೇಡಾರ್ ನಿಮ್ಮ ಸುತ್ತಮುತ್ತಲಿನ ರೈತರ ವರದಿಗಳನ್ನು ವಿಶ್ಲೇಷಿಸಿ ಕೀಟ ಬಾಧೆಯ ಅಪಾಯವನ್ನು ಮುಂಚಿತವಾಗಿ ಎಚ್ಚರಿಸುತ್ತದೆ."},
@@ -1502,6 +1816,8 @@ function go(view){
   if(view === 'inputs') loadInputsProducts();
   if(view === 'plans') loadMembershipPlansView();
   if(view === 'schemes') loadGovernmentSchemesView();
+  if(view === 'mart') loadCustomerMart();
+  if(view === 'mart-seller') loadFarmerSellerPortal();
   if(view === 'logistics') {
     setTimeout(() => {
       if(typeof lGoStep === 'function') lGoStep(lState && lState.tripId ? 4 : 1);
@@ -3400,6 +3716,8 @@ function openMoreItem(id){
   if(id === 'account'){ go('account'); return; }
   if(id === 'plans'){ go('plans'); return; }
   if(id === 'schemes'){ go('schemes'); return; }
+  if(id === 'mart'){ go('mart'); return; }
+  if(id === 'martseller'){ go('mart-seller'); return; }
   if(id === 'reports'){ go('home'); document.getElementById('reportsContainer')?.scrollIntoView({behavior:'smooth'}); return; }
   if(id === 'drone'){ go('drone'); return; }
   if(id === 'inputs'){ go('inputs'); return; }
@@ -4020,6 +4338,1038 @@ function lOpenTrip(tripId, status){
   lRenderTripStatus();
   lConnectWebSocket();
   lPollTrip();
+}
+
+/* ================================================================
+   AGRO AI MART — BLINKIT-STYLE FARM-TO-CONSUMER MARKETPLACE
+   Enforces 1-farm-per-order rule, direct-to-farmer settlement,
+   atomic inventory, honest waitlists, and zero fake data.
+   ================================================================ */
+const martState = {
+  pincode: localStorage.getItem('agroai_mart_pin') || '560034',
+  category: 'all',
+  search: '',
+  listings: [],
+  cart: { sellerId: null, farmName: null, items: {} },
+  fulfilment: 'DELIVERY',
+  sellerProfile: null,
+  activeSellerTab: 'orders',
+  catalogItems: [],
+  sellerOrders: [],
+  sellerListings: [],
+  sellerEarnings: null,
+};
+
+function getAuthHeader() {
+  const tok = session?.token || localStorage.getItem('kisanAuth') || '';
+  return tok ? { 'Authorization': `Bearer ${tok}` } : {};
+}
+
+/* ── CUSTOMER MART STOREFRONT ──────────────────────────────────── */
+
+async function loadCustomerMart() {
+  const isKn = currentLang === 'kn';
+  const pinEl = document.getElementById('martDeliveryPinLabel');
+  if(pinEl) pinEl.textContent = `${martState.pincode} (${martState.pincode === '571401' ? 'Mandya' : 'Bangalore'})`;
+  const waitlistRef = document.getElementById('martWaitlistPinRef');
+  if(waitlistRef) waitlistRef.textContent = martState.pincode;
+
+  const grid = document.getElementById('martListingsGrid');
+  if(grid) grid.innerHTML = `<div class="card" style="grid-column:span 2;text-align:center;padding:24px;"><div class="muted">${isKn ? 'ಹತ್ತಿರದ ತೋಟಗಳಿಂದ ತಾಜಾ ಬೆಳೆಯನ್ನು ಹುಡುಕಲಾಗುತ್ತಿದೆ...' : 'Loading farm produce near your PIN code...'}</div></div>`;
+
+  try {
+    let url = `/api/mart/listings?pincode=${encodeURIComponent(martState.pincode)}`;
+    if(martState.category && martState.category !== 'all') {
+      url += `&category_id=${encodeURIComponent(martState.category)}`;
+    }
+    const res = await fetch(url);
+    if(!res.ok) throw new Error('Listings fetch failed');
+    martState.listings = await res.json();
+    renderMartListings();
+    loadMartCustomerOrdersCount();
+  } catch(e) {
+    console.error('Mart listings error:', e);
+    renderMartListings();
+  }
+}
+
+function selectMartCategory(catId) {
+  martState.category = catId;
+  document.querySelectorAll('#martCategoryBar .mart-cat-btn').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.cat === catId);
+  });
+  loadCustomerMart();
+}
+
+function filterMartListings() {
+  const input = document.getElementById('martSearchInput');
+  martState.search = input ? input.value.trim().toLowerCase() : '';
+  renderMartListings();
+}
+
+function renderMartListings() {
+  const isKn = currentLang === 'kn';
+  const grid = document.getElementById('martListingsGrid');
+  const emptyBox = document.getElementById('martEmptyState');
+  const harvestSection = document.getElementById('martHarvestTodaySection');
+  const harvestRail = document.getElementById('martHarvestTodayRail');
+
+  let filtered = martState.listings || [];
+  if(martState.search) {
+    filtered = filtered.filter(l => 
+      (l.title && l.title.toLowerCase().includes(martState.search)) ||
+      (l.farm_name && l.farm_name.toLowerCase().includes(martState.search)) ||
+      (l.item_name && l.item_name.toLowerCase().includes(martState.search))
+    );
+  }
+
+  // Handle truthful empty state
+  if(!filtered.length) {
+    if(grid) grid.style.display = 'none';
+    if(emptyBox) emptyBox.style.display = 'block';
+    if(harvestSection) harvestSection.style.display = 'none';
+    updateMartCartUI();
+    return;
+  }
+
+  if(grid) grid.style.display = 'grid';
+  if(emptyBox) emptyBox.style.display = 'none';
+
+  // Harvested Today Rail
+  const todayStr = new Date().toISOString().split('T')[0];
+  const harvestedToday = filtered.filter(l => l.harvest_date === todayStr);
+  if(harvestedToday.length > 0 && harvestSection && harvestRail) {
+    harvestSection.style.display = 'block';
+    harvestRail.innerHTML = harvestedToday.map(l => renderMartItemCard(l, true)).join('');
+  } else if(harvestSection) {
+    harvestSection.style.display = 'none';
+  }
+
+  // Main Produce Grid
+  if(grid) {
+    grid.innerHTML = filtered.map(l => renderMartItemCard(l, false)).join('');
+  }
+
+  updateMartCartUI();
+}
+
+function renderMartItemCard(item, isRail = false) {
+  const isKn = currentLang === 'kn';
+  const inCartQty = martState.cart.items[item.id]?.qty || 0;
+  const isOrganic = item.is_organic_claim;
+  const photo = item.photos && item.photos.length > 0 ? item.photos[0] : null;
+  const emoji = item.item_name?.toLowerCase().includes('tomato') ? '🍅'
+    : item.item_name?.toLowerCase().includes('spinach') || item.item_name?.toLowerCase().includes('palak') ? '🥬'
+    : item.item_name?.toLowerCase().includes('carrot') ? '🥕'
+    : item.item_name?.toLowerCase().includes('onion') ? '🧅'
+    : item.item_name?.toLowerCase().includes('banana') ? '🍌'
+    : item.item_name?.toLowerCase().includes('chilli') ? '🌶️'
+    : '🥦';
+
+  const styleCard = isRail ? 'min-width:160px;max-width:180px;flex-shrink:0;' : '';
+
+  return `
+    <div class="mart-item-card" style="${styleCard}" id="card_mart_${item.id}">
+      ${isOrganic ? `<span class="mart-item-badge">🌿 ORGANIC</span>` : ''}
+      ${photo ? `<img src="${photo}" class="mart-item-img" alt="${escHtml(item.title)}">` : `<div class="mart-item-img">${emoji}</div>`}
+      <div>
+        <div class="mart-item-title">${escHtml(item.title)}</div>
+        <div class="mart-item-farm">🏡 ${escHtml(item.farm_name || 'Verified Farm')} · ${escHtml(item.village || '')}</div>
+        <div style="display:flex;align-items:baseline;gap:4px;">
+          <span class="mart-item-price">${item.price_formatted}</span>
+          <span class="mart-item-unit">/ ${item.unit}</span>
+        </div>
+        <div class="muted" style="font-size:10.5px;margin-top:2px;">
+          📅 Harvest: ${item.harvest_date || 'Fresh today'} · Stock: ${item.stock_quantity} ${item.unit}
+        </div>
+      </div>
+      
+      <div id="mart_btn_area_${item.id}">
+        ${inCartQty > 0 ? `
+          <div class="mart-stepper">
+            <button class="mart-step-btn" onclick="changeMartQty('${item.id}', -1)">−</button>
+            <span>${inCartQty} ${item.unit}</span>
+            <button class="mart-step-btn" onclick="changeMartQty('${item.id}', 1)">+</button>
+          </div>
+        ` : `
+          <button class="mart-add-btn" onclick="changeMartQty('${item.id}', 1)">
+            <span>+</span>
+            <span>${isKn ? 'ಸೇರಿಸಿ' : 'ADD'}</span>
+          </button>
+        `}
+      </div>
+    </div>
+  `;
+}
+
+function changeMartQty(listingId, delta) {
+  const isKn = currentLang === 'kn';
+  const listing = martState.listings.find(l => l.id === listingId);
+  if(!listing) return;
+
+  const currentCart = martState.cart;
+
+  // Enforce 1-Farm-Per-Order Rule
+  if(currentCart.sellerId && currentCart.sellerId !== listing.seller_id && Object.keys(currentCart.items).length > 0) {
+    const changeFarm = confirm(
+      isKn 
+        ? `ನಿಮ್ಮ ಕಾರ್ಟ್‌ನಲ್ಲಿ ಈಗಾಗಲೇ '${currentCart.farmName}' ತೋಟದ ಉತ್ಪನ್ನಗಳಿವೆ. ಆಗ್ರೋ AI ಮಾರ್ಟ್ ನೇರ ಕಟಾವಿನ ತಾಜಾತನಕ್ಕಾಗಿ 1 ಆರ್ಡರ್‌ನಲ್ಲಿ 1 ತೋಟವನ್ನು ಮಾತ್ರ ಅನುಮತಿಸುತ್ತದೆ.\n\nಕಾರ್ಟ್ ಖಾಲಿ ಮಾಡಿ '${listing.farm_name}' ತೋಟದಿಂದ ಹೊಸ ಆರ್ಡರ್ ಪ್ರಾರಂಭಿಸುವುದೇ?`
+        : `Your cart already contains produce from '${currentCart.farmName}'. Agro AI Mart guarantees fresh farm produce by fulfilling 1 farm per order.\n\nClear current cart and start an order from '${listing.farm_name}'?`
+    );
+    if(changeFarm) {
+      currentCart.items = {};
+      currentCart.sellerId = null;
+      currentCart.farmName = null;
+    } else {
+      return;
+    }
+  }
+
+  currentCart.sellerId = listing.seller_id;
+  currentCart.farmName = listing.farm_name;
+
+  const existing = currentCart.items[listingId];
+  const currentQty = existing ? existing.qty : 0;
+  const newQty = currentQty + delta;
+
+  if(newQty > listing.stock_quantity) {
+    showToast(isKn ? `ಕೇವಲ ${listing.stock_quantity} ${listing.unit} ಸ್ಟಾಕ್ ಲಭ್ಯವಿದೆ.` : `Only ${listing.stock_quantity} ${listing.unit} in stock.`);
+    return;
+  }
+
+  if(newQty <= 0) {
+    delete currentCart.items[listingId];
+    if(Object.keys(currentCart.items).length === 0) {
+      currentCart.sellerId = null;
+      currentCart.farmName = null;
+    }
+  } else {
+    currentCart.items[listingId] = {
+      listing: listing,
+      qty: newQty
+    };
+  }
+
+  updateMartItemBtnUI(listingId);
+  updateMartCartUI();
+}
+
+function updateMartItemBtnUI(listingId) {
+  const isKn = currentLang === 'kn';
+  const listing = martState.listings.find(l => l.id === listingId);
+  const inCartQty = martState.cart.items[listingId]?.qty || 0;
+  const container = document.getElementById(`mart_btn_area_${listingId}`);
+  if(!container || !listing) return;
+
+  if(inCartQty > 0) {
+    container.innerHTML = `
+      <div class="mart-stepper">
+        <button class="mart-step-btn" onclick="changeMartQty('${listing.id}', -1)">−</button>
+        <span>${inCartQty} ${listing.unit}</span>
+        <button class="mart-step-btn" onclick="changeMartQty('${listing.id}', 1)">+</button>
+      </div>
+    `;
+  } else {
+    container.innerHTML = `
+      <button class="mart-add-btn" onclick="changeMartQty('${listing.id}', 1)">
+        <span>+</span>
+        <span>${isKn ? 'ಸೇರಿಸಿ' : 'ADD'}</span>
+      </button>
+    `;
+  }
+}
+
+function updateMartCartUI() {
+  const isKn = currentLang === 'kn';
+  const stickyBar = document.getElementById('martStickyCart');
+  const countEl = document.getElementById('martCartItemCount');
+  const totalEl = document.getElementById('martCartTotalLabel');
+  const farmSubEl = document.getElementById('martCartFarmSub');
+
+  const items = Object.values(martState.cart.items);
+  const totalCount = items.reduce((sum, it) => sum + it.qty, 0);
+  const subtotalMinor = items.reduce((sum, it) => sum + (it.qty * it.listing.price_minor), 0);
+
+  if(!stickyBar) return;
+
+  if(totalCount > 0) {
+    stickyBar.style.display = 'flex';
+    if(countEl) countEl.textContent = totalCount;
+    if(totalEl) totalEl.textContent = `₹${(subtotalMinor / 100).toFixed(2)}`;
+    if(farmSubEl) farmSubEl.textContent = `Fresh from: ${martState.cart.farmName || 'Local Farm'}`;
+  } else {
+    stickyBar.style.display = 'none';
+  }
+}
+
+/* ── CART MODAL & CHECKOUT ─────────────────────────────────────── */
+
+function openMartCartModal() {
+  const modal = document.getElementById('martCartModal');
+  const itemsContainer = document.getElementById('martCartItemsList');
+  const farmNameEl = document.getElementById('martCartModalFarmName');
+  const subtotalEl = document.getElementById('martBillSubtotal');
+  const deliveryEl = document.getElementById('martBillDelivery');
+  const totalEl = document.getElementById('martBillTotal');
+  const pinInput = document.getElementById('martPinConfirmInput');
+  const cityInput = document.getElementById('martCityInput');
+
+  if(pinInput) pinInput.value = martState.pincode;
+  if(cityInput) cityInput.value = martState.pincode === '571401' ? 'Mandya' : 'Bangalore';
+
+  const items = Object.values(martState.cart.items);
+  if(!items.length) {
+    showToast('Your cart is empty. Add fresh produce first.');
+    return;
+  }
+
+  if(farmNameEl) farmNameEl.textContent = `🌱 Fresh from: ${martState.cart.farmName || 'Verified Farm'}`;
+
+  const subtotalMinor = items.reduce((sum, it) => sum + (it.qty * it.listing.price_minor), 0);
+  const deliveryMinor = martState.fulfilment === 'DELIVERY' ? 2500 : 0;
+  const totalMinor = subtotalMinor + deliveryMinor;
+
+  if(subtotalEl) subtotalEl.textContent = `₹${(subtotalMinor / 100).toFixed(2)}`;
+  if(deliveryEl) deliveryEl.textContent = deliveryMinor > 0 ? `₹${(deliveryMinor / 100).toFixed(2)}` : 'FREE';
+  if(totalEl) totalEl.textContent = `₹${(totalMinor / 100).toFixed(2)}`;
+
+  if(itemsContainer) {
+    itemsContainer.innerHTML = items.map(it => `
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--line);">
+        <div>
+          <div style="font-weight:700;font-size:13.5px;">${escHtml(it.listing.title)}</div>
+          <div class="muted" style="font-size:11.5px;">${it.listing.price_formatted} / ${it.listing.unit}</div>
+        </div>
+        <div style="display:flex;align-items:center;gap:12px;">
+          <div class="mart-stepper" style="width:90px;height:28px;">
+            <button class="mart-step-btn" style="width:28px;height:28px;" onclick="changeMartQty('${it.listing.id}', -1); openMartCartModal();">−</button>
+            <span style="font-size:12px;">${it.qty}</span>
+            <button class="mart-step-btn" style="width:28px;height:28px;" onclick="changeMartQty('${it.listing.id}', 1); openMartCartModal();">+</button>
+          </div>
+          <div style="font-weight:700;font-size:13.5px;min-width:60px;text-align:right;">
+            ₹${((it.qty * it.listing.price_minor) / 100).toFixed(2)}
+          </div>
+        </div>
+      </div>
+    `).join('');
+  }
+
+  if(modal) modal.classList.add('open');
+}
+
+function closeMartCartModal() {
+  const modal = document.getElementById('martCartModal');
+  if(modal) modal.classList.remove('open');
+}
+
+function setMartFulfilment(mode) {
+  martState.fulfilment = mode;
+  const delBtn = document.getElementById('martFulfilDeliveryBtn');
+  const picBtn = document.getElementById('martFulfilPickupBtn');
+  const addrSec = document.getElementById('martAddressSection');
+
+  if(mode === 'DELIVERY') {
+    if(delBtn) { delBtn.style.borderColor = '#166534'; delBtn.style.background = '#f0fdf4'; delBtn.style.color = '#166534'; delBtn.style.fontWeight = '700'; }
+    if(picBtn) { picBtn.style.borderColor = 'var(--line)'; picBtn.style.background = 'transparent'; picBtn.style.color = 'var(--ink)'; picBtn.style.fontWeight = '500'; }
+    if(addrSec) addrSec.style.display = 'block';
+  } else {
+    if(picBtn) { picBtn.style.borderColor = '#166534'; picBtn.style.background = '#f0fdf4'; picBtn.style.color = '#166534'; picBtn.style.fontWeight = '700'; }
+    if(delBtn) { delBtn.style.borderColor = 'var(--line)'; delBtn.style.background = 'transparent'; delBtn.style.color = 'var(--ink)'; delBtn.style.fontWeight = '500'; }
+    if(addrSec) addrSec.style.display = 'none';
+  }
+  openMartCartModal(); // recalculate bill summary
+}
+
+async function placeMartOrder() {
+  const isKn = currentLang === 'kn';
+  const items = Object.values(martState.cart.items);
+  if(!items.length) {
+    showToast(isKn ? 'ಕಾರ್ಟ್ ಖಾಲಿಯಾಗಿದೆ.' : 'Cart is empty.');
+    return;
+  }
+
+  const addrLine = document.getElementById('martAddressInput')?.value.trim() || '';
+  const city = document.getElementById('martCityInput')?.value.trim() || 'Bangalore';
+  const pin = document.getElementById('martPinConfirmInput')?.value.trim() || martState.pincode;
+
+  if(martState.fulfilment === 'DELIVERY' && addrLine.length < 5) {
+    showToast(isKn ? 'ದಯವಿಟ್ಟು ಪೂರ್ಣ ವಿತರಣಾ ವಿಳಾಸವನ್ನು ನಮೂದಿಸಿ.' : 'Please enter your delivery street address and landmark.');
+    return;
+  }
+
+  const btn = document.getElementById('martPlaceOrderBtn');
+  if(btn) { btn.disabled = true; btn.textContent = 'Securing Produce...'; }
+
+  try {
+    const payload = {
+      items: items.map(it => ({ listing_id: it.listing.id, quantity: it.qty })),
+      fulfilment_type: martState.fulfilment,
+      delivery_address: martState.fulfilment === 'DELIVERY' ? { line: addrLine, city: city } : { line: 'Direct farm pickup' },
+      delivery_pincode: pin
+    };
+
+    const res = await fetch('/api/mart/orders', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...getAuthHeader()
+      },
+      body: JSON.stringify(payload)
+    });
+
+    const data = await res.json();
+    if(!res.ok) {
+      const err = data.detail?.error?.message || 'Could not place order.';
+      showToast(`⚠️ ${err}`);
+      if(btn) { btn.disabled = false; btn.textContent = 'Confirm Order · Pay on Delivery'; }
+      return;
+    }
+
+    // Success! Reset cart and show order confirmation
+    martState.cart = { sellerId: null, farmName: null, items: {} };
+    updateMartCartUI();
+    closeMartCartModal();
+    showToast(isKn ? `🎉 ಆರ್ಡರ್ ಯಶಸ್ವಿಯಾಗಿದೆ! ಆರ್ಡರ್ #${data.order_number}` : `🎉 Order placed! Order #${data.order_number}`);
+    
+    // Refresh listings to reflect decremented inventory
+    loadCustomerMart();
+    openMartOrdersModal();
+  } catch(e) {
+    console.error('Checkout error:', e);
+    showToast(isKn ? 'ಆರ್ಡರ್ ವಿಫಲವಾಗಿದೆ. ದಯವಿಟ್ಟು ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ.' : 'Order failed. Please retry.');
+  } finally {
+    if(btn) { btn.disabled = false; btn.textContent = 'Confirm Order · Pay on Delivery'; }
+  }
+}
+
+/* ── PIN CODE & WAITLIST MODAL ─────────────────────────────────── */
+
+function openMartPinModal() {
+  const modal = document.getElementById('martPinModal');
+  const input = document.getElementById('martPinInput');
+  if(input) input.value = martState.pincode;
+  if(modal) modal.classList.add('open');
+}
+
+function closeMartPinModal() {
+  const modal = document.getElementById('martPinModal');
+  if(modal) modal.classList.remove('open');
+}
+
+function saveMartPin() {
+  const input = document.getElementById('martPinInput');
+  const val = input ? input.value.trim() : '';
+  if(val.length !== 6 || isNaN(val)) {
+    showToast('Please enter a valid 6-digit postal PIN code.');
+    return;
+  }
+  martState.pincode = val;
+  localStorage.setItem('agroai_mart_pin', val);
+  closeMartPinModal();
+  loadCustomerMart();
+}
+
+function switchMartPinToDemo() {
+  martState.pincode = '571401';
+  localStorage.setItem('agroai_mart_pin', '571401');
+  loadCustomerMart();
+}
+
+async function submitMartWaitlist() {
+  const isKn = currentLang === 'kn';
+  const phone = document.getElementById('martWaitlistPhone')?.value.trim() || '';
+  if(phone.length < 10) {
+    showToast(isKn ? 'ದಯವಿಟ್ಟು ಮಾನ್ಯ ಮೊಬೈಲ್ ಸಂಖ್ಯೆಯನ್ನು ನಮೂದಿಸಿ.' : 'Please enter a valid 10-digit mobile number.');
+    return;
+  }
+
+  try {
+    const res = await fetch('/api/mart/waitlist', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
+      body: JSON.stringify({
+        pincode: martState.pincode,
+        district: martState.pincode === '571401' ? 'Mandya' : 'Bangalore Urban',
+        state: 'Karnataka',
+        phone: phone
+      })
+    });
+    const data = await res.json();
+    showToast(isKn ? '✅ ನಿಮ್ಮ ಆಸಕ್ತಿಯನ್ನು ದಾಖಲಿಸಲಾಗಿದೆ! ಸ್ಥಳೀಯ ತೋಟಗಳು ಆರಂಭವಾದಾಗ ನಿಮಗೆ ತಿಳಿಸುತ್ತೇವೆ.' : '✅ Request saved! We will notify you as soon as verified local farms start delivering.');
+    const input = document.getElementById('martWaitlistPhone');
+    if(input) input.value = '';
+  } catch(e) {
+    showToast('Waitlist registration failed. Please retry.');
+  }
+}
+
+/* ── CUSTOMER ORDERS TRACKING ──────────────────────────────────── */
+
+async function loadMartCustomerOrdersCount() {
+  try {
+    const res = await fetch('/api/mart/orders/my', { headers: getAuthHeader() });
+    if(res.ok) {
+      const orders = await res.json();
+      const countEl = document.getElementById('martOrdersCount');
+      if(countEl) countEl.textContent = orders.length;
+    }
+  } catch(e){}
+}
+
+async function openMartOrdersModal() {
+  const modal = document.getElementById('martOrdersModal');
+  const container = document.getElementById('martOrdersList');
+  if(modal) modal.classList.add('open');
+  if(!container) return;
+
+  container.innerHTML = '<div class="muted">Loading your orders...</div>';
+
+  try {
+    const res = await fetch('/api/mart/orders/my', { headers: getAuthHeader() });
+    if(!res.ok) throw new Error('Orders fetch failed');
+    const orders = await res.json();
+
+    if(!orders.length) {
+      container.innerHTML = '<div class="muted">You have not placed any orders on Agro AI Mart yet. Browse farm produce above!</div>';
+      return;
+    }
+
+    container.innerHTML = orders.map(o => `
+      <div class="card" style="margin-bottom:12px;padding:14px;border-left:4px solid ${o.status === 'COMPLETED' ? '#166534' : o.status === 'CANCELLED' ? '#dc2626' : '#f59e0b'};">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px;">
+          <div>
+            <div style="font-weight:800;font-size:14px;color:#1f2937;">Order #${o.order_number}</div>
+            <div class="muted" style="font-size:11.5px;">${o.created_at ? new Date(o.created_at).toLocaleString('en-IN') : ''}</div>
+          </div>
+          <span class="pill ${o.status === 'COMPLETED' ? 'pill-forest' : o.status === 'CANCELLED' ? 'pill-danger' : 'pill-saffron'}">
+            ● ${o.status}
+          </span>
+        </div>
+
+        <div style="margin:6px 0;font-size:12.5px;">
+          <strong>Farm:</strong> ${escHtml(o.farm_name)} (${escHtml(o.village || '')})
+        </div>
+
+        <div style="margin:4px 0;font-size:12.5px;">
+          <strong>Total:</strong> <span style="font-weight:700;color:#166534;">${o.total_formatted}</span> · <em>Pay on Delivery</em>
+        </div>
+
+        ${o.status === 'PLACED' ? `
+          <button class="btn btn-outline" style="width:100%;margin-top:8px;padding:6px;font-size:12px;color:#dc2626;border-color:#dc2626;" onclick="cancelMartCustomerOrder('${o.id}')">
+            Cancel Order
+          </button>
+        ` : ''}
+      </div>
+    `).join('');
+  } catch(e) {
+    container.innerHTML = '<div class="muted">Could not load orders. Please sign in to view order history.</div>';
+  }
+}
+
+function closeMartOrdersModal() {
+  const modal = document.getElementById('martOrdersModal');
+  if(modal) modal.classList.remove('open');
+}
+
+async function cancelMartCustomerOrder(orderId) {
+  if(!confirm('Are you sure you want to cancel this order? The produce will be returned to the farmer’s inventory.')) return;
+  try {
+    const res = await fetch(`/api/mart/orders/${orderId}/cancel`, {
+      method: 'POST',
+      headers: getAuthHeader()
+    });
+    if(!res.ok) {
+      const err = await res.json();
+      showToast(`⚠️ ${err.detail?.error?.message || 'Cannot cancel order.'}`);
+      return;
+    }
+    showToast('Order successfully cancelled.');
+    openMartOrdersModal();
+    loadCustomerMart();
+  } catch(e) {
+    showToast('Cancellation failed. Please retry.');
+  }
+}
+
+/* ── FARMER SELLER PORTAL ──────────────────────────────────────── */
+
+async function loadFarmerSellerPortal() {
+  const isKn = currentLang === 'kn';
+  const container = document.getElementById('martSellerPortalContainer');
+  if(!container) return;
+
+  container.innerHTML = `<div class="card" style="text-align:center;padding:24px;"><div class="muted">${isKn ? 'ಮಾರಾಟಗಾರರ ಪ್ರೊಫೈಲ್ ಪರಿಶೀಲಿಸಲಾಗುತ್ತಿದೆ...' : 'Verifying farmer seller credentials...'}</div></div>`;
+
+  try {
+    const res = await fetch('/api/mart/seller/profile', { headers: getAuthHeader() });
+    if(!res.ok) throw new Error('Seller profile failed');
+    martState.sellerProfile = await res.json();
+    renderFarmerSellerPortal();
+  } catch(e) {
+    console.error('Farmer seller portal error:', e);
+    container.innerHTML = `
+      <div class="card" style="text-align:center;padding:24px;">
+        <p class="muted">Please sign in to access the farmer storefront.</p>
+        <button class="btn btn-primary" onclick="go('account')">Sign In / Profile</button>
+      </div>
+    `;
+  }
+}
+
+function renderFarmerSellerPortal() {
+  const isKn = currentLang === 'kn';
+  const container = document.getElementById('martSellerPortalContainer');
+  if(!container) return;
+
+  const prof = martState.sellerProfile;
+
+  // Case 1: Farmer has not applied yet
+  if(!prof || !prof.has_applied) {
+    container.innerHTML = `
+      <div class="card" style="padding:18px;margin-bottom:16px;">
+        <h3 class="display" style="margin:0 0 8px;font-size:18px;color:#0369a1;">Apply to Sell Fresh Produce</h3>
+        <p class="muted" style="font-size:12.5px;line-height:1.5;margin-bottom:14px;">
+          Join Agro AI Mart to sell your freshly harvested crops directly to nearby households. 100% direct customer settlement via Cash or UPI on delivery. 0 platform fees during the pilot.
+        </p>
+
+        <div style="margin-bottom:10px;">
+          <label style="font-size:12px;font-weight:700;display:block;margin-bottom:3px;">Farm Name / Farmer Brand:</label>
+          <input type="text" id="sellerApplyFarmName" placeholder="e.g. Ramesh Organic Mandya Farm" style="width:100%;padding:9px 12px;border:1.5px solid var(--line);border-radius:10px;font-size:13px;outline:none;">
+        </div>
+
+        <div style="margin-bottom:10px;">
+          <label style="font-size:12px;font-weight:700;display:block;margin-bottom:3px;">Contact Mobile Number (for buyer calls):</label>
+          <input type="tel" id="sellerApplyPhone" placeholder="10-digit mobile number" style="width:100%;padding:9px 12px;border:1.5px solid var(--line);border-radius:10px;font-size:13px;outline:none;">
+        </div>
+
+        <div style="display:flex;gap:8px;margin-bottom:10px;">
+          <div style="flex:1;">
+            <label style="font-size:12px;font-weight:700;display:block;margin-bottom:3px;">Village / Town:</label>
+            <input type="text" id="sellerApplyVillage" placeholder="e.g. Maddur" style="width:100%;padding:8px 10px;border:1px solid var(--line);border-radius:8px;font-size:12.5px;outline:none;">
+          </div>
+          <div style="flex:1;">
+            <label style="font-size:12px;font-weight:700;display:block;margin-bottom:3px;">District:</label>
+            <input type="text" id="sellerApplyDistrict" placeholder="e.g. Mandya" style="width:100%;padding:8px 10px;border:1px solid var(--line);border-radius:8px;font-size:12.5px;outline:none;">
+          </div>
+        </div>
+
+        <div style="margin-bottom:10px;">
+          <label style="font-size:12px;font-weight:700;display:block;margin-bottom:3px;">Serviceable PIN Codes (where you can deliver or pickup):</label>
+          <input type="text" id="sellerApplyPincodes" placeholder="e.g. 571401, 560001, 560034" style="width:100%;padding:9px 12px;border:1.5px solid var(--line);border-radius:10px;font-size:13px;outline:none;">
+          <div class="muted" style="font-size:11px;margin-top:2px;">Separate multiple PIN codes with commas.</div>
+        </div>
+
+        <div style="margin-bottom:10px;">
+          <label style="font-size:12px;font-weight:700;display:block;margin-bottom:3px;">Land Record Proof Type:</label>
+          <select id="sellerApplyProofType" style="width:100%;padding:8px 10px;border:1.5px solid var(--line);border-radius:8px;font-size:13px;outline:none;background:#fff;">
+            <option value="Pahani / RTC (Karnataka)">Pahani / RTC (Karnataka)</option>
+            <option value="7/12 Extract (Maharashtra)">7/12 Extract (Maharashtra)</option>
+            <option value="RoR / Land Ownership Record">RoR / Land Ownership Record</option>
+          </select>
+        </div>
+
+        <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;padding:10px;margin-bottom:14px;font-size:12px;color:#166534;display:flex;align-items:flex-start;gap:8px;">
+          <input type="checkbox" id="sellerApplyDeclaration" style="margin-top:2px;">
+          <label for="sellerApplyDeclaration" style="cursor:pointer;">
+            <strong>Mandatory Cultivation Declaration:</strong> I solemnly declare that I cultivate and harvest real agricultural produce on my farm. Agro AI strictly rejects middlemen and traders.
+          </label>
+        </div>
+
+        <button class="btn btn-primary btn-block" style="padding:12px;font-size:14px;" onclick="submitSellerApplication()">
+          Submit Farmer Application →
+        </button>
+      </div>
+    `;
+    return;
+  }
+
+  // Case 2: Under Review / Submitted
+  if(prof.status === 'SUBMITTED' || prof.status === 'UNDER_REVIEW') {
+    container.innerHTML = `
+      <div class="card" style="padding:20px;border-left:4px solid #f59e0b;margin-bottom:16px;">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
+          <span style="font-size:28px;">⏳</span>
+          <div>
+            <h3 class="display" style="margin:0;font-size:18px;">Application Under Review</h3>
+            <span class="pill pill-saffron" style="font-size:11px;">● STATUS: ${prof.status}</span>
+          </div>
+        </div>
+        <p class="muted" style="font-size:13px;line-height:1.5;margin-bottom:12px;">
+          Thank you, <strong>${escHtml(prof.farm_name)}</strong>! Our agricultural operations team is conducting the mandatory 3-step farmer verification:
+        </p>
+        <div class="card" style="background:#f8fafc;padding:12px;margin-bottom:14px;font-size:12.5px;">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
+            <span>${prof.phone_verified ? '✅' : '⏳'}</span>
+            <span>1. Contact Phone Verification</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
+            <span>${prof.proof_type ? '✅' : '⏳'}</span>
+            <span>2. Land Record Document Check (${prof.proof_type})</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:8px;">
+            <span>${prof.staff_call_completed ? '✅' : '⏳'}</span>
+            <span>3. Agronomist Verification Phone Call</span>
+          </div>
+        </div>
+        <p class="muted" style="font-size:11.5px;">Once approved by Agro AI Super Admin, you will be able to list produce and fulfill orders directly.</p>
+      </div>
+    `;
+    return;
+  }
+
+  // Case 3: Rejected / Info Required
+  if(prof.status === 'REJECTED' || prof.status === 'INFO_REQUIRED') {
+    container.innerHTML = `
+      <div class="card" style="padding:18px;border-left:4px solid #dc2626;margin-bottom:16px;">
+        <h3 class="display" style="margin:0 0 6px;font-size:18px;color:#dc2626;">Application Requires Attention</h3>
+        <p class="muted" style="font-size:13px;margin-bottom:8px;"><strong>Status:</strong> ${prof.status}</p>
+        <div class="card" style="background:#fef2f2;border-color:#fecaca;padding:12px;font-size:12.5px;color:#991b1b;margin-bottom:12px;">
+          ${prof.review_notes || 'Please ensure you are listing fresh produce grown directly on your farm with valid land documentation.'}
+        </div>
+      </div>
+    `;
+    return;
+  }
+
+  // Case 4: Approved Seller Dashboard!
+  container.innerHTML = `
+    <!-- Top Navigation Subtabs -->
+    <div class="mart-tab-nav">
+      <div class="mart-tab-item ${martState.activeSellerTab === 'orders' ? 'active' : ''}" onclick="switchSellerTab('orders')">
+        📦 Incoming Orders
+      </div>
+      <div class="mart-tab-item ${martState.activeSellerTab === 'listings' ? 'active' : ''}" onclick="switchSellerTab('listings')">
+        🥬 My Produce &amp; Stock
+      </div>
+      <div class="mart-tab-item ${martState.activeSellerTab === 'earnings' ? 'active' : ''}" onclick="switchSellerTab('earnings')">
+        💰 Real Earnings
+      </div>
+    </div>
+
+    <!-- Active Tab Content Area -->
+    <div id="martSellerTabContent"></div>
+  `;
+
+  renderSellerTabContent();
+}
+
+function switchSellerTab(tab) {
+  martState.activeSellerTab = tab;
+  renderFarmerSellerPortal();
+}
+
+async function renderSellerTabContent() {
+  const container = document.getElementById('martSellerTabContent');
+  if(!container) return;
+
+  if(martState.activeSellerTab === 'orders') {
+    container.innerHTML = '<div class="muted">Loading incoming orders...</div>';
+    try {
+      const res = await fetch('/api/mart/seller/orders', { headers: getAuthHeader() });
+      if(!res.ok) throw new Error('Seller orders fetch failed');
+      martState.sellerOrders = await res.json();
+
+      if(!martState.sellerOrders.length) {
+        container.innerHTML = `
+          <div class="card" style="text-align:center;padding:24px;">
+            <div style="font-size:32px;margin-bottom:6px;">🌾</div>
+            <div style="font-weight:700;font-size:14px;margin-bottom:4px;">No incoming orders right now</div>
+            <p class="muted" style="font-size:12px;">When nearby customers order your fresh produce, orders will appear here in real time.</p>
+          </div>
+        `;
+        return;
+      }
+
+      container.innerHTML = martState.sellerOrders.map(o => `
+        <div class="card" style="margin-bottom:12px;padding:14px;border-left:4px solid ${o.status === 'COMPLETED' ? '#166534' : o.status === 'CANCELLED' ? '#dc2626' : '#0284c7'};">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px;">
+            <div>
+              <div style="font-weight:800;font-size:14px;">Order #${o.order_number}</div>
+              <div class="muted" style="font-size:11.5px;">Customer: <strong>${escHtml(o.customer_name || 'Customer')}</strong> · PIN: ${o.delivery_pincode}</div>
+            </div>
+            <span class="pill ${o.status === 'COMPLETED' ? 'pill-forest' : o.status === 'CANCELLED' ? 'pill-danger' : 'pill-saffron'}">
+              ● ${o.status}
+            </span>
+          </div>
+
+          <div style="background:#f8fafc;padding:8px 10px;border-radius:10px;margin:8px 0;font-size:12.5px;">
+            <div style="font-weight:700;margin-bottom:4px;">Items:</div>
+            ${(o.items || []).map(it => `<div>• ${escHtml(it.title)} — ${it.quantity} ${it.unit} (₹${((it.quantity * it.price_minor) / 100).toFixed(2)})</div>`).join('')}
+          </div>
+
+          <div class="kv-row" style="padding:4px 0;"><span class="k">Fulfilment</span><span class="v">${o.fulfilment_type}</span></div>
+          <div class="kv-row" style="padding:4px 0;"><span class="k">Direct Payment Due</span><span class="v" style="font-weight:800;color:#166534;">${o.total_formatted}</span></div>
+
+          <!-- Seller Order State Machine Buttons -->
+          <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap;">
+            ${o.status === 'PLACED' ? `
+              <button class="btn btn-primary" style="flex:1;padding:8px;font-size:12px;" onclick="updateSellerOrderStatus('${o.id}', 'ACCEPTED_BY_SELLER')">✓ Accept Order</button>
+              <button class="btn btn-outline" style="padding:8px;font-size:12px;color:#dc2626;border-color:#dc2626;" onclick="updateSellerOrderStatus('${o.id}', 'REJECTED')">✕ Reject</button>
+            ` : o.status === 'ACCEPTED_BY_SELLER' ? `
+              <button class="btn btn-primary btn-block" style="padding:8px;font-size:12px;" onclick="updateSellerOrderStatus('${o.id}', 'PREPARING')">📦 Start Harvesting / Packing</button>
+            ` : o.status === 'PREPARING' ? `
+              <button class="btn btn-primary" style="flex:1;padding:8px;font-size:12px;" onclick="updateSellerOrderStatus('${o.id}', 'OUT_FOR_DELIVERY')">🛵 Out for Delivery</button>
+              <button class="btn btn-outline" style="flex:1;padding:8px;font-size:12px;" onclick="updateSellerOrderStatus('${o.id}', 'READY_FOR_PICKUP')">🚜 Ready for Pickup</button>
+            ` : (o.status === 'OUT_FOR_DELIVERY' || o.status === 'READY_FOR_PICKUP') ? `
+              <button class="btn btn-primary btn-block" style="padding:10px;font-size:13px;background:#15803d;" onclick="updateSellerOrderStatus('${o.id}', 'COMPLETED')">
+                🎉 Confirm Handover &amp; Payment Received
+              </button>
+            ` : ''}
+          </div>
+        </div>
+      `).join('');
+    } catch(e) {
+      container.innerHTML = '<div class="muted">Could not load seller orders.</div>';
+    }
+  }
+
+  else if(martState.activeSellerTab === 'listings') {
+    container.innerHTML = '<div class="muted">Loading catalog and your listings...</div>';
+    try {
+      const [catRes, listRes] = await Promise.all([
+        fetch('/api/mart/catalog-items'),
+        fetch('/api/mart/seller/listings', { headers: getAuthHeader() })
+      ]);
+      martState.catalogItems = await catRes.json();
+      martState.sellerListings = await listRes.json();
+
+      container.innerHTML = `
+        <!-- Create Produce Listing Card -->
+        <div class="card" style="padding:16px;margin-bottom:16px;background:#f0fdf4;border-color:#bbf7d0;">
+          <h4 style="margin:0 0 10px;font-size:15px;color:#14532d;font-weight:700;">+ List Fresh Produce for Sale</h4>
+          
+          <div style="margin-bottom:8px;">
+            <label style="font-size:11.5px;font-weight:700;display:block;margin-bottom:2px;">Select Crop / Produce Type:</label>
+            <select id="newListingCatalogItem" style="width:100%;padding:8px 10px;border:1px solid #bbf7d0;border-radius:8px;font-size:12.5px;background:#fff;outline:none;">
+              ${martState.catalogItems.map(it => `<option value="${it.id}">${it.name_english} (${it.name_kannada})</option>`).join('')}
+            </select>
+          </div>
+
+          <div style="margin-bottom:8px;">
+            <label style="font-size:11.5px;font-weight:700;display:block;margin-bottom:2px;">Listing Title:</label>
+            <input type="text" id="newListingTitle" placeholder="e.g. Farm Fresh Tomatoes (Hybrid Grade A)" style="width:100%;padding:8px 10px;border:1px solid #bbf7d0;border-radius:8px;font-size:12.5px;outline:none;">
+          </div>
+
+          <div style="display:flex;gap:8px;margin-bottom:8px;">
+            <div style="flex:1;">
+              <label style="font-size:11.5px;font-weight:700;display:block;margin-bottom:2px;">Price (in ₹):</label>
+              <input type="number" id="newListingPrice" placeholder="e.g. 35" style="width:100%;padding:8px 10px;border:1px solid #bbf7d0;border-radius:8px;font-size:12.5px;outline:none;">
+            </div>
+            <div style="width:100px;">
+              <label style="font-size:11.5px;font-weight:700;display:block;margin-bottom:2px;">Unit:</label>
+              <select id="newListingUnit" style="width:100%;padding:8px 10px;border:1px solid #bbf7d0;border-radius:8px;font-size:12.5px;background:#fff;outline:none;">
+                <option value="kg">kg</option>
+                <option value="500g">500g</option>
+                <option value="bunch">bunch</option>
+                <option value="piece">piece</option>
+                <option value="dozen">dozen</option>
+              </select>
+            </div>
+            <div style="flex:1;">
+              <label style="font-size:11.5px;font-weight:700;display:block;margin-bottom:2px;">Stock Available:</label>
+              <input type="number" id="newListingStock" placeholder="e.g. 50" style="width:100%;padding:8px 10px;border:1px solid #bbf7d0;border-radius:8px;font-size:12.5px;outline:none;">
+            </div>
+          </div>
+
+          <div style="display:flex;gap:8px;margin-bottom:10px;">
+            <div style="flex:1;">
+              <label style="font-size:11.5px;font-weight:700;display:block;margin-bottom:2px;">Harvest Date:</label>
+              <input type="date" id="newListingHarvestDate" value="${new Date().toISOString().split('T')[0]}" style="width:100%;padding:8px 10px;border:1px solid #bbf7d0;border-radius:8px;font-size:12px;outline:none;">
+            </div>
+            <div style="flex:1;">
+              <label style="font-size:11.5px;font-weight:700;display:block;margin-bottom:2px;">Fulfilment:</label>
+              <select id="newListingFulfilment" style="width:100%;padding:8px 10px;border:1px solid #bbf7d0;border-radius:8px;font-size:12.5px;background:#fff;outline:none;">
+                <option value="BOTH">Delivery &amp; Pickup</option>
+                <option value="DELIVERY">Delivery Only</option>
+                <option value="PICKUP">Pickup Only</option>
+              </select>
+            </div>
+          </div>
+
+          <button class="btn btn-primary btn-block" style="padding:10px;font-size:13px;" onclick="submitNewProduceListing()">
+            Submit Produce for Review →
+          </button>
+        </div>
+
+        <!-- Current Live / Submitted Listings -->
+        <div style="font-weight:700;font-size:14px;margin-bottom:8px;">My Produce Listings</div>
+        ${!martState.sellerListings.length ? '<div class="muted">No produce listed yet. Use the form above to add your first harvest!</div>' : ''}
+        ${martState.sellerListings.map(l => `
+          <div class="card" style="margin-bottom:10px;padding:12px;">
+            <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+              <div>
+                <div style="font-weight:700;font-size:13.5px;">${escHtml(l.title)}</div>
+                <div class="muted" style="font-size:11.5px;">${l.price_formatted} / ${l.unit} · Harvest: ${l.harvest_date}</div>
+              </div>
+              <span class="pill ${l.status === 'APPROVED' ? 'pill-forest' : 'pill-saffron'}" style="font-size:10.5px;">
+                ● ${l.status}
+              </span>
+            </div>
+
+            <div style="margin-top:10px;display:flex;align-items:center;justify-content:space-between;background:#f8fafc;padding:6px 10px;border-radius:8px;">
+              <span style="font-size:12px;font-weight:600;">Current Stock: <strong>${l.stock_quantity} ${l.unit}</strong></span>
+              <div style="display:flex;gap:4px;">
+                <button class="btn btn-outline" style="padding:2px 8px;font-size:11px;" onclick="updateListingStock('${l.id}', -5)">−5</button>
+                <button class="btn btn-outline" style="padding:2px 8px;font-size:11px;" onclick="updateListingStock('${l.id}', 10)">+10</button>
+              </div>
+            </div>
+          </div>
+        `).join('')}
+      `;
+    } catch(e) {
+      container.innerHTML = '<div class="muted">Could not load listings.</div>';
+    }
+  }
+
+  else if(martState.activeSellerTab === 'earnings') {
+    container.innerHTML = '<div class="muted">Loading authentic earnings...</div>';
+    try {
+      const res = await fetch('/api/mart/seller/earnings', { headers: getAuthHeader() });
+      if(!res.ok) throw new Error('Earnings failed');
+      const data = await res.json();
+
+      container.innerHTML = `
+        <div class="card" style="padding:20px;text-align:center;background:linear-gradient(135deg,#f0fdf4 0%,#ffffff 100%);border-color:#bbf7d0;margin-bottom:16px;">
+          <div style="font-size:11px;font-weight:700;color:#166534;text-transform:uppercase;letter-spacing:1px;margin-bottom:4px;">Total Earnings Received</div>
+          <div style="font-size:32px;font-weight:900;color:#14532d;font-family:'Fraunces',Georgia,serif;line-height:1.1;margin-bottom:6px;">
+            ${data.total_earned_formatted}
+          </div>
+          <p class="muted" style="font-size:12px;margin:0;">
+            Computed strictly from <strong>${data.completed_orders_count} completed orders</strong> where direct payment was confirmed.
+          </p>
+        </div>
+
+        <div class="card" style="padding:14px;background:#fffbeb;border-color:#fef3c7;font-size:12.5px;color:#92400e;">
+          <div style="font-weight:700;margin-bottom:4px;">💡 Settlement Transparency:</div>
+          Agro AI does not hold or escrow funds. All payments are received directly by you from customers upon delivery or pickup via Cash or UPI. 0% commission is deducted during the pilot.
+        </div>
+      `;
+    } catch(e) {
+      container.innerHTML = '<div class="muted">Could not load earnings.</div>';
+    }
+  }
+}
+
+async function submitSellerApplication() {
+  const farmName = document.getElementById('sellerApplyFarmName')?.value.trim() || '';
+  const phone = document.getElementById('sellerApplyPhone')?.value.trim() || '';
+  const village = document.getElementById('sellerApplyVillage')?.value.trim() || '';
+  const district = document.getElementById('sellerApplyDistrict')?.value.trim() || '';
+  const pincodesStr = document.getElementById('sellerApplyPincodes')?.value.trim() || '';
+  const proofType = document.getElementById('sellerApplyProofType')?.value || 'Pahani / RTC (Karnataka)';
+  const declaration = document.getElementById('sellerApplyDeclaration')?.checked || false;
+
+  if(farmName.length < 2) { showToast('Please enter your farm name.'); return; }
+  if(phone.length < 10) { showToast('Please enter a valid 10-digit mobile number.'); return; }
+  if(village.length < 2 || district.length < 2) { showToast('Please enter village and district.'); return; }
+  if(!declaration) { showToast('You must confirm the cultivation declaration.'); return; }
+
+  const pincodes = pincodesStr.split(',').map(p => p.trim()).filter(p => p.length === 6);
+  if(!pincodes.length) { showToast('Please enter at least one 6-digit service PIN code.'); return; }
+
+  try {
+    const res = await fetch('/api/mart/seller/apply', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
+      body: JSON.stringify({
+        farm_name: farmName,
+        contact_phone: phone,
+        state: 'Karnataka',
+        district: district,
+        village: village,
+        service_pincodes: pincodes,
+        fulfilment_modes: ['pickup', 'delivery'],
+        proof_type: proofType,
+        declaration_cultivates_produce: true
+      })
+    });
+    if(!res.ok) {
+      const err = await res.json();
+      showToast(`⚠️ ${err.detail?.error?.message || 'Application failed.'}`);
+      return;
+    }
+    showToast('🎉 Farmer application submitted for review!');
+    loadFarmerSellerPortal();
+  } catch(e) {
+    showToast('Submission failed. Please retry.');
+  }
+}
+
+async function submitNewProduceListing() {
+  const catalogItemId = document.getElementById('newListingCatalogItem')?.value;
+  const title = document.getElementById('newListingTitle')?.value.trim() || '';
+  const price = parseFloat(document.getElementById('newListingPrice')?.value || '0');
+  const unit = document.getElementById('newListingUnit')?.value || 'kg';
+  const stock = parseFloat(document.getElementById('newListingStock')?.value || '0');
+  const harvestDate = document.getElementById('newListingHarvestDate')?.value || new Date().toISOString().split('T')[0];
+  const fulfilment = document.getElementById('newListingFulfilment')?.value || 'BOTH';
+
+  if(!title) { showToast('Please enter a listing title.'); return; }
+  if(isNaN(price) || price <= 0) { showToast('Please enter a valid price.'); return; }
+  if(isNaN(stock) || stock <= 0) { showToast('Please enter available stock.'); return; }
+
+  try {
+    const res = await fetch('/api/mart/seller/listings', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
+      body: JSON.stringify({
+        catalog_item_id: catalogItemId,
+        title: title,
+        price_minor: Math.round(price * 100),
+        unit: unit,
+        stock_quantity: stock,
+        harvest_date: harvestDate,
+        fulfilment_type: fulfilment
+      })
+    });
+    if(!res.ok) {
+      const err = await res.json();
+      showToast(`⚠️ ${err.detail?.error?.message || 'Failed to create listing.'}`);
+      return;
+    }
+    showToast('Produce listing submitted for staff verification!');
+    renderSellerTabContent();
+  } catch(e) {
+    showToast('Failed to list produce.');
+  }
+}
+
+async function updateListingStock(listingId, delta) {
+  const listing = martState.sellerListings.find(l => l.id === listingId);
+  if(!listing) return;
+  const newStock = Math.max(0, listing.stock_quantity + delta);
+
+  try {
+    const res = await fetch(`/api/mart/seller/listings/${listingId}/stock`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
+      body: JSON.stringify({ stock_quantity: newStock })
+    });
+    if(!res.ok) throw new Error('Stock update failed');
+    showToast(`Stock updated to ${newStock} ${listing.unit}`);
+    renderSellerTabContent();
+  } catch(e) {
+    showToast('Stock update failed.');
+  }
+}
+
+async function updateSellerOrderStatus(orderId, newStatus) {
+  try {
+    const res = await fetch(`/api/mart/seller/orders/${orderId}/status`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
+      body: JSON.stringify({ status: newStatus })
+    });
+    if(!res.ok) {
+      const err = await res.json();
+      showToast(`⚠️ ${err.detail?.error?.message || 'Status transition failed.'}`);
+      return;
+    }
+    showToast(`Order status updated to ${newStatus}`);
+    renderSellerTabContent();
+  } catch(e) {
+    showToast('Failed to update status.');
+  }
 }
 
 </script>

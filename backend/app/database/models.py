@@ -555,11 +555,50 @@ class WeatherCache(Base):
 
 class AdminUserRole(str, enum.Enum):
     super_admin = 'super_admin'
+    listing_reviewer = 'listing_reviewer'
+    seller_reviewer = 'seller_reviewer'
     plan_manager = 'plan_manager'
     payment_manager = 'payment_manager'
+    payment_staff = 'payment_staff'
     support_agent = 'support_agent'
     content_manager = 'content_manager'
     analyst = 'analyst'
+
+
+class FeatureState(str, enum.Enum):
+    enabled = 'enabled'
+    disabled = 'disabled'
+    maintenance = 'maintenance'
+    not_configured = 'not_configured'
+
+
+class PlatformFeature(Base):
+    __tablename__ = 'platform_features'
+
+    key = Column(String(50), primary_key=True)
+    name = Column(String(100), nullable=False)
+    state = Column(String(20), default='disabled', nullable=False) # enabled, disabled, maintenance, not_configured
+    implemented = Column(Boolean, default=True, nullable=False)
+    config = Column(JSON, default=dict, nullable=False)
+    revision = Column(Integer, default=1, nullable=False)
+    changed_by = Column(String, ForeignKey('users.id', ondelete='SET NULL'), nullable=True)
+    changed_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+    reason = Column(Text, nullable=True)
+
+    changer = relationship('User')
+
+
+class PlatformFeatureHistory(Base):
+    __tablename__ = 'platform_feature_history'
+
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    feature_key = Column(String(50), nullable=False, index=True)
+    state = Column(String(20), nullable=False)
+    config = Column(JSON, nullable=False)
+    revision = Column(Integer, nullable=False)
+    changed_by = Column(String, nullable=True)
+    changed_at = Column(DateTime(timezone=True), server_default=func.now())
+    reason = Column(Text, nullable=True)
 
 
 class AdminUser(Base):
@@ -832,5 +871,196 @@ class GovernmentScheme(Base):
     
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+
+
+# ── AGRO AI MART: FARM-TO-CONSUMER FRESH PRODUCE MARKETPLACE ───
+
+class MartCategory(Base):
+    __tablename__ = 'mart_categories'
+
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    slug = Column(String(50), unique=True, nullable=False, index=True) # vegetables, fruits, leafy-greens
+    name_en = Column(String(100), nullable=False)
+    name_hi = Column(String(100), nullable=False)
+    name_kn = Column(String(100), nullable=False)
+    icon = Column(String(20), default='🥬', nullable=False)
+    sort_order = Column(Integer, default=0, nullable=False)
+    is_active = Column(Boolean, default=True, nullable=False)
+
+
+class MartCatalogItem(Base):
+    """Admin-curated reference produce item types (e.g. Tomato, Onion, Spinach)."""
+    __tablename__ = 'mart_catalog_items'
+
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    category_id = Column(String, ForeignKey('mart_categories.id', ondelete='CASCADE'), nullable=False, index=True)
+    slug = Column(String(100), unique=True, nullable=False, index=True)
+    name_en = Column(String(100), nullable=False)
+    name_hi = Column(String(100), nullable=False)
+    name_kn = Column(String(100), nullable=False)
+    allowed_units = Column(JSON, default=lambda: ['kg', '500g', 'bunch', 'piece', 'dozen'], nullable=False)
+    image_url = Column(String(500), nullable=True)
+    is_active = Column(Boolean, default=True, nullable=False)
+
+    category = relationship('MartCategory')
+
+
+class MartServiceRegion(Base):
+    """Regions (State/District) opened by Head Super Admin for Mart operations."""
+    __tablename__ = 'mart_service_regions'
+
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    state = Column(String(100), nullable=False, index=True)
+    district = Column(String(100), nullable=False, index=True)
+    pincodes = Column(JSON, default=list, nullable=False) # list of active PIN codes
+    is_enabled = Column(Boolean, default=True, nullable=False)
+    opened_by = Column(String, ForeignKey('users.id', ondelete='SET NULL'), nullable=True)
+    opened_at = Column(DateTime(timezone=True), server_default=func.now())
+
+
+class MartSellerProfile(Base):
+    """Verified farmer seller profile applying to sell produce on Agro AI Mart."""
+    __tablename__ = 'mart_seller_profiles'
+
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    user_id = Column(String, ForeignKey('users.id', ondelete='CASCADE'), unique=True, index=True, nullable=False)
+    farm_name = Column(String(150), nullable=False)
+    contact_phone = Column(String(20), nullable=False)
+    state = Column(String(100), nullable=False)
+    district = Column(String(100), nullable=False)
+    village = Column(String(150), nullable=False)
+    service_pincodes = Column(JSON, default=list, nullable=False) # PIN codes the farmer can deliver to or allow pickup from
+    fulfilment_modes = Column(JSON, default=lambda: ['pickup', 'delivery'], nullable=False)
+    
+    # State machine: DRAFT, SUBMITTED, UNDER_REVIEW, INFO_REQUIRED, APPROVED, REJECTED, SUSPENDED
+    status = Column(String(30), default='DRAFT', nullable=False, index=True)
+    
+    # Verification Checklist
+    proof_type = Column(String(100), nullable=True) # e.g. 'Pahani / RTC (Karnataka)', '7/12 Extract', 'FPO Letter'
+    proof_document_url = Column(String(500), nullable=True)
+    phone_verified = Column(Boolean, default=True, nullable=False)
+    staff_call_completed = Column(Boolean, default=False, nullable=False)
+    declaration_cultivates_produce = Column(Boolean, default=False, nullable=False)
+    review_notes = Column(Text, nullable=True)
+    reviewed_by = Column(String, ForeignKey('users.id', ondelete='SET NULL'), nullable=True)
+    reviewed_at = Column(DateTime(timezone=True), nullable=True)
+    
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+
+    user = relationship('User', foreign_keys=[user_id])
+    reviewer = relationship('User', foreign_keys=[reviewed_by])
+
+
+class MartListing(Base):
+    """Farmer product listing for fresh produce."""
+    __tablename__ = 'mart_listings'
+
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    seller_id = Column(String, ForeignKey('mart_seller_profiles.id', ondelete='CASCADE'), nullable=False, index=True)
+    catalog_item_id = Column(String, ForeignKey('mart_catalog_items.id'), nullable=False, index=True)
+    title = Column(String(150), nullable=False)
+    description = Column(Text, nullable=True)
+    price_minor = Column(Integer, nullable=False) # Price in paise (e.g. 4000 = ₹40.00)
+    currency = Column(String(10), default='INR', nullable=False)
+    unit = Column(String(20), default='kg', nullable=False) # kg, 500g, bunch, piece, dozen
+    min_order_qty = Column(Float, default=1.0, nullable=False)
+    stock_quantity = Column(Float, default=0.0, nullable=False)
+    harvest_date = Column(String(50), nullable=False) # e.g. '2026-10-14'
+    available_from = Column(DateTime(timezone=True), server_default=func.now())
+    fulfilment_type = Column(String(30), default='BOTH', nullable=False) # PICKUP, DELIVERY, BOTH
+    
+    # State machine: DRAFT, SUBMITTED, UNDER_REVIEW, INFO_REQUIRED, APPROVED, REJECTED, PAUSED, SUSPENDED, ARCHIVED
+    status = Column(String(30), default='DRAFT', nullable=False, index=True)
+    rejection_reason = Column(Text, nullable=True)
+    
+    is_organic_claim = Column(Boolean, default=False, nullable=False)
+    claim_reviewed = Column(Boolean, default=False, nullable=False)
+    photos = Column(JSON, default=list, nullable=False)
+    
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+
+    seller = relationship('MartSellerProfile')
+    catalog_item = relationship('MartCatalogItem')
+
+
+class MartOrder(Base):
+    """Direct consumer-to-farmer order (one farm per order)."""
+    __tablename__ = 'mart_orders'
+
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    order_number = Column(String(50), unique=True, nullable=False, index=True)
+    customer_id = Column(String, ForeignKey('users.id', ondelete='CASCADE'), nullable=False, index=True)
+    seller_id = Column(String, ForeignKey('mart_seller_profiles.id'), nullable=False, index=True)
+    
+    # State machine: PLACED, ACCEPTED_BY_SELLER, PREPARING, READY_FOR_PICKUP, OUT_FOR_DELIVERY, COMPLETED, CANCELLED, REJECTED, DISPUTED
+    status = Column(String(30), default='PLACED', nullable=False, index=True)
+    fulfilment_type = Column(String(30), default='DELIVERY', nullable=False) # DELIVERY or PICKUP
+    delivery_address = Column(JSON, nullable=False)
+    delivery_pincode = Column(String(10), nullable=False, index=True)
+    
+    subtotal_minor = Column(Integer, nullable=False)
+    delivery_fee_minor = Column(Integer, default=0, nullable=False)
+    total_minor = Column(Integer, nullable=False)
+    currency = Column(String(10), default='INR', nullable=False)
+    
+    # Pilot payment rules: Pay directly to farmer (Cash / UPI)
+    payment_method = Column(String(50), default='PAY_ON_DELIVERY', nullable=False)
+    payment_status = Column(String(50), default='NOT_COLLECTED_BY_PLATFORM', nullable=False)
+    seller_payment_confirmed = Column(Boolean, default=False, nullable=False)
+    
+    cancellation_reason = Column(Text, nullable=True)
+    dispute_notes = Column(Text, nullable=True)
+    
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), index=True)
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+
+    customer = relationship('User')
+    seller = relationship('MartSellerProfile')
+    items = relationship('MartOrderItem', back_populates='order', cascade='all, delete-orphan')
+
+
+class MartOrderItem(Base):
+    __tablename__ = 'mart_order_items'
+
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    order_id = Column(String, ForeignKey('mart_orders.id', ondelete='CASCADE'), nullable=False, index=True)
+    listing_id = Column(String, ForeignKey('mart_listings.id'), nullable=False)
+    item_title = Column(String(150), nullable=False)
+    unit = Column(String(20), nullable=False)
+    unit_price_minor = Column(Integer, nullable=False)
+    quantity = Column(Float, nullable=False)
+    total_minor = Column(Integer, nullable=False)
+
+    order = relationship('MartOrder', back_populates='items')
+    listing = relationship('MartListing')
+
+
+class MartOrderStatusHistory(Base):
+    __tablename__ = 'mart_order_status_history'
+
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    order_id = Column(String, ForeignKey('mart_orders.id', ondelete='CASCADE'), nullable=False, index=True)
+    from_status = Column(String(30), nullable=True)
+    to_status = Column(String(30), nullable=False)
+    actor_id = Column(String, nullable=True)
+    actor_role = Column(String(50), nullable=True) # customer, seller, admin
+    notes = Column(Text, nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+
+class MartWaitlist(Base):
+    """Waitlist of customers requesting farm-to-consumer delivery in unserved PIN codes."""
+    __tablename__ = 'mart_waitlist'
+
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    user_id = Column(String, ForeignKey('users.id', ondelete='SET NULL'), nullable=True)
+    phone = Column(String(20), nullable=True)
+    pincode = Column(String(10), nullable=False, index=True)
+    district = Column(String(100), nullable=True)
+    state = Column(String(100), nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
 
 

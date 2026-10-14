@@ -13,7 +13,8 @@ import {
   Menu,
   X,
   Megaphone,
-  FileSpreadsheet
+  FileSpreadsheet,
+  ShoppingBag
 } from 'lucide-react';
 
 interface NavItem {
@@ -31,6 +32,7 @@ interface AdminLayoutProps {
 
 const NAV_ITEMS: NavItem[] = [
   { id: 'overview', label: 'Overview', icon: <LayoutDashboard size={18} />, roles: ['super_admin', 'plan_manager', 'payment_manager', 'support_agent', 'content_manager', 'analyst'] },
+  { id: 'mart', label: 'Agro AI Mart', icon: <ShoppingBag size={18} />, roles: ['super_admin', 'plan_manager', 'payment_manager', 'support_agent', 'content_manager', 'analyst'] },
   { id: 'broadcasts', label: 'Posts & Offers', icon: <Megaphone size={18} />, roles: ['super_admin', 'content_manager', 'plan_manager', 'support_agent', 'analyst'] },
   { id: 'farmer_exports', label: 'Excel Data Registry', icon: <FileSpreadsheet size={18} />, roles: ['super_admin', 'support_agent', 'analyst', 'plan_manager'] },
   { id: 'plans', label: 'Subscription Plans', icon: <Layers size={18} />, roles: ['super_admin', 'plan_manager', 'analyst'] },
