@@ -140,11 +140,11 @@
             </div>
           </div>
 
-          <!-- Blockchain Ledger Info -->
+          <!-- Carbon Verification Status -->
           <div style="background: rgba(0,0,0,0.3); border: 1px solid var(--border); padding: 10px; border-radius: 8px; font-family: monospace; font-size: 10.5px; word-break: break-all; color: var(--text-muted); margin-bottom: 16px;">
-            <div style="font-weight: 700; color: #ffffff; margin-bottom: 2px;">Ledger Details:</div>
-            Block: #2087593<br>
-            Txn Hash: 0x8a9f${Math.random().toString(16).substr(2, 24)}...
+            <div style="font-weight: 700; color: #ffffff; margin-bottom: 2px;">Registry Status:</div>
+            Methodology: Agroforestry Soil Organic Carbon Model<br>
+            Verification: Pending Satellite Ground-Truth Audit
           </div>
 
           <div style="display: flex; gap: 8px;">

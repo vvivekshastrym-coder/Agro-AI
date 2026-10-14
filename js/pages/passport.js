@@ -48,7 +48,7 @@
             type: item.step,
             date: item.date,
             notes: item.result,
-            hash: "0x" + Math.random().toString(16).substr(2, 24)
+            entryId: item.id || `EV-${idx + 1}`
           }));
         }
         render(container);
@@ -193,7 +193,7 @@
             <span style="font-size: 11px; color: var(--accent);">${event.date}</span>
           </div>
           <p style="font-size: 12px; color: #e5e7eb; line-height: 1.4; margin-top: 2px;">${event.notes}</p>
-          <span style="font-size: 10px; font-family: monospace; color: var(--text-muted); word-break: break-all; display: block; margin-top: 2px;">Txn: ${event.hash}</span>
+          <span style="font-size: 10px; font-family: monospace; color: var(--text-muted); word-break: break-all; display: block; margin-top: 2px;">Log ID: ${event.entryId}</span>
         </div>
       `;
     }).join('');
@@ -210,9 +210,9 @@
 
         // Generate a new timeline item
         const newId = timeline.length + 1;
-        const hash = "0x" + Math.random().toString(16).substr(2, 24);
+        const entryId = `EV-LOCAL-${newId}`;
         
-        timeline.push({ id: newId, type, date, notes, hash });
+        timeline.push({ id: newId, type, date, notes, entryId });
         
         // Render again to update
         render(container);

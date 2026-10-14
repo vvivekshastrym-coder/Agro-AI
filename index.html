@@ -1690,7 +1690,7 @@ async function initiatePlanCheckout(versionId, planName) {
           credentials: 'include',
           body: JSON.stringify({
             order_id: orderData.order_id,
-            provider_payment_id: 'pay_test_' + Math.random().toString(36).substring(2, 10),
+            provider_payment_id: 'pay_sandbox_' + orderData.order_id,
             provider_signature: 'test_verified_sig'
           })
         });

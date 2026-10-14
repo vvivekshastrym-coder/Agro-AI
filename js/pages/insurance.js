@@ -4,7 +4,6 @@
   let cropType = 'cotton';
   let sumInsured = 50000;
   let simulatedDay = 12;
-  let txnId = 'TXN' + Math.floor(Math.random() * 90000000 + 10000000);
 
   function render(container) {
     const t = window.KisanI18n ? window.KisanI18n.t : (key) => key;
@@ -107,28 +106,28 @@
           <h3 style="font-size: 18px; margin-bottom: 4px; color: #ffffff;">Auto-Claim Triggered!</h3>
           <p style="font-size: 12px; color: var(--text-muted); margin-bottom: 16px;">Sentinel-2 and OpenWeather verified crop drought stress.</p>
 
-          <!-- UPI Receipt layout -->
+          <!-- Parametric Simulation Estimate -->
           <div style="background: rgba(255,255,255,0.02); border: 1px solid var(--border); border-radius: 12px; padding: 16px; text-align: left; max-width: 340px; margin: 0 auto 20px auto; font-family: monospace;">
             <div style="text-align: center; border-bottom: 1px dashed var(--border); padding-bottom: 10px; margin-bottom: 10px;">
-              <span style="font-size: 11px; color: var(--text-muted); display: block;">UPI PAYOUT RECEIPT</span>
+              <span style="font-size: 11px; color: var(--text-muted); display: block;">PARAMETRIC CLAIM ESTIMATE</span>
               <strong style="font-size: 18px; color: #22c55e;">₹${sumInsured.toLocaleString()}.00</strong>
             </div>
             <div style="display: flex; flex-direction: column; gap: 6px; font-size: 11.5px; color: #e5e7eb;">
               <div style="display: flex; justify-content: space-between;">
-                <span>Beneficiary:</span>
-                <span>Farmer Account</span>
+                <span>Disbursement:</span>
+                <span>DBT via Official PMFBY Portal</span>
               </div>
               <div style="display: flex; justify-content: space-between;">
-                <span>Bank Partner:</span>
-                <span>SBI / PMFBY Syndicate</span>
+                <span>Trigger Event:</span>
+                <span>Consecutive Dry Days &gt; Threshold</span>
               </div>
               <div style="display: flex; justify-content: space-between;">
-                <span>Transaction ID:</span>
-                <span>${txnId}</span>
+                <span>Claim Type:</span>
+                <span>Parametric Yield Guarantee</span>
               </div>
               <div style="display: flex; justify-content: space-between;">
-                <span>Status:</span>
-                <span style="color: #22c55e; font-weight: bold;">SUCCESS</span>
+                <span>Notice:</span>
+                <span style="color: #fbbf24; font-weight: bold;">Calculator Preview Only</span>
               </div>
             </div>
           </div>
@@ -195,7 +194,6 @@
     if (resetBtn) {
       resetBtn.addEventListener('click', () => {
         policyState = 'setup';
-        txnId = 'TXN' + Math.floor(Math.random() * 90000000 + 10000000);
         render(container);
       });
     }

@@ -49,6 +49,7 @@ class User(Base):
     preferred_language = Column(String(10), default='en')
     is_verified = Column(Boolean, default=False)
     is_active = Column(Boolean, default=True)
+    is_test = Column(Boolean, default=False, nullable=False)
     avatar_url = Column(String(500), nullable=True)
     fcm_token = Column(String(500), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())

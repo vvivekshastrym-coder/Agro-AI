@@ -457,9 +457,9 @@ async def get_admin_profile(admin: AdminUser = Depends(require_admin()), user: U
 @router.get("/overview/metrics")
 async def get_overview_metrics(admin: AdminUser = Depends(require_admin()), db: Session = Depends(get_db)):
     """Computes real live metrics directly from the database without fabricated numbers."""
-    total_users = db.query(User).count()
-    total_farmers = db.query(User).filter(User.role == UserRole.farmer).count()
-    verified_users = db.query(User).filter(User.is_verified == True).count()
+    total_users = db.query(User).filter(User.is_test == False, User.is_active == True).count()
+    total_farmers = db.query(User).filter(User.role == UserRole.farmer, User.is_test == False, User.is_active == True).count()
+    verified_users = db.query(User).filter(User.is_verified == True, User.is_test == False, User.is_active == True).count()
     active_subscriptions = db.query(UserSubscription).filter(UserSubscription.status == "active").count()
     total_orders = db.query(PaymentOrder).count()
     

@@ -213,8 +213,8 @@
               <strong style="color: #22c55e;">${selectedOffer.interest}% p.a.</strong>
             </div>
             <div style="display: flex; justify-content: space-between;">
-              <span style="color: var(--text-muted);">Verification Hash:</span>
-              <strong style="font-family: monospace;">KS-${Math.floor(Math.random()*89999+10000)}</strong>
+              <span style="color: var(--text-muted);">Verification:</span>
+              <strong style="color: #9ca3af;">Pending Partner Bank Review</strong>
             </div>
           </div>
 

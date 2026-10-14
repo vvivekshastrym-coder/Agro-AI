@@ -90,13 +90,30 @@ app.include_router(plans.router,       prefix='/api/plans',       tags=['Subscri
 app.include_router(payments.router,    prefix='/api/payments',    tags=['Payments'])
 app.include_router(schemes.router,     prefix='/api/schemes',     tags=['Government Schemes'])
 
-# ─── Health & Info ────────────────────────────────────────────
+# ─── Health & Honest Status ────────────────────────────────────
 @app.get('/api/health', tags=['Health'])
 async def health_check():
+    from .database.connection import SessionLocal
+    from sqlalchemy import text
+    db_ok = False
+    try:
+        db = SessionLocal()
+        db.execute(text("SELECT 1"))
+        db_ok = True
+        db.close()
+    except Exception:
+        db_ok = False
+
     return {
-        'status': 'healthy',
+        'status': 'healthy' if db_ok else 'degraded',
         'version': '2.0.0',
-        'service': 'Agro AI Single Source of Truth Backend'
+        'service': 'Agro AI Production Backend',
+        'database_connected': db_ok,
+        'demo_seed_mode': os.getenv('ALLOW_DEMO_SEED') == '1',
+        'supabase_configured': bool(os.getenv('SUPABASE_URL') and os.getenv('SUPABASE_PUBLISHABLE_KEY')),
+        'razorpay_configured': bool(os.getenv('RAZORPAY_KEY_ID') and os.getenv('RAZORPAY_KEY_SECRET')),
+        'openweather_configured': bool(os.getenv('OPENWEATHER_API_KEY')),
+        'gemini_configured': bool(os.getenv('GEMINI_API_KEY'))
     }
 
 
