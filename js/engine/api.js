@@ -6,9 +6,9 @@
 (function () {
   'use strict';
 
-  const isLocalDev = (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') && window.location.port !== '8000' && window.location.port !== '';
-  const BACKEND_BASE = isLocalDev ? 'http://localhost:8000/api' : `${window.location.origin}/api`;
-  const WS_BASE = isLocalDev ? 'ws://localhost:8000' : `${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.host}`;
+  const isLocalDev = (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') && window.location.port !== '8080' && window.location.port !== '';
+  const BACKEND_BASE = isLocalDev ? `http://${window.location.hostname}:8080/api` : `${window.location.origin}/api`;
+  const WS_BASE = isLocalDev ? `ws://${window.location.hostname}:8080` : `${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.host}`;
 
   // Helper for standard HTTP request with error handling
   async function apiFetch(endpoint, options = {}) {

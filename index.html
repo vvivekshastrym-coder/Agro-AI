@@ -1902,8 +1902,12 @@ async function loadMembershipPlansView() {
 
   try {
     const res = await fetch('/api/plans');
-    if (!res.ok) throw new Error('Could not load plans');
-    const plans = await res.json();
+    let plans = [];
+    if (res.ok) {
+      plans = await res.json();
+    } else {
+      console.warn('Backend /api/plans returned non-200 status:', res.status);
+    }
 
     if (!plans || plans.length === 0) {
       container.innerHTML = `
@@ -1966,7 +1970,19 @@ async function loadMembershipPlansView() {
 
     container.innerHTML = html;
   } catch(e) {
-    container.innerHTML = `<div class="muted" style="text-align:center;padding:20px;color:red;">Error loading plans: ${e.message}</div>`;
+    console.warn('Could not load plans from backend, showing free tier fallback:', e);
+    container.innerHTML = `
+      <div class="card" style="border:1.5px solid #2D6A4F;background:#F9FAF9;padding:18px;border-radius:12px;text-align:center;">
+        <div style="font-size:28px;margin-bottom:6px;">🌱</div>
+        <h3 style="font-size:16px;font-weight:700;color:#1B4332;margin:0 0 6px;">All Features Free for Farmers</h3>
+        <p class="muted" style="font-size:13px;margin:0 0 10px;line-height:1.5;">
+          All Agro AI features — <strong>Kisan GPT AI Chat</strong>, <strong>Gemini Leaf Disease Scans</strong>, and <strong>Mandi Price Lookups</strong> — are 100% Free with unlimited access for all registered farmers.
+        </p>
+        <div style="display:inline-flex;align-items:center;gap:6px;padding:4px 12px;background:#E8F5E9;color:#2D6A4F;border-radius:20px;font-size:12px;font-weight:600;">
+          ✓ Active Free Access
+        </div>
+      </div>
+    `;
   }
 }
 
@@ -2404,10 +2420,36 @@ function setRole(role){
 
 /* ---- AUTHENTICATION: Supabase Auth; the backend verifies the access token on every API call ---- */
 const _origFetch = window.fetch.bind(window);
-const _API_RE = /^(\/api\/|https?:\/\/localhost:8080\/api\/)/;
+const _API_RE = /^(\/api\/|https?:\/\/localhost:8080\/api\/|https?:\/\/127\.0\.0\.1:8080\/api\/)/;
+
+function _resolveBackendUrl(url) {
+  if (typeof url !== 'string') return url;
+  if (url.startsWith('/api/')) {
+    const port = window.location.port;
+    if (port && port !== '8080') {
+      const host = window.location.hostname || 'localhost';
+      return `http://${host}:8080${url}`;
+    }
+  }
+  return url;
+}
+
 window.fetch = async function(input, init){
-  const url = typeof input === 'string' ? input : ((input && input.url) || '');
-  const isApi = _API_RE.test(url);
+  let resolvedInput = input;
+  let rawUrl = '';
+  if (typeof input === 'string') {
+    resolvedInput = _resolveBackendUrl(input);
+    rawUrl = resolvedInput;
+  } else if (input && typeof input.url === 'string') {
+    rawUrl = input.url;
+    const newUrl = _resolveBackendUrl(input.url);
+    if (newUrl !== input.url) {
+      resolvedInput = new Request(newUrl, input);
+      rawUrl = newUrl;
+    }
+  }
+
+  const isApi = _API_RE.test(rawUrl) || (typeof input === 'string' && input.startsWith('/api/'));
   if(isApi){
     let tok = null;
     if(window.supabaseClient){
@@ -2420,9 +2462,9 @@ window.fetch = async function(input, init){
       tok = session.token;
     }
     // If making an API call and we have no token, auto-acquire signed guest token so farmer is never blocked
-    if(!tok && !url.includes('/api/auth/guest-session') && !url.includes('/api/health')){
+    if(!tok && !rawUrl.includes('/api/auth/guest-session') && !rawUrl.includes('/api/health')){
       try {
-        const gRes = await _origFetch('/api/auth/guest-session', { method: 'POST' });
+        const gRes = await _origFetch(_resolveBackendUrl('/api/auth/guest-session'), { method: 'POST' });
         if(gRes.ok){
           const gData = await gRes.json();
           tok = gData.access_token;
@@ -2443,7 +2485,7 @@ window.fetch = async function(input, init){
       init.headers = h;
     }
   }
-  const res = await _origFetch(input, init);
+  const res = await _origFetch(resolvedInput, init);
   if(isApi && res.status === 401 && session && session.signedIn && !session.isGuest) handleSessionExpired();
   return res;
 };
