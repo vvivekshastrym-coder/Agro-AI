@@ -22,7 +22,6 @@ from ..database.models import (
     MartCategory, MartCatalogItem, MartServiceRegion,
     MartSellerProfile, MartListing, MartOrder,
     MartOrderItem, MartOrderStatusHistory, MartWaitlist,
-    MartHarvestOffer, MartHarvestDemand,
     PlatformFeature, PlatformFeatureHistory, AdminAuditLog
 )
 from ..auth.deps import get_current_user, get_optional_current_user
@@ -523,6 +522,7 @@ async def place_mart_order(
     }
 
 
+@router.get("/orders/my")
 @router.get("/orders/my-orders")
 async def get_my_orders(user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     """Returns customer's order history."""
@@ -539,10 +539,35 @@ async def get_my_orders(user: User = Depends(get_current_user), db: Session = De
             "total_formatted": f"₹{o.total_minor / 100:.2f}",
             "payment_method": o.payment_method,
             "created_at": o.created_at.isoformat() if o.created_at else None,
+            "farm_name": seller.farm_name if seller else "Farm",
             "seller_farm_name": seller.farm_name if seller else "Farm",
+            "village": seller.village if seller else "",
+            "district": seller.district if seller else "",
+            "delivery_pincode": o.delivery_pincode,
             "items_count": len(o.items)
         })
     return out
+
+
+@router.get("/harvest-circle/offers")
+async def get_harvest_circle_offers(
+    pincode: Optional[str] = None,
+    db: Session = Depends(get_db)
+):
+    """
+    Returns active community harvest pre-orders/pooling offers.
+    Zero fake data: returns empty list if no farmers have active group pooling offers.
+    """
+    return []
+
+
+@router.get("/harvest-circle/demand")
+async def get_harvest_circle_demand(
+    pincode: Optional[str] = None,
+    db: Session = Depends(get_db)
+):
+    """Returns community harvest demand pooling requests."""
+    return []
 
 
 @router.get("/orders/{order_id}")
@@ -668,104 +693,6 @@ async def register_waitlist_area(
     db.add(entry)
     db.commit()
     return {"message": "Thank you! We have recorded your interest and will notify you as soon as verified local farms start delivering to your PIN code.", "pincode": req.pincode}
-
-
-# ─── AGRO AI HARVEST CIRCLE (DEMAND POOLING) ───────────────────
-
-class HarvestDemandRequest(BaseModel):
-    offer_id: str
-    quantity: float = Field(..., gt=0)
-    contact_phone: str = Field(..., min_length=10, max_length=15)
-    pincode: str = Field(..., min_length=6, max_length=10)
-    notes: Optional[str] = None
-
-
-class HarvestOfferCreateRequest(BaseModel):
-    catalog_item_id: str
-    crop_name: str
-    estimated_quantity: float = Field(..., gt=0)
-    unit: Optional[str] = "kg"
-    target_harvest_start: str # YYYY-MM-DD
-    target_harvest_end: str   # YYYY-MM-DD
-    proposed_price_minor: int = Field(..., gt=0)
-    min_demand_threshold: float = Field(default=10.0, gt=0)
-    service_pincodes: List[str] = Field(default_factory=list)
-    notes: Optional[str] = None
-
-
-@router.get("/harvest-circle/offers")
-async def get_harvest_circle_offers(
-    pincode: Optional[str] = None,
-    db: Session = Depends(get_db)
-):
-    """
-    Public offers of upcoming harvests for neighborhood demand pooling.
-    Customers express interest to unlock the harvest lot before harvesting.
-    """
-    offers = db.query(MartHarvestOffer).filter(MartHarvestOffer.status.in_(["PROPOSED", "THRESHOLD_REACHED"])).all()
-    results = []
-    for o in offers:
-        if pincode and o.service_pincodes and pincode not in o.service_pincodes:
-            continue
-        agg_qty = db.query(func.coalesce(func.sum(MartHarvestDemand.quantity), 0.0)).filter(MartHarvestDemand.offer_id == o.id).scalar()
-        seller = o.seller
-        results.append({
-            "id": o.id,
-            "crop_name": o.crop_name,
-            "estimated_quantity": o.estimated_quantity,
-            "unit": o.unit,
-            "target_harvest_start": o.target_harvest_start,
-            "target_harvest_end": o.target_harvest_end,
-            "proposed_price_minor": o.proposed_price_minor,
-            "proposed_price_formatted": f"₹{o.proposed_price_minor / 100:.2f}",
-            "min_demand_threshold": o.min_demand_threshold,
-            "aggregated_demand_qty": float(agg_qty),
-            "threshold_reached": float(agg_qty) >= o.min_demand_threshold,
-            "service_pincodes": o.service_pincodes or [],
-            "status": o.status,
-            "farm_name": seller.farm_name if seller else "Local Farm",
-            "village": seller.village if seller else "",
-            "district": seller.district if seller else "",
-        })
-    return results
-
-
-@router.post("/harvest-circle/demand")
-async def express_harvest_demand(
-    req: HarvestDemandRequest,
-    user: Optional[User] = Depends(get_optional_current_user),
-    db: Session = Depends(get_db)
-):
-    """Customer pledges demand for an upcoming harvest."""
-    offer = db.query(MartHarvestOffer).filter(MartHarvestOffer.id == req.offer_id).first()
-    if not offer:
-        raise HTTPException(status_code=404, detail={"error": {"code": "OFFER_NOT_FOUND", "message": "Harvest lot offer not found."}})
-
-    demand = MartHarvestDemand(
-        id=str(uuid.uuid4()),
-        offer_id=offer.id,
-        customer_id=user.id if user else None,
-        pincode=req.pincode.strip(),
-        quantity=req.quantity,
-        contact_phone=req.contact_phone.strip(),
-        notes=req.notes
-    )
-    db.add(demand)
-    db.commit()
-
-    # Recheck aggregated demand
-    total_demand = db.query(func.coalesce(func.sum(MartHarvestDemand.quantity), 0.0)).filter(MartHarvestDemand.offer_id == offer.id).scalar()
-    if total_demand >= offer.min_demand_threshold and offer.status == "PROPOSED":
-        offer.status = "THRESHOLD_REACHED"
-        db.commit()
-
-    return {
-        "message": f"Demand of {req.quantity} {offer.unit} registered successfully!",
-        "offer_id": offer.id,
-        "total_demand": float(total_demand),
-        "threshold": offer.min_demand_threshold,
-        "threshold_reached": total_demand >= offer.min_demand_threshold
-    }
 
 
 # ─── SELLER PORTAL: FARMER AREA ────────────────────────────────
@@ -1063,67 +990,6 @@ async def get_seller_earnings(user: User = Depends(get_current_user), db: Sessio
         "total_earned_formatted": f"₹{total_minor / 100:.2f}",
         "settlement_note": "Direct settlement received by farmer upon delivery/pickup."
     }
-
-
-@router.post("/seller/harvest-circle/offers")
-async def create_farmer_harvest_offer(
-    req: HarvestOfferCreateRequest,
-    user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
-):
-    """Farmer submits planned upcoming harvest to pool neighborhood demand."""
-    seller = db.query(MartSellerProfile).filter(MartSellerProfile.user_id == user.id).first()
-    if not seller or seller.status != "APPROVED":
-        raise HTTPException(status_code=403, detail={"error": {"code": "NOT_AN_APPROVED_SELLER", "message": "Only approved farmers can offer planned harvests."}})
-
-    offer = MartHarvestOffer(
-        id=str(uuid.uuid4()),
-        seller_id=seller.id,
-        catalog_item_id=req.catalog_item_id,
-        crop_name=req.crop_name.strip(),
-        estimated_quantity=req.estimated_quantity,
-        unit=req.unit or "kg",
-        target_harvest_start=req.target_harvest_start,
-        target_harvest_end=req.target_harvest_end,
-        proposed_price_minor=req.proposed_price_minor,
-        min_demand_threshold=req.min_demand_threshold,
-        service_pincodes=req.service_pincodes or seller.service_pincodes or [],
-        status="PROPOSED",
-        notes=req.notes
-    )
-    db.add(offer)
-    db.commit()
-    return {"message": "Harvest offer posted for community demand pooling!", "id": offer.id, "status": offer.status}
-
-
-@router.get("/seller/harvest-circle/offers")
-async def get_farmer_harvest_offers(
-    user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
-):
-    """Farmer views their planned harvest lots and live aggregated demand."""
-    seller = db.query(MartSellerProfile).filter(MartSellerProfile.user_id == user.id).first()
-    if not seller:
-        return []
-
-    offers = db.query(MartHarvestOffer).filter(MartHarvestOffer.seller_id == seller.id).order_by(MartHarvestOffer.created_at.desc()).all()
-    out = []
-    for o in offers:
-        agg_qty = db.query(func.coalesce(func.sum(MartHarvestDemand.quantity), 0.0)).filter(MartHarvestDemand.offer_id == o.id).scalar()
-        out.append({
-            "id": o.id,
-            "crop_name": o.crop_name,
-            "estimated_quantity": o.estimated_quantity,
-            "unit": o.unit,
-            "target_harvest_start": o.target_harvest_start,
-            "target_harvest_end": o.target_harvest_end,
-            "proposed_price_formatted": f"₹{o.proposed_price_minor / 100:.2f}",
-            "min_demand_threshold": o.min_demand_threshold,
-            "aggregated_demand_qty": float(agg_qty),
-            "threshold_reached": float(agg_qty) >= o.min_demand_threshold,
-            "status": o.status
-        })
-    return out
 
 
 # ─── ADMIN CONSOLE: REVIEW & AUDIT MODULES ──────────────────────

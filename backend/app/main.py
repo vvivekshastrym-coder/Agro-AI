@@ -1,5 +1,5 @@
 from fastapi import FastAPI, Request, WebSocket, WebSocketDisconnect, HTTPException
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, RedirectResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from slowapi import Limiter, _rate_limit_exceeded_handler
@@ -91,6 +91,10 @@ app.include_router(payments.router,    prefix='/api/payments',    tags=['Payment
 app.include_router(schemes.router,     prefix='/api/schemes',     tags=['Government Schemes'])
 app.include_router(mart.router,        prefix='/api/mart',        tags=['Agro AI Mart'])
 app.include_router(mart.admin_router,  prefix='/api/admin/mart',  tags=['Agro AI Mart Admin'])
+
+@app.get('/docs', include_in_schema=False)
+async def redirect_docs():
+    return RedirectResponse('/api/docs')
 
 # ─── Health & Honest Status ────────────────────────────────────
 @app.get('/api/health', tags=['Health'])
