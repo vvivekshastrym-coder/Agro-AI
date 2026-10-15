@@ -15,16 +15,21 @@
     const header = document.createElement('header');
     header.className = 'top-bar';
     header.innerHTML = `
-      <div class="logo-container">
+      <div class="logo-container" onclick="window.location.hash='#/'" style="cursor:pointer;">
         <div class="logo-icon">🌾</div>
         <div>
           <div class="logo-name">KisanAI</div>
           <div class="logo-tagline">AI Farm Assistant</div>
         </div>
       </div>
-      <button class="globe-btn" id="globalLangBtn" aria-label="Change Language">
-        🌐
-      </button>
+      <div style="display:flex;align-items:center;gap:8px;">
+        <a href="#/mart" style="display:inline-flex;align-items:center;gap:4px;background:#15803d;color:#fff;padding:5px 10px;border-radius:999px;font-size:12px;font-weight:700;text-decoration:none;">
+          <span>🏪</span> Mart
+        </a>
+        <button class="globe-btn" id="globalLangBtn" aria-label="Change Language">
+          🌐
+        </button>
+      </div>
     `;
 
     // Event listener for language button
@@ -39,6 +44,10 @@
       <a href="#/" class="bottom-nav-item" data-route="/">
         ${icons.home}
         <span data-i18n="home">Home</span>
+      </a>
+      <a href="#/mart" class="bottom-nav-item" data-route="/mart">
+        <span style="font-size:19px;line-height:1;">🏪</span>
+        <span data-i18n="mart">Mart</span>
       </a>
       <a href="#/diagnose" class="bottom-nav-item" data-route="/diagnose">
         ${icons.diagnose}

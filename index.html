@@ -505,7 +505,9 @@
       </div>
       <div class="brand-name" id="topBrandName">Agro AI</div>
     </div>
-    <div style="display:flex;gap:8px;">
+    <div style="display:flex;gap:6px;align-items:center;">
+      <button class="lang-btn" onclick="go('mart')" style="background:#15803d;border-color:#15803d;color:#fff;font-weight:700;" id="topMartBtn" title="Agro AI Mart">🏪 Mart</button>
+      <button class="lang-btn" onclick="go('mart-seller')" style="background:#0284c7;border-color:#0284c7;color:#fff;font-weight:600;" id="topSellerBtn" title="Farmer Storefront">🚜 Sell</button>
       <button class="lang-btn" onclick="go('plans')" style="background:var(--sand);border-color:var(--sand-dark);font-weight:600;" id="topPlansBtn" title="Subscription Plans">💎 Plans</button>
       <button class="lang-btn" onclick="openLangModal()">🌐 <span id="topLangLabel">EN</span></button>
       <button class="lang-btn" onclick="go('account')" style="padding:7px 10px;" id="topAcctBtn" title="Account">👤</button>
@@ -541,6 +543,15 @@
       </div>
       <button class="btn btn-primary btn-block" id="authSendOtpBtn" onclick="sendOtp()">Send OTP</button>
       <button class="btn btn-outline btn-block" style="margin-top:10px;" id="authGuestBtn" onclick="continueAsGuest()">🌾 Explore as Guest Farmer</button>
+
+      <div style="margin-top:16px;border-top:1px dashed var(--line);padding-top:14px;display:flex;flex-direction:column;gap:8px;">
+        <button class="btn btn-block" style="background:#15803d;color:#fff;font-weight:700;box-shadow:0 3px 10px rgba(21,128,61,0.25);" onclick="continueAsGuest().then(()=>go('mart'))">
+          🏪 Open Agro AI Mart (Direct Farm Produce) →
+        </button>
+        <button class="btn btn-block btn-outline" style="border-color:#0284c7;color:#0284c7;font-weight:700;" onclick="continueAsGuest().then(()=>go('mart-seller'))">
+          🚜 Farmer Storefront (Sell on Mart) →
+        </button>
+      </div>
 
       <p class="fine-print" id="authFinePrint">By continuing, you agree to Agro AI's Terms of Service and Privacy Policy.<br>We never share your farm data without your consent.</p>
     </section>
@@ -600,6 +611,36 @@
 
       <div id="homeBroadcastsContainer" style="margin: 12px 0;"></div>
 
+      <!-- AGRO AI MART HERO ENTRY (PROMINENT AT TOP) -->
+      <div style="margin: 0 0 10px;">
+        <button class="card" style="width:100%;text-align:left;display:flex;align-items:center;justify-content:space-between;padding:14px 16px;cursor:pointer;border-left:4px solid #16a34a;background:linear-gradient(135deg, #f0fdf4 0%, #ffffff 100%);box-shadow:0 3px 10px rgba(22,163,74,0.12);" onclick="go('mart')">
+          <div style="display:flex;align-items:center;gap:12px;">
+            <span style="font-size:30px;">🏪</span>
+            <div>
+              <div style="display:flex;align-items:center;gap:6px;">
+                <div style="font-weight:800;font-size:15px;color:#14532d;">Agro AI Mart</div>
+                <span style="background:#dcfce7;color:#15803d;font-size:10px;font-weight:800;padding:2px 8px;border-radius:999px;">FARM DIRECT</span>
+              </div>
+              <div class="muted" style="font-size:12px;color:#374151;margin-top:2px;">Fresh vegetables, fruits &amp; greens directly from local farmers</div>
+            </div>
+          </div>
+          <span style="font-size:13px;color:#16a34a;font-weight:700;white-space:nowrap;">Shop Now →</span>
+        </button>
+      </div>
+
+      <div style="margin: 0 0 14px;">
+        <button class="card" style="width:100%;text-align:left;display:flex;align-items:center;justify-content:space-between;padding:12px 16px;cursor:pointer;border-left:4px solid #0284c7;background:#fff;box-shadow:0 2px 6px rgba(2,132,199,0.08);" onclick="go('mart-seller')">
+          <div style="display:flex;align-items:center;gap:12px;">
+            <span style="font-size:26px;">🚜</span>
+            <div>
+              <div style="font-weight:700;font-size:14px;color:#0369a1;">Farmer Storefront · Sell on Mart</div>
+              <div class="muted" style="font-size:12px;">Direct customer sales · Pay on Delivery · 0% commission</div>
+            </div>
+          </div>
+          <span style="font-size:13px;color:#0284c7;font-weight:700;">Seller Hub →</span>
+        </button>
+      </div>
+
       <div class="grid2">
         <button class="action-tile" onclick="go('diagnose')">
           <span class="action-emoji">🩺</span>
@@ -632,35 +673,6 @@
           <button class="action-tile" onclick="go('drone')"><span class="action-emoji">🛸</span><div class="action-label" id="homeTileDroneTitle">Drone</div><div class="action-sub" id="homeTileDroneSub">Spray / scout booking</div></button>
           <button class="action-tile" onclick="go('inputs')"><span class="action-emoji">🛒</span><div class="action-label" id="homeTileInputsTitle">Inputs</div><div class="action-sub" id="homeTileInputsSub">Compare shop prices</div></button>
         </div>
-      </div>
-      <!-- AGRO AI MART HERO ENTRY -->
-      <div style="margin: 14px 0 8px;">
-        <button class="card" style="width:100%;text-align:left;display:flex;align-items:center;justify-content:space-between;padding:14px 16px;cursor:pointer;border-left:4px solid #16a34a;background:linear-gradient(135deg, #f0fdf4 0%, #ffffff 100%);box-shadow:0 3px 10px rgba(22,163,74,0.1);" onclick="go('mart')">
-          <div style="display:flex;align-items:center;gap:12px;">
-            <span style="font-size:28px;">🏪</span>
-            <div>
-              <div style="display:flex;align-items:center;gap:6px;">
-                <div style="font-weight:800;font-size:15px;color:#14532d;">Agro AI Mart</div>
-                <span style="background:#dcfce7;color:#15803d;font-size:10.5px;font-weight:700;padding:2px 7px;border-radius:999px;">FARM DIRECT</span>
-              </div>
-              <div class="muted" style="font-size:12px;color:#374151;margin-top:2px;">Fresh vegetables, fruits &amp; greens directly from local farmers</div>
-            </div>
-          </div>
-          <span style="font-size:13px;color:#16a34a;font-weight:700;white-space:nowrap;">Shop Now →</span>
-        </button>
-      </div>
-
-      <div style="margin: 0 0 8px;">
-        <button class="card" style="width:100%;text-align:left;display:flex;align-items:center;justify-content:space-between;padding:12px 16px;cursor:pointer;border-left:4px solid #0284c7;background:#fff;" onclick="go('mart-seller')">
-          <div style="display:flex;align-items:center;gap:12px;">
-            <span style="font-size:24px;">🚜</span>
-            <div>
-              <div style="font-weight:700;font-size:14px;color:#0369a1;">Farmer Storefront · Sell on Mart</div>
-              <div class="muted" style="font-size:12px;">Direct customer sales · Pay on Delivery · 0% commission</div>
-            </div>
-          </div>
-          <span style="font-size:13px;color:#0284c7;font-weight:700;">Seller Hub →</span>
-        </button>
       </div>
 
       <div style="margin: 0 0 6px;">
@@ -1258,6 +1270,7 @@
   <!-- Bottom Nav -->
   <nav class="bottom-nav">
     <button class="nav-item active" data-nav="home" onclick="go('home')"><span class="icon">🏠</span><span id="navLabelHome">Home</span></button>
+    <button class="nav-item" data-nav="mart" onclick="go('mart')"><span class="icon">🏪</span><span id="navLabelMart">Mart</span></button>
     <button class="nav-item" data-nav="diagnose" onclick="go('diagnose')"><span class="icon">🩺</span><span id="navLabelDiagnose">Diagnose</span></button>
     <button class="nav-item" data-nav="kisangpt" onclick="go('kisangpt')"><span class="icon">💬</span><span id="navLabelGpt">Kisan GPT</span></button>
     <button class="nav-item" data-nav="weather" onclick="go('weather')"><span class="icon">⛅</span><span id="navLabelWeather">Weather</span></button>
@@ -1401,6 +1414,7 @@ const I18N = {
     brand_name: "Agro AI",
     acct_title: "Account",
     nav_home: "Home",
+    nav_mart: "Mart",
     nav_diagnose: "Diagnose",
     nav_kisangpt: "Kisan GPT",
     nav_weather: "Weather",
@@ -1558,6 +1572,7 @@ const I18N = {
     brand_name: "ಆಗ್ರೋ AI",
     acct_title: "ಖಾತೆ",
     nav_home: "ಮುಖಪುಟ",
+    nav_mart: "ಮಾರ್ಟ್",
     nav_diagnose: "ರೋಗ ತಪಾಸಣೆ",
     nav_kisangpt: "ಕಿಸಾನ್ ಜಿಪಿಟಿ",
     nav_weather: "ಹವಾಮಾನ",
@@ -2768,6 +2783,7 @@ function applyTranslations(lang){
 
   // Bottom Nav
   setTxt('navLabelHome', dict.nav_home);
+  setTxt('navLabelMart', dict.nav_mart || 'Mart');
   setTxt('navLabelDiagnose', dict.nav_diagnose);
   setTxt('navLabelGpt', dict.nav_kisangpt);
   setTxt('navLabelWeather', dict.nav_weather);

@@ -7,6 +7,20 @@
     // List of premium services from PPT slides
     const services = [
       {
+        icon: '🏪',
+        title: 'Agro AI Mart',
+        desc: 'Fresh farm vegetables, fruits & greens directly from local farmers.',
+        route: '/mart',
+        details: 'Agro AI Mart connects consumers directly with verified farmers in their pin code. 100% direct sale, pay on delivery, zero middleman markups.'
+      },
+      {
+        icon: '🚜',
+        title: 'Farmer Storefront · Sell on Mart',
+        desc: 'List harvest & sell directly to consumers with 0% commission.',
+        route: '/mart-seller',
+        details: 'Become an Agro AI verified seller. List tomatoes, onions, greens, and fruits. Deliver directly to local households or mandi aggregators with guaranteed payments.'
+      },
+      {
         icon: '🛰️',
         title: t('prodSatelliteTitle'),
         desc: t('prodSatelliteDesc'),

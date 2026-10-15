@@ -63,6 +63,36 @@
         </div>
       </div>
 
+      <!-- Agro AI Mart Direct Entry Banners -->
+      <div class="glass-card animate-slide-up" style="padding: 16px; margin-bottom: 12px; border-left: 4px solid #16a34a; background: linear-gradient(135deg, rgba(240,253,244,0.9) 0%, rgba(255,255,255,0.98) 100%); cursor: pointer;" data-link="#/mart">
+        <div style="display: flex; align-items: center; justify-content: space-between;">
+          <div style="display: flex; align-items: center; gap: 12px;">
+            <span style="font-size: 30px;">🏪</span>
+            <div>
+              <div style="display: flex; align-items: center; gap: 6px;">
+                <span style="font-weight: 800; font-size: 15px; color: #14532d;">Agro AI Mart</span>
+                <span style="background: #dcfce7; color: #15803d; font-size: 10px; font-weight: 800; padding: 2px 7px; border-radius: 999px;">FARM DIRECT</span>
+              </div>
+              <div style="font-size: 12px; color: #374151; margin-top: 2px;">Fresh vegetables, fruits &amp; greens directly from local farmers</div>
+            </div>
+          </div>
+          <span style="font-size: 13px; color: #16a34a; font-weight: 700; white-space: nowrap;">Shop Now →</span>
+        </div>
+      </div>
+
+      <div class="glass-card animate-slide-up" style="padding: 14px 16px; margin-bottom: 14px; border-left: 4px solid #0284c7; cursor: pointer;" data-link="#/mart-seller">
+        <div style="display: flex; align-items: center; justify-content: space-between;">
+          <div style="display: flex; align-items: center; gap: 12px;">
+            <span style="font-size: 26px;">🚜</span>
+            <div>
+              <div style="font-weight: 700; font-size: 14px; color: #0369a1;">Farmer Storefront · Sell on Mart</div>
+              <div style="font-size: 12px; color: var(--text-muted);">Direct customer sales · Pay on Delivery · 0% commission</div>
+            </div>
+          </div>
+          <span style="font-size: 13px; color: #0284c7; font-weight: 700; white-space: nowrap;">Seller Hub →</span>
+        </div>
+      </div>
+
       <!-- Quick Actions -->
       <div class="glass-card animate-slide-up" style="padding: 16px;">
         <div class="section-title-sm" style="margin-bottom: 14px;">⚡ Quick Actions</div>
@@ -101,6 +131,8 @@
           <div class="section-title-sm">🌾 AI Feature Suite</div>
         </div>
         <div class="grid-2">
+          ${renderFeatureCard('#/mart', '🏪', 'Agro AI Mart', 'Farm direct produce delivery', 'badge-success')}
+          ${renderFeatureCard('#/mart-seller', '🚜', 'Sell on Mart', 'Farmer storefront & sales', 'badge-info')}
           ${renderFeatureCard('#/diagnose', '🔬', 'Leaf Diagnosis', 'AI-powered crop disease detection', 'badge-success')}
           ${renderFeatureCard('#/kisan-gpt', '🗣️', 'Kisan GPT', 'Voice AI Agronomist', 'badge-warning')}
           ${renderFeatureCard('#/satellite', '🛰️', 'Digital Twin', 'NDVI satellite farm mapping', 'badge-info')}

@@ -18,7 +18,7 @@
     // Auth & Onboarding Route Guards
     const onboarded = localStorage.getItem('kisanOnboarded');
     const authenticated = localStorage.getItem('kisanAuth');
-    const publicPaths = ['/splash', '/onboarding', '/language', '/login', '/signup', '/otp', '/permissions'];
+    const publicPaths = ['/splash', '/onboarding', '/language', '/login', '/signup', '/otp', '/permissions', '/mart', '/mart-seller'];
     const isPublic = publicPaths.some(p => path.startsWith(p));
 
     if (!isPublic) {
