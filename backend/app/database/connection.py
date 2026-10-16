@@ -8,10 +8,14 @@ from dotenv import load_dotenv
 load_dotenv(os.path.join(os.path.dirname(__file__), '..', '..', '.env'))
 load_dotenv(os.path.join(os.path.dirname(__file__), '..', '..', '..', '.env'))
 
-DATABASE_URL = os.getenv('DATABASE_URL')
-if not DATABASE_URL:
-    root_db = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', '..', 'kisanai.db'))
-    DATABASE_URL = f"sqlite:///{root_db.replace(os.sep, '/')}"
+RAW_DATABASE_URL = os.getenv('DATABASE_URL', '')
+root_db = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', '..', 'kisanai.db'))
+SQLITE_FALLBACK_URL = f"sqlite:///{root_db.replace(os.sep, '/')}"
+
+if not RAW_DATABASE_URL or '[YOUR-PASSWORD]' in RAW_DATABASE_URL:
+    DATABASE_URL = SQLITE_FALLBACK_URL
+else:
+    DATABASE_URL = RAW_DATABASE_URL
 
 if DATABASE_URL.startswith('postgres://'):
     DATABASE_URL = DATABASE_URL.replace('postgres://', 'postgresql://', 1)
