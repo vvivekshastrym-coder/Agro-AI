@@ -1198,6 +1198,30 @@
         <button class="mart-cat-btn" data-cat="cat_herbs" onclick="selectMartCategory('cat_herbs')">🌿 Herbs &amp; Spices</button>
       </div>
 
+      <!-- Surplus Rescue Section (Genuine time-limited farm discounts) -->
+      <div id="martSurplusRescueSection" style="display:none;margin-bottom:16px;">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+          <div style="display:flex;align-items:center;gap:6px;">
+            <span style="font-size:16px;">🚨</span>
+            <div style="font-weight:700;font-size:14px;color:#c2410c;">Surplus Rescue</div>
+          </div>
+          <span style="font-size:11px;background:#ffedd5;color:#c2410c;padding:2px 8px;border-radius:999px;font-weight:700;">DIRECT FARM DISCOUNTS</span>
+        </div>
+        <div class="mart-cat-bar" id="martSurplusRescueRail" style="gap:10px;padding-bottom:10px;"></div>
+      </div>
+
+      <!-- Agro AI Harvest Circle Section (Upcoming harvest demand aggregation) -->
+      <div id="martHarvestCircleSection" style="display:none;margin-bottom:16px;">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+          <div style="display:flex;align-items:center;gap:6px;">
+            <span style="font-size:16px;">🌾</span>
+            <div style="font-weight:700;font-size:14px;color:#166534;">Agro AI Harvest Circle</div>
+          </div>
+          <span style="font-size:11px;background:#dcfce7;color:#15803d;padding:2px 8px;border-radius:999px;font-weight:700;">UPCOMING LOTS</span>
+        </div>
+        <div class="mart-cat-bar" id="martHarvestCircleRail" style="gap:10px;padding-bottom:10px;"></div>
+      </div>
+
       <!-- Harvested Today Rail (Rendered dynamically if any match) -->
       <div id="martHarvestTodaySection" style="display:none;margin-bottom:16px;">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
@@ -1378,6 +1402,110 @@
         <button class="btn btn-outline" style="padding:4px 10px;font-size:12px;" onclick="closeMartOrdersModal()">✕</button>
       </div>
       <div id="martOrdersList"><div class="muted">Loading orders...</div></div>
+    </div>
+  </div>
+
+  <!-- Agro AI Mart Trust Passport Modal -->
+  <div class="modal-backdrop" id="martTrustPassportModal" onclick="if(event.target===this)closeMartTrustPassportModal()">
+    <div class="modal-sheet" style="max-height:88vh;overflow-y:auto;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;border-bottom:1px solid var(--line);padding-bottom:10px;">
+        <div style="display:flex;align-items:center;gap:8px;">
+          <span style="font-size:24px;">🛡️</span>
+          <div>
+            <h3 class="display" style="margin:0;font-size:17px;color:#14532d;">Agro AI Trust Passport</h3>
+            <div class="muted" style="font-size:11px;">Authoritative farm verification & produce lot proof</div>
+          </div>
+        </div>
+        <button class="btn btn-outline" style="padding:4px 10px;font-size:12px;" onclick="closeMartTrustPassportModal()">✕</button>
+      </div>
+      <div id="martTrustPassportContent">
+        <div class="muted" style="text-align:center;padding:24px;">Fetching verified farm records...</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Agro AI Mart Product Detail Sheet -->
+  <div class="modal-backdrop" id="martProductDetailModal" onclick="if(event.target===this)closeMartProductDetailModal()">
+    <div class="modal-sheet" style="max-height:88vh;overflow-y:auto;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;border-bottom:1px solid var(--line);padding-bottom:10px;">
+        <span class="pill pill-forest" id="martDetailBadge">Fresh Harvest</span>
+        <button class="btn btn-outline" style="padding:4px 10px;font-size:12px;" onclick="closeMartProductDetailModal()">✕</button>
+      </div>
+      <div id="martProductDetailBody"></div>
+    </div>
+  </div>
+
+  <!-- Agro AI Mart Write Review Modal -->
+  <div class="modal-backdrop" id="martReviewModal" onclick="if(event.target===this)closeMartReviewModal()">
+    <div class="modal-sheet">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;border-bottom:1px solid var(--line);padding-bottom:10px;">
+        <h3 class="display" style="margin:0;font-size:17px;color:#14532d;">⭐ Genuine Post-Purchase Review</h3>
+        <button class="btn btn-outline" style="padding:4px 10px;font-size:12px;" onclick="closeMartReviewModal()">✕</button>
+      </div>
+      <p class="muted" style="font-size:12px;margin-bottom:12px;">Only verified buyers with completed orders can submit reviews. Zero fabricated reviews permitted.</p>
+      <input type="hidden" id="reviewOrderId">
+      <input type="hidden" id="reviewListingId">
+      <div style="margin-bottom:12px;">
+        <label style="font-size:12px;font-weight:700;display:block;margin-bottom:6px;">Produce Rating:</label>
+        <div style="display:flex;gap:10px;font-size:26px;cursor:pointer;" id="reviewStarRatingArea">
+          <span onclick="setReviewRating(1)">★</span>
+          <span onclick="setReviewRating(2)">★</span>
+          <span onclick="setReviewRating(3)">★</span>
+          <span onclick="setReviewRating(4)">★</span>
+          <span onclick="setReviewRating(5)">★</span>
+        </div>
+        <input type="hidden" id="reviewRatingVal" value="5">
+      </div>
+      <div style="margin-bottom:14px;">
+        <label style="font-size:12px;font-weight:700;display:block;margin-bottom:4px;">Comments (Freshness, Taste, Harvest Quality):</label>
+        <textarea id="reviewCommentInput" rows="3" placeholder="Describe the quality and freshness of the delivered produce..." style="width:100%;padding:10px;border:1.5px solid var(--line);border-radius:10px;font-size:13px;outline:none;box-sizing:border-box;"></textarea>
+      </div>
+      <button class="btn btn-primary btn-block" style="padding:12px;" onclick="submitCustomerReview()">Submit Verified Review</button>
+    </div>
+  </div>
+
+  <!-- Agro AI Mart Harvest Circle Pledge Modal -->
+  <div class="modal-backdrop" id="martHarvestPledgeModal" onclick="if(event.target===this)closeMartHarvestPledgeModal()">
+    <div class="modal-sheet">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;border-bottom:1px solid var(--line);padding-bottom:10px;">
+        <h3 class="display" style="margin:0;font-size:17px;color:#14532d;">🌾 Harvest Circle Demand Pledge</h3>
+        <button class="btn btn-outline" style="padding:4px 10px;font-size:12px;" onclick="closeMartHarvestPledgeModal()">✕</button>
+      </div>
+      <input type="hidden" id="pledgeOfferId">
+      <div id="pledgeOfferDetails" style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;padding:12px;margin-bottom:14px;font-size:12.5px;"></div>
+      <div style="margin-bottom:12px;">
+        <label style="font-size:12px;font-weight:700;display:block;margin-bottom:4px;">Pledged Quantity (kg):</label>
+        <input type="number" id="pledgeQtyInput" value="2" min="1" max="50" style="width:100%;padding:10px;border:1.5px solid var(--line);border-radius:10px;font-size:14px;outline:none;box-sizing:border-box;">
+      </div>
+      <div style="margin-bottom:14px;">
+        <label style="font-size:12px;font-weight:700;display:block;margin-bottom:4px;">Delivery PIN Code:</label>
+        <input type="text" id="pledgePinInput" maxlength="6" style="width:100%;padding:10px;border:1.5px solid var(--line);border-radius:10px;font-size:14px;outline:none;box-sizing:border-box;">
+      </div>
+      <button class="btn btn-primary btn-block" style="padding:12px;" onclick="submitHarvestCirclePledge()">Pledge Demand (Zero Advance Required)</button>
+    </div>
+  </div>
+
+  <!-- Agro AI Mart Declare Surplus Modal -->
+  <div class="modal-backdrop" id="martFarmerSurplusModal" onclick="if(event.target===this)closeMartFarmerSurplusModal()">
+    <div class="modal-sheet">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;border-bottom:1px solid var(--line);padding-bottom:10px;">
+        <h3 class="display" style="margin:0;font-size:17px;color:#c2410c;">🚨 Declare Surplus Produce</h3>
+        <button class="btn btn-outline" style="padding:4px 10px;font-size:12px;" onclick="closeMartFarmerSurplusModal()">✕</button>
+      </div>
+      <p class="muted" style="font-size:12px;margin-bottom:12px;">Offer genuinely available surplus harvest at a fair, time-limited discount directly to nearby consumers before it goes unsold.</p>
+      <input type="hidden" id="surplusListingId">
+      <div id="surplusListingInfo" style="margin-bottom:12px;font-size:13px;font-weight:700;"></div>
+      <div style="display:flex;gap:10px;margin-bottom:12px;">
+        <div style="flex:1;">
+          <label style="font-size:12px;font-weight:700;display:block;margin-bottom:4px;">Discount %:</label>
+          <input type="number" id="surplusDiscountInput" min="5" max="60" value="20" style="width:100%;padding:8px 10px;border:1.5px solid var(--line);border-radius:8px;font-size:13px;outline:none;box-sizing:border-box;">
+        </div>
+        <div style="flex:1;">
+          <label style="font-size:12px;font-weight:700;display:block;margin-bottom:4px;">Valid Hours:</label>
+          <input type="number" id="surplusHoursInput" min="6" max="72" value="24" style="width:100%;padding:8px 10px;border:1.5px solid var(--line);border-radius:8px;font-size:13px;outline:none;box-sizing:border-box;">
+        </div>
+      </div>
+      <button class="btn btn-primary btn-block" style="background:#ea580c;border-color:#ea580c;padding:12px;" onclick="submitDeclareSurplus()">Publish to Surplus Rescue</button>
     </div>
   </div>
 </div>
@@ -4408,13 +4536,17 @@ const martState = {
   category: 'all',
   search: '',
   listings: [],
+  surplusListings: [],
+  harvestOffers: [],
   cart: { sellerId: null, farmName: null, items: {} },
   fulfilment: 'DELIVERY',
   sellerProfile: null,
   activeSellerTab: 'orders',
+  sellerListingFilter: 'all',
   catalogItems: [],
   sellerOrders: [],
   sellerListings: [],
+  sellerOffers: [],
   sellerEarnings: null,
 };
 
@@ -4440,9 +4572,28 @@ async function loadCustomerMart() {
     if(martState.category && martState.category !== 'all') {
       url += `&category_id=${encodeURIComponent(martState.category)}`;
     }
-    const res = await fetch(url);
-    if(!res.ok) throw new Error('Listings fetch failed');
-    martState.listings = await res.json();
+    
+    // Fetch listings, surplus rescue offers, and harvest circle offers concurrently
+    const [resListings, resSurplus, resOffers] = await Promise.all([
+      fetch(url),
+      fetch(`/api/mart/surplus-rescue?pincode=${encodeURIComponent(martState.pincode)}`).catch(() => ({ ok: false })),
+      fetch(`/api/mart/harvest-circle/offers?pincode=${encodeURIComponent(martState.pincode)}`).catch(() => ({ ok: false }))
+    ]);
+
+    if(resListings.ok) {
+      martState.listings = await resListings.json();
+    }
+    if(resSurplus.ok) {
+      martState.surplusListings = await resSurplus.json();
+    } else {
+      martState.surplusListings = [];
+    }
+    if(resOffers.ok) {
+      martState.harvestOffers = await resOffers.json();
+    } else {
+      martState.harvestOffers = [];
+    }
+
     renderMartListings();
     loadMartCustomerOrdersCount();
   } catch(e) {
@@ -4469,8 +4620,73 @@ function renderMartListings() {
   const isKn = currentLang === 'kn';
   const grid = document.getElementById('martListingsGrid');
   const emptyBox = document.getElementById('martEmptyState');
+  const surplusSection = document.getElementById('martSurplusRescueSection');
+  const surplusRail = document.getElementById('martSurplusRescueRail');
+  const harvestCircleSection = document.getElementById('martHarvestCircleSection');
+  const harvestCircleRail = document.getElementById('martHarvestCircleRail');
   const harvestSection = document.getElementById('martHarvestTodaySection');
   const harvestRail = document.getElementById('martHarvestTodayRail');
+
+  // 1. Render Surplus Rescue Rail
+  if(surplusSection && surplusRail) {
+    if(martState.surplusListings && martState.surplusListings.length > 0) {
+      surplusSection.style.display = 'block';
+      surplusRail.innerHTML = martState.surplusListings.map(s => `
+        <div class="card" style="min-width:210px;max-width:230px;flex-shrink:0;padding:12px;border:1.5px solid #fed7aa;background:linear-gradient(180deg,#fffaf5 0%,#ffffff 100%);">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+            <span class="pill" style="background:#ea580c;color:#fff;font-weight:800;font-size:10px;padding:2px 6px;">
+              🚨 ${s.discount_percent}% SURPLUS
+            </span>
+            <span class="muted" style="font-size:10.5px;">Today only</span>
+          </div>
+          <div style="font-weight:800;font-size:13.5px;color:#9a3412;margin-bottom:2px;">${escHtml(s.title)}</div>
+          <div class="muted" style="font-size:11px;margin-bottom:6px;">🏡 ${escHtml(s.farm_name)} (${escHtml(s.village || '')})</div>
+          <div style="display:flex;align-items:baseline;gap:6px;margin-bottom:8px;">
+            <span style="font-weight:900;font-size:16px;color:#c2410c;">${s.discounted_price_formatted}</span>
+            <span class="muted" style="font-size:11px;text-decoration:line-through;">${s.original_price_formatted}</span>
+            <span class="muted" style="font-size:10.5px;">/ ${s.unit}</span>
+          </div>
+          <button class="btn btn-primary btn-block" style="background:#ea580c;border-color:#ea580c;padding:6px;font-size:11.5px;" onclick="addSurplusToCart('${s.id}')">
+            + Add Surplus
+          </button>
+        </div>
+      `).join('');
+    } else {
+      surplusSection.style.display = 'none';
+    }
+  }
+
+  // 2. Render Agro AI Harvest Circle Rail
+  if(harvestCircleSection && harvestCircleRail) {
+    if(martState.harvestOffers && martState.harvestOffers.length > 0) {
+      harvestCircleSection.style.display = 'block';
+      harvestCircleRail.innerHTML = martState.harvestOffers.map(h => `
+        <div class="card" style="min-width:230px;max-width:250px;flex-shrink:0;padding:12px;border:1.5px solid #bbf7d0;background:linear-gradient(180deg,#f0fdf4 0%,#ffffff 100%);">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+            <span class="pill pill-forest" style="font-size:10px;">🌾 HARVEST CIRCLE</span>
+            <span class="muted" style="font-size:11px;">Target: ${h.target_harvest_start || 'Next week'}</span>
+          </div>
+          <div style="font-weight:800;font-size:14px;color:#14532d;margin-bottom:2px;">${escHtml(h.crop_name)}</div>
+          <div class="muted" style="font-size:11px;margin-bottom:6px;">🏡 ${escHtml(h.farm_name)} · ${escHtml(h.village || '')}</div>
+          <div style="font-size:11px;margin-bottom:6px;">
+            Proposed: <strong style="color:#14532d;">${h.proposed_price_formatted}</strong> / ${h.unit}
+          </div>
+          <div style="background:#e2e8f0;border-radius:999px;height:6px;overflow:hidden;margin-bottom:4px;">
+            <div style="background:#16a34a;height:100%;width:${Math.min(100, h.progress_percent)}%;"></div>
+          </div>
+          <div style="display:flex;justify-content:space-between;font-size:10.5px;color:var(--ink-soft);margin-bottom:8px;">
+            <span>Demand: ${h.committed_demand} / ${h.min_demand_threshold} ${h.unit}</span>
+            <span><strong>${h.progress_percent}%</strong></span>
+          </div>
+          <button class="btn btn-outline btn-block" style="padding:6px;font-size:11.5px;color:#166534;border-color:#166534;" onclick="openHarvestCirclePledge('${h.id}', '${escHtml(h.crop_name)}', '${escHtml(h.farm_name)}', '${h.proposed_price_formatted}')">
+            Pledge Demand →
+          </button>
+        </div>
+      `).join('');
+    } else {
+      harvestCircleSection.style.display = 'none';
+    }
+  }
 
   let filtered = martState.listings || [];
   if(martState.search) {
@@ -4524,22 +4740,35 @@ function renderMartItemCard(item, isRail = false) {
     : item.item_name?.toLowerCase().includes('chilli') ? '🌶️'
     : '🥦';
 
-  const styleCard = isRail ? 'min-width:160px;max-width:180px;flex-shrink:0;' : '';
+  const styleCard = isRail ? 'min-width:170px;max-width:190px;flex-shrink:0;' : '';
 
   return `
     <div class="mart-item-card" style="${styleCard}" id="card_mart_${item.id}">
       ${isOrganic ? `<span class="mart-item-badge">🌿 ORGANIC</span>` : ''}
-      ${photo ? `<img src="${photo}" class="mart-item-img" alt="${escHtml(item.title)}">` : `<div class="mart-item-img">${emoji}</div>`}
-      <div>
-        <div class="mart-item-title">${escHtml(item.title)}</div>
-        <div class="mart-item-farm">🏡 ${escHtml(item.farm_name || 'Verified Farm')} · ${escHtml(item.village || '')}</div>
-        <div style="display:flex;align-items:baseline;gap:4px;">
-          <span class="mart-item-price">${item.price_formatted}</span>
-          <span class="mart-item-unit">/ ${item.unit}</span>
+      
+      <div onclick="openMartProductDetailModal('${item.id}')" style="cursor:pointer;">
+        ${photo ? `<img src="${photo}" class="mart-item-img" alt="${escHtml(item.title)}">` : `<div class="mart-item-img">${emoji}</div>`}
+        <div>
+          <div class="mart-item-title">${escHtml(item.title)}</div>
+          <div class="mart-item-farm">🏡 ${escHtml(item.farm_name || 'Verified Farm')} · ${escHtml(item.village || '')}</div>
+          <div style="display:flex;align-items:center;gap:4px;margin-bottom:4px;">
+            <span style="font-size:10px;background:#f0fdf4;color:#166534;padding:1px 6px;border-radius:999px;font-weight:700;">✓ Verified Grower</span>
+          </div>
+          <div style="display:flex;align-items:baseline;gap:4px;">
+            <span class="mart-item-price">${item.price_formatted}</span>
+            <span class="mart-item-unit">/ ${item.unit}</span>
+          </div>
+          <div class="muted" style="font-size:10px;margin-top:2px;">
+            📅 Harvest: ${item.harvest_date || 'Fresh'} · Stock: ${item.stock_quantity} ${item.unit}
+          </div>
         </div>
-        <div class="muted" style="font-size:10.5px;margin-top:2px;">
-          📅 Harvest: ${item.harvest_date || 'Fresh today'} · Stock: ${item.stock_quantity} ${item.unit}
-        </div>
+      </div>
+
+      <!-- Trust Passport Pill Button -->
+      <div style="margin-top:8px;">
+        <button class="btn btn-outline btn-block" style="padding:3px 6px;font-size:10.5px;color:#15803d;border-color:#bbf7d0;background:#f0fdf4;border-radius:8px;" onclick="openMartTrustPassportModal('${item.id}')">
+          🛡️ Trust Passport
+        </button>
       </div>
       
       <div id="mart_btn_area_${item.id}">
@@ -4558,6 +4787,22 @@ function renderMartItemCard(item, isRail = false) {
       </div>
     </div>
   `;
+}
+
+function addSurplusToCart(listingId) {
+  const listing = martState.listings.find(l => l.id === listingId);
+  if(listing) {
+    changeMartQty(listingId, 1);
+  } else {
+    // If not in primary listings, fetch and add
+    fetch(`/api/mart/listings/${listingId}`)
+      .then(res => res.json())
+      .then(data => {
+        martState.listings.push(data);
+        changeMartQty(listingId, 1);
+      })
+      .catch(() => showToast('Could not add surplus item.'));
+  }
 }
 
 function changeMartQty(listingId, delta) {
@@ -4660,6 +4905,225 @@ function updateMartCartUI() {
   }
 }
 
+/* ── TRUST PASSPORT MODAL ───────────────────────────────────────── */
+
+async function openMartTrustPassportModal(listingId) {
+  const modal = document.getElementById('martTrustPassportModal');
+  const content = document.getElementById('martTrustPassportContent');
+  if(modal) modal.classList.add('open');
+  if(!content) return;
+
+  content.innerHTML = '<div class="card" style="text-align:center;padding:24px;"><div class="muted">Fetching verified lot records & evidence...</div></div>';
+
+  try {
+    const res = await fetch(`/api/mart/listings/${listingId}/trust-passport`);
+    if(!res.ok) throw new Error('Trust Passport fetch failed');
+    const tp = await res.json();
+
+    content.innerHTML = `
+      <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:14px;padding:14px;margin-bottom:14px;">
+        <div style="font-weight:800;font-size:16px;color:#14532d;margin-bottom:4px;">${escHtml(tp.produce_title)}</div>
+        <div style="font-size:12.5px;color:#166534;margin-bottom:2px;">🏡 ${escHtml(tp.farm_name)} · Grown by ${escHtml(tp.farmer_name)}</div>
+        <div class="muted" style="font-size:11px;">Batch Lot Ref: <strong>${tp.lot_batch_id}</strong> · Harvested: ${tp.harvest_date}</div>
+      </div>
+
+      <!-- Verified Facts -->
+      <div style="margin-bottom:14px;">
+        <div style="font-weight:700;font-size:13px;color:#166534;margin-bottom:6px;display:flex;align-items:center;gap:6px;">
+          <span>✅</span>
+          <span>Verified Facts (Official Documentation):</span>
+        </div>
+        <div class="card" style="padding:10px;background:#f8fafc;">
+          ${tp.verified_facts.map(f => `
+            <div style="padding:6px 0;border-bottom:1px solid var(--line);font-size:12px;">
+              <div style="font-weight:700;color:#1f2937;">✓ ${escHtml(f.title)}</div>
+              <div class="muted" style="font-size:11px;margin-top:2px;">${escHtml(f.details)}</div>
+            </div>
+          `).join('')}
+        </div>
+      </div>
+
+      <!-- Farmer-Declared Claims -->
+      <div style="margin-bottom:14px;">
+        <div style="font-weight:700;font-size:13px;color:#92400e;margin-bottom:6px;display:flex;align-items:center;gap:6px;">
+          <span>📝</span>
+          <span>Farmer-Declared Attributes:</span>
+        </div>
+        <div class="card" style="padding:10px;background:#fffbeb;border-color:#fef3c7;">
+          ${tp.seller_claims.length > 0 ? tp.seller_claims.map(c => `
+            <div style="padding:6px 0;font-size:12px;">
+              <div style="font-weight:700;color:#92400e;">⚠️ ${escHtml(c.title)}</div>
+              <div style="font-size:11px;color:#78350f;margin-top:2px;">${escHtml(c.details)}</div>
+            </div>
+          `).join('') : '<div class="muted" style="font-size:11.5px;">No unverified claims made. All details confirmed.</div>'}
+        </div>
+      </div>
+
+      <!-- Zero Middleman Direct Economics -->
+      <div class="card" style="padding:12px;background:#f0fdf4;border-color:#bbf7d0;margin-bottom:14px;">
+        <div style="font-weight:700;font-size:12.5px;color:#14532d;margin-bottom:4px;">💰 Price Transparency:</div>
+        <div style="font-size:11.5px;color:#166534;line-height:1.4;">
+          100% of the produce price goes directly to ${escHtml(tp.farmer_name)}. Agro AI charges 0% middleman commission. Direct customer settlement on delivery.
+        </div>
+      </div>
+
+      <button class="btn btn-primary btn-block" style="padding:10px;" onclick="closeMartTrustPassportModal()">Understood</button>
+    `;
+  } catch(e) {
+    content.innerHTML = '<div class="muted">Could not load Trust Passport.</div>';
+  }
+}
+
+function closeMartTrustPassportModal() {
+  const modal = document.getElementById('martTrustPassportModal');
+  if(modal) modal.classList.remove('open');
+}
+
+/* ── PRODUCT DETAIL SHEET ───────────────────────────────────────── */
+
+async function openMartProductDetailModal(listingId) {
+  const modal = document.getElementById('martProductDetailModal');
+  const body = document.getElementById('martProductDetailBody');
+  if(modal) modal.classList.add('open');
+  if(!body) return;
+
+  body.innerHTML = '<div class="card" style="text-align:center;padding:24px;"><div class="muted">Loading produce specifications...</div></div>';
+
+  try {
+    const [lRes, rRes] = await Promise.all([
+      fetch(`/api/mart/listings/${listingId}`),
+      fetch(`/api/mart/listings/${listingId}/reviews`).catch(() => ({ ok: false }))
+    ]);
+
+    if(!lRes.ok) throw new Error('Listing fetch failed');
+    const item = await lRes.json();
+    let reviews = [];
+    if(rRes.ok) reviews = await rRes.json();
+
+    const inCartQty = martState.cart.items[item.id]?.qty || 0;
+    const photo = item.photos && item.photos.length > 0 ? item.photos[0] : null;
+    const emoji = item.title.toLowerCase().includes('tomato') ? '🍅' : item.title.toLowerCase().includes('spinach') ? '🥬' : '🥦';
+
+    body.innerHTML = `
+      <div style="width:100%;height:180px;background:#f4fbf5;border-radius:16px;display:flex;align-items:center;justify-content:center;overflow:hidden;margin-bottom:14px;">
+        ${photo ? `<img src="${photo}" style="width:100%;height:100%;object-fit:cover;">` : `<span style="font-size:72px;">${emoji}</span>`}
+      </div>
+
+      <div style="font-weight:800;font-size:18px;color:#1f2937;margin-bottom:4px;">${escHtml(item.title)}</div>
+      <div style="font-size:13px;color:#166534;font-weight:700;margin-bottom:4px;">🏡 ${escHtml(item.farm_name || 'Verified Farm')} · ${escHtml(item.village || '')}</div>
+      <div class="muted" style="font-size:12px;margin-bottom:12px;">Harvested on: <strong>${item.harvest_date}</strong> · Remaining Available: <strong>${item.stock_quantity} ${item.unit}</strong></div>
+
+      <div style="display:flex;align-items:baseline;gap:6px;margin-bottom:14px;">
+        <span style="font-size:24px;font-weight:900;color:#14532d;">${item.price_formatted}</span>
+        <span class="muted" style="font-size:13px;">per ${item.unit}</span>
+      </div>
+
+      <div class="card" style="padding:12px;background:#f8fafc;margin-bottom:14px;font-size:12.5px;">
+        <div style="font-weight:700;margin-bottom:4px;">Farmer Harvest Description:</div>
+        <p class="muted" style="margin:0;line-height:1.5;">${escHtml(item.description || 'Harvested directly from local field at peak quality. Guaranteed fresh delivery within 24-48 hours.')}</p>
+      </div>
+
+      <!-- Customer Reviews List -->
+      <div style="margin-bottom:16px;">
+        <div style="font-weight:700;font-size:13px;margin-bottom:6px;display:flex;align-items:center;justify-content:space-between;">
+          <span>⭐ Verified Buyer Reviews (${reviews.length}):</span>
+          <span class="muted" style="font-size:11px;">Post-Delivery Only</span>
+        </div>
+        ${reviews.length > 0 ? reviews.map(r => `
+          <div class="card" style="padding:8px 10px;margin-bottom:6px;font-size:12px;">
+            <div style="display:flex;justify-content:space-between;margin-bottom:2px;">
+              <strong>${escHtml(r.customer_name)}</strong>
+              <span style="color:#eab308;">${'★'.repeat(r.rating)}</span>
+            </div>
+            <p style="margin:0;color:var(--ink-soft);">${escHtml(r.comment)}</p>
+          </div>
+        `).join('') : '<div class="muted" style="font-size:11.5px;padding:8px 0;">No reviews yet. Be the first to review after receiving your delivery!</div>'}
+      </div>
+
+      <!-- Add to Basket / Stepper in Detail Sheet -->
+      <div id="mart_detail_btn_area">
+        ${inCartQty > 0 ? `
+          <div class="mart-stepper" style="height:40px;">
+            <button class="mart-step-btn" style="font-size:18px;" onclick="changeMartQty('${item.id}', -1); openMartProductDetailModal('${item.id}');">−</button>
+            <span style="font-size:14px;">${inCartQty} ${item.unit} in Cart</span>
+            <button class="mart-step-btn" style="font-size:18px;" onclick="changeMartQty('${item.id}', 1); openMartProductDetailModal('${item.id}');">+</button>
+          </div>
+        ` : `
+          <button class="btn btn-primary btn-block" style="padding:12px;font-size:14px;" onclick="changeMartQty('${item.id}', 1); openMartProductDetailModal('${item.id}');">
+            + Add to Fresh Basket
+          </button>
+        `}
+      </div>
+    `;
+  } catch(e) {
+    body.innerHTML = '<div class="muted">Could not load details.</div>';
+  }
+}
+
+function closeMartProductDetailModal() {
+  const modal = document.getElementById('martProductDetailModal');
+  if(modal) modal.classList.remove('open');
+}
+
+/* ── HARVEST CIRCLE PLEDGE MODAL ────────────────────────────────── */
+
+function openHarvestCirclePledge(offerId, cropName, farmName, priceFormatted) {
+  const modal = document.getElementById('martHarvestPledgeModal');
+  const idInput = document.getElementById('pledgeOfferId');
+  const details = document.getElementById('pledgeOfferDetails');
+  const pinInput = document.getElementById('pledgePinInput');
+
+  if(idInput) idInput.value = offerId;
+  if(pinInput) pinInput.value = martState.pincode;
+  if(details) {
+    details.innerHTML = `
+      <div style="font-weight:800;color:#14532d;margin-bottom:2px;">${cropName}</div>
+      <div style="font-size:11.5px;color:#166534;">Harvested by: <strong>${farmName}</strong></div>
+      <div style="font-size:11.5px;color:#166534;margin-top:2px;">Proposed Price: <strong>${priceFormatted}</strong> / kg</div>
+    `;
+  }
+  if(modal) modal.classList.add('open');
+}
+
+function closeMartHarvestPledgeModal() {
+  const modal = document.getElementById('martHarvestPledgeModal');
+  if(modal) modal.classList.remove('open');
+}
+
+async function submitHarvestCirclePledge() {
+  const offerId = document.getElementById('pledgeOfferId')?.value;
+  const qty = parseFloat(document.getElementById('pledgeQtyInput')?.value || '2');
+  const pin = document.getElementById('pledgePinInput')?.value.trim() || martState.pincode;
+
+  if(!offerId) return;
+  if(isNaN(qty) || qty <= 0) {
+    showToast('Please enter a valid quantity.');
+    return;
+  }
+
+  try {
+    const res = await fetch('/api/mart/harvest-circle/demand', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
+      body: JSON.stringify({
+        harvest_offer_id: offerId,
+        quantity: qty,
+        delivery_pincode: pin
+      })
+    });
+    if(!res.ok) {
+      const err = await res.json();
+      showToast(`⚠️ ${err.detail?.error?.message || 'Could not pledge demand.'}`);
+      return;
+    }
+    showToast('🎉 Demand pledged! Farmer will notify you upon harvest.');
+    closeMartHarvestPledgeModal();
+    loadCustomerMart();
+  } catch(e) {
+    showToast('Demand pledge failed. Please retry.');
+  }
+}
+
 /* ── CART MODAL & CHECKOUT ─────────────────────────────────────── */
 
 function openMartCartModal() {
@@ -4735,7 +5199,7 @@ function setMartFulfilment(mode) {
     if(delBtn) { delBtn.style.borderColor = 'var(--line)'; delBtn.style.background = 'transparent'; delBtn.style.color = 'var(--ink)'; delBtn.style.fontWeight = '500'; }
     if(addrSec) addrSec.style.display = 'none';
   }
-  openMartCartModal(); // recalculate bill summary
+  openMartCartModal();
 }
 
 async function placeMartOrder() {
@@ -4789,7 +5253,6 @@ async function placeMartOrder() {
     closeMartCartModal();
     showToast(isKn ? `🎉 ಆರ್ಡರ್ ಯಶಸ್ವಿಯಾಗಿದೆ! ಆರ್ಡರ್ #${data.order_number}` : `🎉 Order placed! Order #${data.order_number}`);
     
-    // Refresh listings to reflect decremented inventory
     loadCustomerMart();
     openMartOrdersModal();
   } catch(e) {
@@ -4861,7 +5324,7 @@ async function submitMartWaitlist() {
   }
 }
 
-/* ── CUSTOMER ORDERS TRACKING ──────────────────────────────────── */
+/* ── CUSTOMER ORDERS TRACKING & REVIEWS ─────────────────────────── */
 
 async function loadMartCustomerOrdersCount() {
   try {
@@ -4912,6 +5375,17 @@ async function openMartOrdersModal() {
           <strong>Total:</strong> <span style="font-weight:700;color:#166534;">${o.total_formatted}</span> · <em>Pay on Delivery</em>
         </div>
 
+        ${o.status === 'COMPLETED' && o.items && o.items.length > 0 ? `
+          <div style="margin-top:10px;padding-top:8px;border-top:1px dashed var(--line);">
+            <div style="font-size:11.5px;font-weight:700;color:#166534;margin-bottom:4px;">Rate Produce Quality:</div>
+            ${o.items.map(it => `
+              <button class="btn btn-outline" style="width:100%;margin-bottom:4px;padding:6px;font-size:11.5px;color:#15803d;border-color:#bbf7d0;" onclick="openReviewModal('${o.id}', '${it.listing_id}', '${escHtml(it.title)}')">
+                ⭐ Rate "${escHtml(it.title)}"
+              </button>
+            `).join('')}
+          </div>
+        ` : ''}
+
         ${o.status === 'PLACED' ? `
           <button class="btn btn-outline" style="width:100%;margin-top:8px;padding:6px;font-size:12px;color:#dc2626;border-color:#dc2626;" onclick="cancelMartCustomerOrder('${o.id}')">
             Cancel Order
@@ -4946,6 +5420,64 @@ async function cancelMartCustomerOrder(orderId) {
     loadCustomerMart();
   } catch(e) {
     showToast('Cancellation failed. Please retry.');
+  }
+}
+
+/* ── REVIEWS MODAL ──────────────────────────────────────────────── */
+
+function openReviewModal(orderId, listingId, title) {
+  const modal = document.getElementById('martReviewModal');
+  const oInput = document.getElementById('reviewOrderId');
+  const lInput = document.getElementById('reviewListingId');
+  if(oInput) oInput.value = orderId;
+  if(lInput) lInput.value = listingId;
+  setReviewRating(5);
+  if(modal) modal.classList.add('open');
+}
+
+function closeMartReviewModal() {
+  const modal = document.getElementById('martReviewModal');
+  if(modal) modal.classList.remove('open');
+}
+
+function setReviewRating(star) {
+  const valInput = document.getElementById('reviewRatingVal');
+  if(valInput) valInput.value = star;
+  const spans = document.querySelectorAll('#reviewStarRatingArea span');
+  spans.forEach((sp, idx) => {
+    sp.style.color = (idx < star) ? '#eab308' : '#cbd5e1';
+  });
+}
+
+async function submitCustomerReview() {
+  const orderId = document.getElementById('reviewOrderId')?.value;
+  const listingId = document.getElementById('reviewListingId')?.value;
+  const rating = parseInt(document.getElementById('reviewRatingVal')?.value || '5');
+  const comment = document.getElementById('reviewCommentInput')?.value.trim() || '';
+
+  if(!orderId || !listingId) return;
+
+  try {
+    const res = await fetch(`/api/mart/orders/${orderId}/reviews`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
+      body: JSON.stringify({
+        listing_id: listingId,
+        rating: rating,
+        comment: comment
+      })
+    });
+    if(!res.ok) {
+      const err = await res.json();
+      showToast(`⚠️ ${err.detail?.error?.message || 'Failed to submit review.'}`);
+      return;
+    }
+    showToast('🎉 Thank you! Your verified customer review is recorded.');
+    closeMartReviewModal();
+    const commentBox = document.getElementById('reviewCommentInput');
+    if(commentBox) commentBox.value = '';
+  } catch(e) {
+    showToast('Review submission failed.');
   }
 }
 
@@ -4992,34 +5524,34 @@ function renderFarmerSellerPortal() {
 
         <div style="margin-bottom:10px;">
           <label style="font-size:12px;font-weight:700;display:block;margin-bottom:3px;">Farm Name / Farmer Brand:</label>
-          <input type="text" id="sellerApplyFarmName" placeholder="e.g. Ramesh Organic Mandya Farm" style="width:100%;padding:9px 12px;border:1.5px solid var(--line);border-radius:10px;font-size:13px;outline:none;">
+          <input type="text" id="sellerApplyFarmName" placeholder="e.g. Ramesh Organic Mandya Farm" style="width:100%;padding:9px 12px;border:1.5px solid var(--line);border-radius:10px;font-size:13px;outline:none;box-sizing:border-box;">
         </div>
 
         <div style="margin-bottom:10px;">
           <label style="font-size:12px;font-weight:700;display:block;margin-bottom:3px;">Contact Mobile Number (for buyer calls):</label>
-          <input type="tel" id="sellerApplyPhone" placeholder="10-digit mobile number" style="width:100%;padding:9px 12px;border:1.5px solid var(--line);border-radius:10px;font-size:13px;outline:none;">
+          <input type="tel" id="sellerApplyPhone" placeholder="10-digit mobile number" style="width:100%;padding:9px 12px;border:1.5px solid var(--line);border-radius:10px;font-size:13px;outline:none;box-sizing:border-box;">
         </div>
 
         <div style="display:flex;gap:8px;margin-bottom:10px;">
           <div style="flex:1;">
             <label style="font-size:12px;font-weight:700;display:block;margin-bottom:3px;">Village / Town:</label>
-            <input type="text" id="sellerApplyVillage" placeholder="e.g. Maddur" style="width:100%;padding:8px 10px;border:1px solid var(--line);border-radius:8px;font-size:12.5px;outline:none;">
+            <input type="text" id="sellerApplyVillage" placeholder="e.g. Maddur" style="width:100%;padding:8px 10px;border:1px solid var(--line);border-radius:8px;font-size:12.5px;outline:none;box-sizing:border-box;">
           </div>
           <div style="flex:1;">
             <label style="font-size:12px;font-weight:700;display:block;margin-bottom:3px;">District:</label>
-            <input type="text" id="sellerApplyDistrict" placeholder="e.g. Mandya" style="width:100%;padding:8px 10px;border:1px solid var(--line);border-radius:8px;font-size:12.5px;outline:none;">
+            <input type="text" id="sellerApplyDistrict" placeholder="e.g. Mandya" style="width:100%;padding:8px 10px;border:1px solid var(--line);border-radius:8px;font-size:12.5px;outline:none;box-sizing:border-box;">
           </div>
         </div>
 
         <div style="margin-bottom:10px;">
           <label style="font-size:12px;font-weight:700;display:block;margin-bottom:3px;">Serviceable PIN Codes (where you can deliver or pickup):</label>
-          <input type="text" id="sellerApplyPincodes" placeholder="e.g. 571401, 560001, 560034" style="width:100%;padding:9px 12px;border:1.5px solid var(--line);border-radius:10px;font-size:13px;outline:none;">
+          <input type="text" id="sellerApplyPincodes" placeholder="e.g. 571401, 560001, 560034" style="width:100%;padding:9px 12px;border:1.5px solid var(--line);border-radius:10px;font-size:13px;outline:none;box-sizing:border-box;">
           <div class="muted" style="font-size:11px;margin-top:2px;">Separate multiple PIN codes with commas.</div>
         </div>
 
         <div style="margin-bottom:10px;">
           <label style="font-size:12px;font-weight:700;display:block;margin-bottom:3px;">Land Record Proof Type:</label>
-          <select id="sellerApplyProofType" style="width:100%;padding:8px 10px;border:1.5px solid var(--line);border-radius:8px;font-size:13px;outline:none;background:#fff;">
+          <select id="sellerApplyProofType" style="width:100%;padding:8px 10px;border:1.5px solid var(--line);border-radius:8px;font-size:13px;outline:none;background:#fff;box-sizing:border-box;">
             <option value="Pahani / RTC (Karnataka)">Pahani / RTC (Karnataka)</option>
             <option value="7/12 Extract (Maharashtra)">7/12 Extract (Maharashtra)</option>
             <option value="RoR / Land Ownership Record">RoR / Land Ownership Record</option>
@@ -5094,13 +5626,16 @@ function renderFarmerSellerPortal() {
     <!-- Top Navigation Subtabs -->
     <div class="mart-tab-nav">
       <div class="mart-tab-item ${martState.activeSellerTab === 'orders' ? 'active' : ''}" onclick="switchSellerTab('orders')">
-        📦 Incoming Orders
+        📦 Orders
       </div>
       <div class="mart-tab-item ${martState.activeSellerTab === 'listings' ? 'active' : ''}" onclick="switchSellerTab('listings')">
-        🥬 My Produce &amp; Stock
+        🥬 Produce
+      </div>
+      <div class="mart-tab-item ${martState.activeSellerTab === 'harvest' ? 'active' : ''}" onclick="switchSellerTab('harvest')">
+        🌾 Harvest Circle
       </div>
       <div class="mart-tab-item ${martState.activeSellerTab === 'earnings' ? 'active' : ''}" onclick="switchSellerTab('earnings')">
-        💰 Real Earnings
+        💰 Earnings
       </div>
     </div>
 
@@ -5191,31 +5726,47 @@ async function renderSellerTabContent() {
       martState.catalogItems = await catRes.json();
       martState.sellerListings = await listRes.json();
 
+      let listingsToShow = martState.sellerListings;
+      if(martState.sellerListingFilter === 'approved') {
+        listingsToShow = martState.sellerListings.filter(l => l.status === 'APPROVED');
+      } else if(martState.sellerListingFilter === 'pending') {
+        listingsToShow = martState.sellerListings.filter(l => l.status === 'PENDING_REVIEW' || l.status === 'SUBMITTED');
+      } else if(martState.sellerListingFilter === 'rejected') {
+        listingsToShow = martState.sellerListings.filter(l => l.status === 'REJECTED' || l.status === 'DRAFT');
+      } else if(martState.sellerListingFilter === 'oos') {
+        listingsToShow = martState.sellerListings.filter(l => l.stock_quantity <= 0);
+      }
+
       container.innerHTML = `
         <!-- Create Produce Listing Card -->
         <div class="card" style="padding:16px;margin-bottom:16px;background:#f0fdf4;border-color:#bbf7d0;">
-          <h4 style="margin:0 0 10px;font-size:15px;color:#14532d;font-weight:700;">+ List Fresh Produce for Sale</h4>
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+            <h4 style="margin:0;font-size:15px;color:#14532d;font-weight:700;">+ List Fresh Produce for Sale</h4>
+            <button class="btn btn-outline" style="padding:4px 8px;font-size:11px;background:#fff;color:#0284c7;border-color:#bae6fd;" onclick="useAIAssistantForListing()">
+              ✨ AI Draft Assistant
+            </button>
+          </div>
           
           <div style="margin-bottom:8px;">
             <label style="font-size:11.5px;font-weight:700;display:block;margin-bottom:2px;">Select Crop / Produce Type:</label>
-            <select id="newListingCatalogItem" style="width:100%;padding:8px 10px;border:1px solid #bbf7d0;border-radius:8px;font-size:12.5px;background:#fff;outline:none;">
+            <select id="newListingCatalogItem" style="width:100%;padding:8px 10px;border:1px solid #bbf7d0;border-radius:8px;font-size:12.5px;background:#fff;outline:none;box-sizing:border-box;">
               ${martState.catalogItems.map(it => `<option value="${it.id}">${it.name_english} (${it.name_kannada})</option>`).join('')}
             </select>
           </div>
 
           <div style="margin-bottom:8px;">
             <label style="font-size:11.5px;font-weight:700;display:block;margin-bottom:2px;">Listing Title:</label>
-            <input type="text" id="newListingTitle" placeholder="e.g. Farm Fresh Tomatoes (Hybrid Grade A)" style="width:100%;padding:8px 10px;border:1px solid #bbf7d0;border-radius:8px;font-size:12.5px;outline:none;">
+            <input type="text" id="newListingTitle" placeholder="e.g. Farm Fresh Tomatoes (Hybrid Grade A)" style="width:100%;padding:8px 10px;border:1px solid #bbf7d0;border-radius:8px;font-size:12.5px;outline:none;box-sizing:border-box;">
           </div>
 
           <div style="display:flex;gap:8px;margin-bottom:8px;">
             <div style="flex:1;">
               <label style="font-size:11.5px;font-weight:700;display:block;margin-bottom:2px;">Price (in ₹):</label>
-              <input type="number" id="newListingPrice" placeholder="e.g. 35" style="width:100%;padding:8px 10px;border:1px solid #bbf7d0;border-radius:8px;font-size:12.5px;outline:none;">
+              <input type="number" id="newListingPrice" placeholder="e.g. 35" style="width:100%;padding:8px 10px;border:1px solid #bbf7d0;border-radius:8px;font-size:12.5px;outline:none;box-sizing:border-box;">
             </div>
             <div style="width:100px;">
               <label style="font-size:11.5px;font-weight:700;display:block;margin-bottom:2px;">Unit:</label>
-              <select id="newListingUnit" style="width:100%;padding:8px 10px;border:1px solid #bbf7d0;border-radius:8px;font-size:12.5px;background:#fff;outline:none;">
+              <select id="newListingUnit" style="width:100%;padding:8px 10px;border:1px solid #bbf7d0;border-radius:8px;font-size:12.5px;background:#fff;outline:none;box-sizing:border-box;">
                 <option value="kg">kg</option>
                 <option value="500g">500g</option>
                 <option value="bunch">bunch</option>
@@ -5225,18 +5776,18 @@ async function renderSellerTabContent() {
             </div>
             <div style="flex:1;">
               <label style="font-size:11.5px;font-weight:700;display:block;margin-bottom:2px;">Stock Available:</label>
-              <input type="number" id="newListingStock" placeholder="e.g. 50" style="width:100%;padding:8px 10px;border:1px solid #bbf7d0;border-radius:8px;font-size:12.5px;outline:none;">
+              <input type="number" id="newListingStock" placeholder="e.g. 50" style="width:100%;padding:8px 10px;border:1px solid #bbf7d0;border-radius:8px;font-size:12.5px;outline:none;box-sizing:border-box;">
             </div>
           </div>
 
           <div style="display:flex;gap:8px;margin-bottom:10px;">
             <div style="flex:1;">
               <label style="font-size:11.5px;font-weight:700;display:block;margin-bottom:2px;">Harvest Date:</label>
-              <input type="date" id="newListingHarvestDate" value="${new Date().toISOString().split('T')[0]}" style="width:100%;padding:8px 10px;border:1px solid #bbf7d0;border-radius:8px;font-size:12px;outline:none;">
+              <input type="date" id="newListingHarvestDate" value="${new Date().toISOString().split('T')[0]}" style="width:100%;padding:8px 10px;border:1px solid #bbf7d0;border-radius:8px;font-size:12px;outline:none;box-sizing:border-box;">
             </div>
             <div style="flex:1;">
               <label style="font-size:11.5px;font-weight:700;display:block;margin-bottom:2px;">Fulfilment:</label>
-              <select id="newListingFulfilment" style="width:100%;padding:8px 10px;border:1px solid #bbf7d0;border-radius:8px;font-size:12.5px;background:#fff;outline:none;">
+              <select id="newListingFulfilment" style="width:100%;padding:8px 10px;border:1px solid #bbf7d0;border-radius:8px;font-size:12.5px;background:#fff;outline:none;box-sizing:border-box;">
                 <option value="BOTH">Delivery &amp; Pickup</option>
                 <option value="DELIVERY">Delivery Only</option>
                 <option value="PICKUP">Pickup Only</option>
@@ -5249,20 +5800,33 @@ async function renderSellerTabContent() {
           </button>
         </div>
 
+        <!-- Filter Sub-Tabs for Listings -->
+        <div style="display:flex;gap:6px;overflow-x:auto;padding-bottom:6px;margin-bottom:10px;">
+          <button class="btn btn-sm ${martState.sellerListingFilter === 'all' ? 'btn-primary' : 'btn-outline'}" style="padding:4px 8px;font-size:11px;" onclick="setSellerListingFilter('all')">All (${martState.sellerListings.length})</button>
+          <button class="btn btn-sm ${martState.sellerListingFilter === 'approved' ? 'btn-primary' : 'btn-outline'}" style="padding:4px 8px;font-size:11px;" onclick="setSellerListingFilter('approved')">Approved</button>
+          <button class="btn btn-sm ${martState.sellerListingFilter === 'pending' ? 'btn-primary' : 'btn-outline'}" style="padding:4px 8px;font-size:11px;" onclick="setSellerListingFilter('pending')">Pending</button>
+          <button class="btn btn-sm ${martState.sellerListingFilter === 'rejected' ? 'btn-primary' : 'btn-outline'}" style="padding:4px 8px;font-size:11px;" onclick="setSellerListingFilter('rejected')">Rejected</button>
+        </div>
+
         <!-- Current Live / Submitted Listings -->
-        <div style="font-weight:700;font-size:14px;margin-bottom:8px;">My Produce Listings</div>
-        ${!martState.sellerListings.length ? '<div class="muted">No produce listed yet. Use the form above to add your first harvest!</div>' : ''}
-        ${martState.sellerListings.map(l => `
-          <div class="card" style="margin-bottom:10px;padding:12px;">
+        ${!listingsToShow.length ? '<div class="muted" style="padding:16px 0;text-align:center;">No listings in this tab.</div>' : ''}
+        ${listingsToShow.map(l => `
+          <div class="card" style="margin-bottom:10px;padding:12px;border-left:3.5px solid ${l.status === 'APPROVED' ? '#166534' : l.status === 'REJECTED' ? '#dc2626' : '#f59e0b'};">
             <div style="display:flex;justify-content:space-between;align-items:flex-start;">
               <div>
                 <div style="font-weight:700;font-size:13.5px;">${escHtml(l.title)}</div>
                 <div class="muted" style="font-size:11.5px;">${l.price_formatted} / ${l.unit} · Harvest: ${l.harvest_date}</div>
               </div>
-              <span class="pill ${l.status === 'APPROVED' ? 'pill-forest' : 'pill-saffron'}" style="font-size:10.5px;">
+              <span class="pill ${l.status === 'APPROVED' ? 'pill-forest' : l.status === 'REJECTED' ? 'pill-danger' : 'pill-saffron'}" style="font-size:10.5px;">
                 ● ${l.status}
               </span>
             </div>
+
+            ${l.status === 'REJECTED' ? `
+              <div style="background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:8px;margin-top:8px;font-size:11.5px;color:#991b1b;">
+                <strong>Staff Feedback:</strong> ${escHtml(l.rejection_notes || l.review_notes || 'Listing rejected. Please update genuine farm photos or price.')}
+              </div>
+            ` : ''}
 
             <div style="margin-top:10px;display:flex;align-items:center;justify-content:space-between;background:#f8fafc;padding:6px 10px;border-radius:8px;">
               <span style="font-size:12px;font-weight:600;">Current Stock: <strong>${l.stock_quantity} ${l.unit}</strong></span>
@@ -5271,11 +5835,89 @@ async function renderSellerTabContent() {
                 <button class="btn btn-outline" style="padding:2px 8px;font-size:11px;" onclick="updateListingStock('${l.id}', 10)">+10</button>
               </div>
             </div>
+
+            ${l.status === 'APPROVED' ? `
+              <div style="margin-top:8px;display:flex;gap:8px;">
+                <button class="btn btn-outline" style="flex:1;padding:5px;font-size:11px;color:#c2410c;border-color:#fed7aa;" onclick="openDeclareSurplusModal('${l.id}', '${escHtml(l.title)}', '${l.price_formatted}')">
+                  🚨 Declare Surplus Rescue
+                </button>
+              </div>
+            ` : ''}
           </div>
         `).join('')}
       `;
     } catch(e) {
       container.innerHTML = '<div class="muted">Could not load listings.</div>';
+    }
+  }
+
+  else if(martState.activeSellerTab === 'harvest') {
+    container.innerHTML = '<div class="muted">Loading Harvest Circle offers...</div>';
+    try {
+      const res = await fetch('/api/mart/harvest-circle/offers?pincode=' + (martState.sellerProfile?.service_pincodes?.[0] || ''));
+      const offers = res.ok ? await res.json() : [];
+
+      container.innerHTML = `
+        <!-- Announce Upcoming Harvest Form -->
+        <div class="card" style="padding:16px;margin-bottom:16px;background:#f0fdf4;border-color:#bbf7d0;">
+          <h4 style="margin:0 0 8px;font-size:15px;color:#14532d;font-weight:700;">🌾 Announce Upcoming Harvest Lot</h4>
+          <p class="muted" style="font-size:12px;margin-bottom:12px;">Allow nearby customers to aggregate demand before you harvest. Zero risk of surplus spoilage.</p>
+
+          <div style="margin-bottom:8px;">
+            <label style="font-size:11.5px;font-weight:700;display:block;margin-bottom:2px;">Crop Name:</label>
+            <input type="text" id="harvestCropName" placeholder="e.g. Robust Green Chillies / Desi Papaya" style="width:100%;padding:8px 10px;border:1px solid #bbf7d0;border-radius:8px;font-size:12.5px;outline:none;box-sizing:border-box;">
+          </div>
+
+          <div style="display:flex;gap:8px;margin-bottom:8px;">
+            <div style="flex:1;">
+              <label style="font-size:11.5px;font-weight:700;display:block;margin-bottom:2px;">Est. Yield (kg):</label>
+              <input type="number" id="harvestEstQty" placeholder="e.g. 200" style="width:100%;padding:8px 10px;border:1px solid #bbf7d0;border-radius:8px;font-size:12.5px;outline:none;box-sizing:border-box;">
+            </div>
+            <div style="flex:1;">
+              <label style="font-size:11.5px;font-weight:700;display:block;margin-bottom:2px;">Min. Demand (kg):</label>
+              <input type="number" id="harvestMinThreshold" placeholder="e.g. 50" style="width:100%;padding:8px 10px;border:1px solid #bbf7d0;border-radius:8px;font-size:12.5px;outline:none;box-sizing:border-box;">
+            </div>
+            <div style="flex:1;">
+              <label style="font-size:11.5px;font-weight:700;display:block;margin-bottom:2px;">Target Price (₹):</label>
+              <input type="number" id="harvestTargetPrice" placeholder="e.g. 30" style="width:100%;padding:8px 10px;border:1px solid #bbf7d0;border-radius:8px;font-size:12.5px;outline:none;box-sizing:border-box;">
+            </div>
+          </div>
+
+          <div style="display:flex;gap:8px;margin-bottom:10px;">
+            <div style="flex:1;">
+              <label style="font-size:11.5px;font-weight:700;display:block;margin-bottom:2px;">Harvest Date:</label>
+              <input type="date" id="harvestTargetDate" value="${new Date().toISOString().split('T')[0]}" style="width:100%;padding:8px 10px;border:1px solid #bbf7d0;border-radius:8px;font-size:12px;outline:none;box-sizing:border-box;">
+            </div>
+          </div>
+
+          <button class="btn btn-primary btn-block" style="padding:10px;font-size:13px;" onclick="submitFarmerHarvestOffer()">
+            Announce Harvest Circle Offer →
+          </button>
+        </div>
+
+        <div style="font-weight:700;font-size:13.5px;margin-bottom:8px;">Active Community Harvest Offers</div>
+        ${!offers.length ? '<div class="muted">No active harvest offers currently. Announce your upcoming crop above!</div>' : ''}
+        ${offers.map(o => `
+          <div class="card" style="padding:12px;margin-bottom:10px;">
+            <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+              <div>
+                <div style="font-weight:800;font-size:14px;color:#14532d;">${escHtml(o.crop_name)}</div>
+                <div class="muted" style="font-size:11.5px;">Target: ${o.target_harvest_start} · Proposed: ${o.proposed_price_formatted} / ${o.unit}</div>
+              </div>
+              <span class="pill pill-forest" style="font-size:10px;">${o.status}</span>
+            </div>
+            <div style="margin-top:8px;background:#e2e8f0;border-radius:999px;height:6px;overflow:hidden;">
+              <div style="background:#16a34a;height:100%;width:${Math.min(100, o.progress_percent)}%;"></div>
+            </div>
+            <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--ink-soft);margin-top:4px;">
+              <span>Committed Demand: <strong>${o.committed_demand} / ${o.min_demand_threshold} ${o.unit}</strong></span>
+              <span><strong>${o.progress_percent}%</strong></span>
+            </div>
+          </div>
+        `).join('')}
+      `;
+    } catch(e) {
+      container.innerHTML = '<div class="muted">Could not load harvest offers.</div>';
     }
   }
 
@@ -5305,6 +5947,124 @@ async function renderSellerTabContent() {
     } catch(e) {
       container.innerHTML = '<div class="muted">Could not load earnings.</div>';
     }
+  }
+}
+
+function setSellerListingFilter(filter) {
+  martState.sellerListingFilter = filter;
+  renderSellerTabContent();
+}
+
+async function useAIAssistantForListing() {
+  const catalogSelect = document.getElementById('newListingCatalogItem');
+  const cropText = catalogSelect ? catalogSelect.options[catalogSelect.selectedIndex]?.text.split('(')[0].trim() : 'Tomatoes';
+  const district = martState.sellerProfile?.district || 'Mandya';
+
+  try {
+    const res = await fetch('/api/mart/ai-assistant/draft-listing', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
+      body: JSON.stringify({
+        crop_name: cropText,
+        variety: 'Local Farm Fresh',
+        unit: 'kg',
+        district: district
+      })
+    });
+    if(!res.ok) throw new Error('AI assistant failed');
+    const data = await res.json();
+
+    const titleInput = document.getElementById('newListingTitle');
+    const priceInput = document.getElementById('newListingPrice');
+    if(titleInput) titleInput.value = data.suggested_title;
+    if(priceInput) priceInput.value = (data.suggested_price_minor / 100);
+
+    showToast(`✨ AI Assistant: Suggested APMC Fair Price: ${data.suggested_price_formatted} / kg`);
+  } catch(e) {
+    showToast('AI Assistant unavailable. Please fill manually.');
+  }
+}
+
+async function submitFarmerHarvestOffer() {
+  const crop = document.getElementById('harvestCropName')?.value.trim() || '';
+  const estQty = parseFloat(document.getElementById('harvestEstQty')?.value || '0');
+  const minThreshold = parseFloat(document.getElementById('harvestMinThreshold')?.value || '0');
+  const price = parseFloat(document.getElementById('harvestTargetPrice')?.value || '0');
+  const targetDate = document.getElementById('harvestTargetDate')?.value || new Date().toISOString().split('T')[0];
+
+  if(!crop || estQty <= 0 || price <= 0) {
+    showToast('Please fill in crop name, yield, and target price.');
+    return;
+  }
+
+  try {
+    const res = await fetch('/api/mart/seller/harvest-circle/offers', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
+      body: JSON.stringify({
+        crop_name: crop,
+        estimated_quantity: estQty,
+        min_demand_threshold: minThreshold || (estQty * 0.3),
+        unit: 'kg',
+        target_harvest_start: targetDate,
+        proposed_price_minor: Math.round(price * 100)
+      })
+    });
+    if(!res.ok) {
+      const err = await res.json();
+      showToast(`⚠️ ${err.detail?.error?.message || 'Could not announce offer.'}`);
+      return;
+    }
+    showToast('🌾 Upcoming harvest announced! Community demand is active.');
+    renderSellerTabContent();
+  } catch(e) {
+    showToast('Offer announcement failed.');
+  }
+}
+
+/* ── DECLARE SURPLUS MODAL ───────────────────────────────────────── */
+
+function openDeclareSurplusModal(listingId, title, priceFormatted) {
+  const modal = document.getElementById('martFarmerSurplusModal');
+  const idInput = document.getElementById('surplusListingId');
+  const info = document.getElementById('surplusListingInfo');
+
+  if(idInput) idInput.value = listingId;
+  if(info) info.innerHTML = `Produce: <span style="color:#c2410c;">${title}</span> (${priceFormatted})`;
+  if(modal) modal.classList.add('open');
+}
+
+function closeMartFarmerSurplusModal() {
+  const modal = document.getElementById('martFarmerSurplusModal');
+  if(modal) modal.classList.remove('open');
+}
+
+async function submitDeclareSurplus() {
+  const listingId = document.getElementById('surplusListingId')?.value;
+  const discount = parseInt(document.getElementById('surplusDiscountInput')?.value || '20');
+  const hours = parseInt(document.getElementById('surplusHoursInput')?.value || '24');
+
+  if(!listingId) return;
+
+  try {
+    const res = await fetch(`/api/mart/seller/listings/${listingId}/surplus`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
+      body: JSON.stringify({
+        discount_percent: discount,
+        valid_hours: hours
+      })
+    });
+    if(!res.ok) {
+      const err = await res.json();
+      showToast(`⚠️ ${err.detail?.error?.message || 'Failed to declare surplus.'}`);
+      return;
+    }
+    showToast('🚨 Surplus Rescue offer published to consumers!');
+    closeMartFarmerSurplusModal();
+    renderSellerTabContent();
+  } catch(e) {
+    showToast('Surplus declaration failed.');
   }
 }
 

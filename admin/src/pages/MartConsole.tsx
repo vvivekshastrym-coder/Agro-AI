@@ -13,7 +13,8 @@ import {
   FileCheck,
   CheckSquare,
   TrendingUp,
-  PackageCheck
+  PackageCheck,
+  Sparkles
 } from 'lucide-react';
 import { adminFetch } from '../lib/api';
 
@@ -73,7 +74,7 @@ interface WaitlistGroup {
 }
 
 export const MartConsole: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<'applications' | 'listings' | 'orders' | 'waitlist'>('applications');
+  const [activeTab, setActiveTab] = useState<'applications' | 'listings' | 'orders' | 'waitlist' | 'harvest'>('applications');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
@@ -84,6 +85,8 @@ export const MartConsole: React.FC = () => {
   const [listings, setListings] = useState<ListingQueueItem[]>([]);
   const [orders, setOrders] = useState<MasterOrder[]>([]);
   const [waitlist, setWaitlist] = useState<WaitlistGroup[]>([]);
+  const [harvestOffers, setHarvestOffers] = useState<any[]>([]);
+  const [surplusItems, setSurplusItems] = useState<any[]>([]);
 
   // Action states
   const [staffCallMap, setStaffCallMap] = useState<Record<string, boolean>>({});
@@ -154,11 +157,29 @@ export const MartConsole: React.FC = () => {
     }
   };
 
+  const fetchHarvestAndSurplus = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const [hRes, sRes] = await Promise.all([
+        adminFetch('/api/mart/harvest-circle/offers'),
+        adminFetch('/api/mart/surplus-rescue')
+      ]);
+      if (hRes.ok) setHarvestOffers(await hRes.json());
+      if (sRes.ok) setSurplusItems(await sRes.json());
+    } catch (e: any) {
+      setError(e.message || 'Error fetching harvest and surplus records');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
     if (activeTab === 'applications') fetchApplications();
     else if (activeTab === 'listings') fetchListingsQueue();
     else if (activeTab === 'orders') fetchOrders();
     else if (activeTab === 'waitlist') fetchWaitlist();
+    else if (activeTab === 'harvest') fetchHarvestAndSurplus();
   }, [activeTab, appFilter]);
 
   const handleReviewSeller = async (appId: string, decision: 'APPROVED' | 'REJECTED' | 'INFO_REQUIRED') => {
@@ -247,6 +268,7 @@ export const MartConsole: React.FC = () => {
             else if (activeTab === 'listings') fetchListingsQueue();
             else if (activeTab === 'orders') fetchOrders();
             else if (activeTab === 'waitlist') fetchWaitlist();
+            else if (activeTab === 'harvest') fetchHarvestAndSurplus();
           }}
           disabled={loading}
           className="inline-flex items-center gap-2 px-3.5 py-2 bg-white border border-[#D8D2C2] rounded-xl text-sm font-semibold text-[#1B4332] hover:bg-[#FAF8F5] transition shadow-xs"
@@ -318,6 +340,18 @@ export const MartConsole: React.FC = () => {
         >
           <TrendingUp size={16} />
           Demand Waitlist Heatmap
+        </button>
+
+        <button
+          onClick={() => setActiveTab('harvest')}
+          className={`pb-3 px-3 text-sm font-semibold border-b-2 transition flex items-center gap-2 whitespace-nowrap ${
+            activeTab === 'harvest'
+              ? 'border-[#2D6A4F] text-[#2D6A4F]'
+              : 'border-transparent text-[#6B7280] hover:text-[#1F2937]'
+          }`}
+        >
+          <Sparkles size={16} />
+          Harvest Circle &amp; Surplus
         </button>
       </div>
 
@@ -619,6 +653,114 @@ export const MartConsole: React.FC = () => {
               ))}
             </div>
           )}
+        </div>
+      )}
+
+      {/* ── TAB 5: HARVEST CIRCLE & SURPLUS RESCUE ── */}
+      {activeTab === 'harvest' && (
+        <div className="space-y-6">
+          {/* Section A: Harvest Circle Offers */}
+          <div>
+            <div className="flex items-center justify-between mb-3">
+              <div>
+                <h3 className="text-base font-bold text-[#1B4332] flex items-center gap-2">
+                  <span>🌾</span> Agro AI Harvest Circle
+                </h3>
+                <p className="text-xs text-[#6B7280]">
+                  Pre-harvest demand aggregation. Farmers announce upcoming crops to secure confirmed local buyers.
+                </p>
+              </div>
+              <span className="text-xs font-bold text-[#2D6A4F] bg-[#2D6A4F]/10 px-2.5 py-1 rounded-full">
+                {harvestOffers.length} Active Offers
+              </span>
+            </div>
+
+            {!harvestOffers.length && !loading ? (
+              <div className="bg-white border border-[#D8D2C2] rounded-2xl p-8 text-center text-sm text-[#6B7280]">
+                No upcoming harvest lots announced currently.
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {harvestOffers.map(h => (
+                  <div key={h.id} className="bg-white border border-[#D8D2C2] rounded-2xl p-4 shadow-xs">
+                    <div className="flex items-start justify-between mb-2">
+                      <div>
+                        <h4 className="font-bold text-[#1F2937] text-sm">{h.crop_name}</h4>
+                        <div className="text-xs text-[#2D6A4F] font-medium">{h.farm_name} ({h.village}, {h.district})</div>
+                      </div>
+                      <span className="px-2 py-0.5 rounded-full font-bold text-[10px] bg-[#2D6A4F]/15 text-[#2D6A4F]">
+                        {h.status}
+                      </span>
+                    </div>
+
+                    <div className="my-2 p-2 bg-[#F8FAF6] rounded-xl text-xs space-y-1">
+                      <div className="flex justify-between">
+                        <span className="text-[#6B7280]">Target Harvest:</span>
+                        <span className="font-bold text-[#1F2937]">{h.target_harvest_start}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-[#6B7280]">Target Price:</span>
+                        <span className="font-bold text-[#2D6A4F]">{h.proposed_price_formatted} / {h.unit}</span>
+                      </div>
+                    </div>
+
+                    <div className="mt-3">
+                      <div className="flex justify-between text-xs mb-1">
+                        <span className="text-[#6B7280]">Demand Committed:</span>
+                        <span className="font-bold text-[#1F2937]">{h.committed_demand} / {h.min_demand_threshold} {h.unit} ({h.progress_percent}%)</span>
+                      </div>
+                      <div className="w-full bg-[#E5E7EB] rounded-full h-2 overflow-hidden">
+                        <div className="bg-[#2D6A4F] h-2 rounded-full" style={{ width: `${Math.min(100, h.progress_percent)}%` }}></div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Section B: Surplus Rescue */}
+          <div className="pt-4 border-t border-[#D8D2C2]">
+            <div className="flex items-center justify-between mb-3">
+              <div>
+                <h3 className="text-base font-bold text-[#9A3412] flex items-center gap-2">
+                  <span>🚨</span> Surplus Rescue Marketplace
+                </h3>
+                <p className="text-xs text-[#6B7280]">
+                  Genuinely available surplus produce offered by farmers at verified discounts before spoilage.
+                </p>
+              </div>
+              <span className="text-xs font-bold text-[#EA580C] bg-[#EA580C]/10 px-2.5 py-1 rounded-full">
+                {surplusItems.length} Deals Live
+              </span>
+            </div>
+
+            {!surplusItems.length && !loading ? (
+              <div className="bg-white border border-[#D8D2C2] rounded-2xl p-8 text-center text-sm text-[#6B7280]">
+                No surplus produce listed currently.
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {surplusItems.map(s => (
+                  <div key={s.id} className="bg-white border border-[#FED7AA] rounded-2xl p-4 shadow-xs">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="px-2 py-0.5 rounded-full font-bold text-[10px] bg-[#EA580C] text-white">
+                        {s.discount_percent}% DISCOUNT
+                      </span>
+                      <span className="text-[11px] text-[#6B7280]">Available: {s.stock_quantity} {s.unit}</span>
+                    </div>
+                    <div className="font-bold text-[#1F2937] text-sm">{s.title}</div>
+                    <div className="text-xs text-[#6B7280] mb-2">{s.farm_name} ({s.village})</div>
+                    <div className="flex items-baseline gap-2 mt-2">
+                      <span className="text-base font-black text-[#C2410C]">{s.discounted_price_formatted}</span>
+                      <span className="text-xs text-[#6B7280] line-through">{s.original_price_formatted}</span>
+                      <span className="text-xs text-[#6B7280]">/ {s.unit}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       )}
     </div>

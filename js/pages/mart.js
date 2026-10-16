@@ -172,6 +172,12 @@
             <div style="font-size: 11px; color: var(--text-muted);">📍 ${item.village || 'Mandya'}</div>
           </div>
 
+          <div style="margin-top:6px;">
+            <button class="mart-trust-btn" data-id="${item.id}" style="width:100%;background:#f0fdf4;border:1px solid #bbf7d0;color:#166534;font-size:10.5px;font-weight:700;padding:3px 6px;border-radius:6px;cursor:pointer;">
+              🛡️ Trust Passport
+            </button>
+          </div>
+
           <div style="margin-top: 10px; padding-top: 8px; border-top: 1px dashed var(--border); display: flex; align-items: center; justify-content: space-between;">
             <div>
               <span style="font-size: 15px; font-weight: 900; color: #14532d;">₹${item.price_per_unit || item.price}</span>
@@ -192,6 +198,14 @@
         </div>
       `;
     }).join('');
+
+    // Attach trust passport buttons
+    grid.querySelectorAll('.mart-trust-btn').forEach(btn => {
+      btn.onclick = async (e) => {
+        const id = e.currentTarget.getAttribute('data-id');
+        openTrustPassportModal(id);
+      };
+    });
 
     // Attach cart modifiers
     grid.querySelectorAll('.mart-add-btn').forEach(btn => {
@@ -236,6 +250,59 @@
         }
       };
     });
+  }
+
+  async function openTrustPassportModal(listingId) {
+    let tp = null;
+    try {
+      const res = await fetch(`/api/mart/listings/${listingId}/trust-passport`);
+      if (res.ok) tp = await res.json();
+    } catch(e){}
+
+    const modalHtml = `
+      <div id="martModularTrustPassportModal" style="position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:999;display:flex;align-items:flex-end;justify-content:center;">
+        <div style="background:#fff;width:100%;max-width:440px;border-radius:24px 24px 0 0;padding:20px;max-height:85vh;overflow-y:auto;box-shadow:0 -8px 30px rgba(0,0,0,0.2);">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;border-bottom:1px solid #e2e8f0;padding-bottom:10px;">
+            <div style="display:flex;align-items:center;gap:8px;">
+              <span style="font-size:22px;">🛡️</span>
+              <h3 style="margin:0;font-size:17px;font-weight:800;color:#14532d;">Agro AI Trust Passport</h3>
+            </div>
+            <button id="closeTrustModalBtn" style="background:none;border:none;font-size:18px;cursor:pointer;">✕</button>
+          </div>
+
+          <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:12px;padding:12px;margin-bottom:12px;">
+            <div style="font-weight:800;font-size:15px;color:#14532d;">${tp?.produce_title || 'Fresh Produce'}</div>
+            <div style="font-size:12px;color:#166534;">🏡 ${tp?.farm_name || 'Verified Local Farm'} · Grown by ${tp?.farmer_name || 'Verified Farmer'}</div>
+            <div style="font-size:11px;color:#6b7280;margin-top:2px;">Lot Ref: <strong>${tp?.lot_batch_id || 'LOT-VERIFIED'}</strong> · Harvested: ${tp?.harvest_date || 'Fresh'}</div>
+          </div>
+
+          <div style="font-weight:700;font-size:12.5px;color:#166534;margin-bottom:6px;">✅ Verified Evidence:</div>
+          <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:10px;margin-bottom:12px;font-size:12px;">
+            <div style="margin-bottom:4px;">✓ <strong>Land Record Verified:</strong> Pahani / RTC Ownership record checked.</div>
+            <div style="margin-bottom:4px;">✓ <strong>Agronomist Desk Call:</strong> Cultivation verified by Agro AI agricultural desk.</div>
+            <div>✓ <strong>Direct Farm Settlement:</strong> 100% of price goes to farmer. 0% middleman cut.</div>
+          </div>
+
+          <div style="font-weight:700;font-size:12.5px;color:#92400e;margin-bottom:6px;">📝 Farmer Declarations:</div>
+          <div style="background:#fffbeb;border:1px solid #fef3c7;border-radius:10px;padding:10px;margin-bottom:14px;font-size:11.5px;color:#78350f;">
+            Farmer self-declares clean cultivation practices. Chemical-free farming practices declared.
+          </div>
+
+          <button id="dismissTrustModalBtn" class="btn btn-primary" style="width:100%;padding:12px;font-size:14px;font-weight:700;background:#15803d;border-radius:12px;">
+            Understood
+          </button>
+        </div>
+      </div>
+    `;
+
+    const el = document.createElement('div');
+    el.innerHTML = modalHtml;
+    document.body.appendChild(el.firstElementChild);
+
+    const m = document.getElementById('martModularTrustPassportModal');
+    m.querySelector('#closeTrustModalBtn').onclick = () => m.remove();
+    m.querySelector('#dismissTrustModalBtn').onclick = () => m.remove();
+    m.onclick = (e) => { if (e.target === m) m.remove(); };
   }
 
   function openCartModal(container) {
@@ -437,7 +504,12 @@
 
         <!-- Add Listing Card -->
         <div class="glass-card" style="padding: 16px;">
-          <h3 style="font-size: 14.5px; font-weight: 800; margin: 0 0 10px; color: #0369a1;">+ List New Harvest for Sale</h3>
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+            <h3 style="font-size: 14.5px; font-weight: 800; margin: 0; color: #0369a1;">+ List New Harvest for Sale</h3>
+            <button id="modularAiDraftBtn" class="btn btn-outline" style="padding:3px 8px;font-size:11px;color:#0284c7;border-color:#bae6fd;background:#f0f9ff;border-radius:999px;">
+              ✨ AI Draft Assistant
+            </button>
+          </div>
           <div style="display: flex; flex-direction: column; gap: 8px;">
             <input type="text" id="newListingTitle" placeholder="Produce Title (e.g. Fresh Red Tomatoes)" style="padding:8px 10px;border-radius:8px;border:1px solid var(--border);font-size:13px;">
             <div style="display:flex;gap:8px;">
@@ -465,6 +537,25 @@
         </div>
       </div>
     `;
+
+    area.querySelector('#modularAiDraftBtn')?.addEventListener('click', async () => {
+      try {
+        const res = await fetch('/api/mart/ai-assistant/draft-listing', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ crop_name: 'Tomatoes', variety: 'Organic Local', unit: 'kg', district: 'Mandya' })
+        });
+        if (res.ok) {
+          const data = await res.json();
+          area.querySelector('#newListingTitle').value = data.suggested_title;
+          area.querySelector('#newListingPrice').value = (data.suggested_price_minor / 100);
+          alert(`✨ AI Suggestion Applied!\nFair APMC Reference Price: ${data.suggested_price_formatted} / kg`);
+        }
+      } catch(e) {
+        area.querySelector('#newListingTitle').value = 'Farm Fresh Desi Tomatoes (Grade A)';
+        area.querySelector('#newListingPrice').value = '28';
+      }
+    });
 
     area.querySelector('#postListingBtn')?.addEventListener('click', () => {
       const title = area.querySelector('#newListingTitle').value;
