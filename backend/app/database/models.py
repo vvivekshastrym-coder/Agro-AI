@@ -977,6 +977,12 @@ class MartListing(Base):
     is_organic_claim = Column(Boolean, default=False, nullable=False)
     claim_reviewed = Column(Boolean, default=False, nullable=False)
     photos = Column(JSON, default=list, nullable=False)
+
+    # Differentiating Features: Trust Passport lot & Surplus Rescue
+    batch_number = Column(String(50), nullable=True) # Trust Passport lot reference
+    is_surplus = Column(Boolean, default=False, nullable=False) # Surplus Rescue offer
+    surplus_discount_percent = Column(Float, default=0.0, nullable=False)
+    surplus_valid_until = Column(DateTime(timezone=True), nullable=True)
     
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
@@ -1103,4 +1109,55 @@ class MartHarvestDemand(Base):
     offer = relationship('MartHarvestOffer', back_populates='demands')
 
 
+class MartProductReview(Base):
+    """Genuine verified post-purchase customer review (requires completed order)."""
+    __tablename__ = 'mart_product_reviews'
 
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    order_id = Column(String, ForeignKey('mart_orders.id', ondelete='CASCADE'), nullable=False, index=True)
+    listing_id = Column(String, ForeignKey('mart_listings.id', ondelete='CASCADE'), nullable=False, index=True)
+    customer_id = Column(String, ForeignKey('users.id', ondelete='CASCADE'), nullable=False, index=True)
+    seller_id = Column(String, ForeignKey('mart_seller_profiles.id', ondelete='CASCADE'), nullable=False, index=True)
+    rating = Column(Integer, nullable=False) # 1 to 5 stars
+    comment = Column(Text, nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    order = relationship('MartOrder')
+    listing = relationship('MartListing')
+    customer = relationship('User')
+    seller = relationship('MartSellerProfile')
+
+
+class MartSavedItem(Base):
+    """Customer saved products / favorites wishlist."""
+    __tablename__ = 'mart_saved_items'
+
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    user_id = Column(String, ForeignKey('users.id', ondelete='CASCADE'), nullable=False, index=True)
+    listing_id = Column(String, ForeignKey('mart_listings.id', ondelete='CASCADE'), nullable=False, index=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    listing = relationship('MartListing')
+    user = relationship('User')
+
+
+class MartBulkBuyingGroup(Base):
+    """Community Bulk Buying: pooled neighborhood demand to unlock farm discounts."""
+    __tablename__ = 'mart_bulk_buying_groups'
+
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    seller_id = Column(String, ForeignKey('mart_seller_profiles.id', ondelete='CASCADE'), nullable=False, index=True)
+    catalog_item_id = Column(String, ForeignKey('mart_catalog_items.id'), nullable=False)
+    title = Column(String(150), nullable=False)
+    target_pincode = Column(String(10), nullable=False, index=True)
+    min_threshold_qty = Column(Float, nullable=False) # e.g. 50 kg
+    current_committed_qty = Column(Float, default=0.0, nullable=False)
+    unit = Column(String(20), default='kg')
+    regular_price_minor = Column(Integer, nullable=False)
+    group_price_minor = Column(Integer, nullable=False)
+    status = Column(String(30), default='ACTIVE') # ACTIVE, THRESHOLD_MET, CLOSED, CANCELLED
+    expires_at = Column(DateTime(timezone=True), nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    seller = relationship('MartSellerProfile')
+    catalog_item = relationship('MartCatalogItem')

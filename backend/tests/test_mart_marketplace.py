@@ -290,3 +290,144 @@ def test_waitlist_records_unserved_pincode():
     assert entry is not None
     assert entry.district == "Dharwad"
     db.close()
+
+
+def test_trust_passport_and_evidence():
+    """Agro AI Trust Passport returns verified facts vs seller claims."""
+    db = SessionLocal()
+    s_id = str(uuid.uuid4())
+    seller = MartSellerProfile(id=s_id, user_id=str(uuid.uuid4()), farm_name="Green Organic Valley", contact_phone="9111111111", state="Karnataka", district="Mandya", village="Shivalli", status="APPROVED", phone_verified=True, staff_call_completed=True, proof_type="RTC Land Record")
+    l_id = str(uuid.uuid4())
+    listing = MartListing(id=l_id, seller_id=s_id, catalog_item_id="itm_tomato", title="Organic Tomatoes", price_minor=3500, unit="kg", stock_quantity=50.0, harvest_date="2026-10-16", status="APPROVED", is_organic_claim=True, claim_reviewed=True, batch_number="LOT-MANDYA-01")
+    db.add_all([seller, listing])
+    db.commit()
+    db.close()
+
+    res = client.get(f"/api/mart/listings/{l_id}/trust-passport")
+    assert res.status_code == 200
+    passport = res.json()
+    assert passport["lot_batch_id"] == "LOT-MANDYA-01"
+    assert passport["farm_name"] == "Green Organic Valley"
+    assert len(passport["verified_facts"]) >= 3
+    assert any(f["title"] == "Organic Cultivation" and f["status"] == "VERIFIED" for f in passport["verified_facts"])
+
+
+def test_ai_listing_assistant():
+    """AI Listing Assistant provides structured draft and pricing guidance."""
+    farmer_auth = auth("farmer_suresh")
+    res = client.post("/api/mart/ai-assistant/draft-listing", headers=farmer_auth, json={
+        "crop_name": "Tomato",
+        "variety": "Desi Vaishali",
+        "harvest_notes": "Sun-ripened, organic compost fed",
+        "quantity": 100.0,
+        "unit": "kg"
+    })
+    assert res.status_code == 200
+    data = res.json()
+    assert "Tomato" in data["suggested_title"]
+    assert "Desi Vaishali" in data["suggested_title"]
+    assert data["suggested_price_minor"] > 0
+    assert "AI suggestions are guidelines" in data["disclaimer"]
+
+
+def test_surplus_rescue_and_harvest_circle():
+    """Surplus Rescue offers and Harvest Circle pre-order demand pooling."""
+    db = SessionLocal()
+    f_user_id = str(uuid.uuid4())
+    s_id = str(uuid.uuid4())
+    seller = MartSellerProfile(id=s_id, user_id=f_user_id, farm_name="Cauvery River Orchards", contact_phone="9222222222", state="Karnataka", district="Mandya", village="Srirangapatna", status="APPROVED", service_pincodes=["571401", "560001"])
+    l_id = str(uuid.uuid4())
+    listing = MartListing(id=l_id, seller_id=s_id, catalog_item_id="itm_papaya", title="Surplus Papaya", price_minor=4000, unit="kg", stock_quantity=80.0, harvest_date="2026-10-16", status="APPROVED", is_surplus=True, surplus_discount_percent=25.0)
+    db.add_all([seller, listing])
+    db.commit()
+    db.close()
+
+    farmer_auth = auth(f_user_id)
+
+    # 1. Query Surplus Rescue
+    surplus_res = client.get("/api/mart/surplus-rescue?pincode=571401")
+    assert surplus_res.status_code == 200
+    surplus_items = surplus_res.json()
+    assert len(surplus_items) >= 1
+    assert any(item["id"] == l_id and item["discount_percent"] == 25.0 for item in surplus_items)
+
+    # 2. Farmer announces Harvest Circle offer
+    offer_res = client.post("/api/mart/seller/harvest-circle/offers", headers=farmer_auth, json={
+        "crop_name": "Organic Robusta Bananas",
+        "catalog_item_id": "itm_banana",
+        "estimated_quantity": 250.0,
+        "unit": "kg",
+        "target_harvest_start": "2026-10-25",
+        "target_harvest_end": "2026-10-28",
+        "proposed_price_minor": 3000,
+        "min_demand_threshold": 50.0,
+        "service_pincodes": ["571401"]
+    })
+    assert offer_res.status_code == 200
+    offer_id = offer_res.json()["id"]
+
+    # 3. Customer joins Harvest Circle and pledges 30 kg demand
+    demand_res = client.post("/api/mart/harvest-circle/demand", json={
+        "offer_id": offer_id,
+        "quantity": 30.0,
+        "contact_phone": "9876543210",
+        "pincode": "571401",
+        "notes": "Near Mandya Bus Stand"
+    })
+    assert demand_res.status_code == 200
+    assert demand_res.json()["committed_total"] == 30.0
+
+    # 4. Another customer pledges 25 kg (crosses 50 kg threshold)
+    demand_res2 = client.post("/api/mart/harvest-circle/demand", json={
+        "offer_id": offer_id,
+        "quantity": 25.0,
+        "contact_phone": "9876543211",
+        "pincode": "571401"
+    })
+    assert demand_res2.status_code == 200
+    assert demand_res2.json()["threshold_met"] is True
+
+
+def test_verified_reviews_and_saved_items():
+    """Genuine reviews requires completed order; saved items wishlist works."""
+    db = SessionLocal()
+    cust_id = str(uuid.uuid4())
+    s_id = str(uuid.uuid4())
+    seller = MartSellerProfile(id=s_id, user_id=str(uuid.uuid4()), farm_name="Mandya Greens", contact_phone="9333333333", state="Karnataka", district="Mandya", village="Mandya", status="APPROVED")
+    l_id = str(uuid.uuid4())
+    listing = MartListing(id=l_id, seller_id=s_id, catalog_item_id="itm_spinach", title="Fresh Palak", price_minor=2000, unit="bunch", stock_quantity=30.0, harvest_date="2026-10-16", status="APPROVED")
+    o_id = str(uuid.uuid4())
+    order = MartOrder(id=o_id, order_number="ORD-REV-1", customer_id=cust_id, seller_id=s_id, status="COMPLETED", fulfilment_type="DELIVERY", delivery_address={"line": "Mandya"}, delivery_pincode="571401", subtotal_minor=2000, delivery_fee_minor=2500, total_minor=4500)
+    item = MartOrderItem(id=str(uuid.uuid4()), order_id=o_id, listing_id=l_id, item_title="Fresh Palak", unit="bunch", unit_price_minor=2000, quantity=1.0, total_minor=2000)
+    db.add_all([seller, listing, order, item])
+    db.commit()
+    db.close()
+
+    cust_auth = auth(cust_id)
+
+    # 1. Post genuine review
+    rev_res = client.post(f"/api/mart/orders/{o_id}/reviews", headers=cust_auth, json={
+        "listing_id": l_id,
+        "rating": 5,
+        "comment": "Crisp, ultra-fresh palak delivered in 3 hours!"
+    })
+    assert rev_res.status_code == 200
+    assert "verified customer review" in rev_res.json()["message"]
+
+    # 2. Get reviews for listing
+    get_rev = client.get(f"/api/mart/listings/{l_id}/reviews")
+    assert get_rev.status_code == 200
+    revs = get_rev.json()
+    assert len(revs) == 1
+    assert revs[0]["rating"] == 5
+
+    # 3. Save to favorites & remove
+    save_res = client.post(f"/api/mart/saved/{l_id}", headers=cust_auth)
+    assert save_res.status_code == 200
+
+    saved_list = client.get("/api/mart/saved", headers=cust_auth).json()
+    assert len(saved_list) == 1
+    assert saved_list[0]["listing_id"] == l_id
+
+    del_res = client.delete(f"/api/mart/saved/{l_id}", headers=cust_auth)
+    assert del_res.status_code == 200
