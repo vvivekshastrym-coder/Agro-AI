@@ -82,7 +82,7 @@ def test_priv001_privacy_and_delete_account_pages_served():
 
     dl_res = client.get("/download-app")
     assert dl_res.status_code == 200
-    assert "Install Agro AI on Your Mobile Phone" in dl_res.text
+    assert "Test Agro AI on Your Mobile Device" in dl_res.text
 
 
 def test_priv001_in_app_account_deletion_cascades_and_revokes_access():

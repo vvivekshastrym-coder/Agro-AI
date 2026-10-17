@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Download Agro AI Android APK (v2.4.0)</title>
+  <title>Test Agro AI on Your Mobile Device (Live App + APK)</title>
   <style>
     :root {
       --bg: #FFF8EC;
@@ -23,7 +23,7 @@
       padding: 24px 16px;
     }
     .container {
-      max-width: 720px;
+      max-width: 860px;
       margin: 0 auto;
       background: var(--card);
       border: 1px solid var(--border);
@@ -47,34 +47,61 @@
       font-size: 28px;
     }
     p { color: var(--muted); line-height: 1.6; }
-    .grid {
+    .cards {
       display: grid;
-      grid-template-columns: 1fr 220px;
-      gap: 24px;
-      align-items: center;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
       margin: 24px 0;
-      padding: 20px;
-      background: #f8fafc;
-      border-radius: 16px;
-      border: 1px solid var(--border);
     }
-    @media (max-width: 640px) {
-      .grid { grid-template-columns: 1fr; text-align: center; }
+    @media (max-width: 720px) {
+      .cards { grid-template-columns: 1fr; }
+    }
+    .option-card {
+      background: #f8fafc;
+      border: 2px solid var(--border);
+      border-radius: 16px;
+      padding: 22px;
+      text-align: center;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+    }
+    .option-card.primary {
+      border-color: var(--green);
+      background: #f0fdf4;
+    }
+    .option-card h2 {
+      margin: 0 0 8px 0;
+      font-size: 20px;
+      color: var(--green);
+    }
+    .qr-box {
+      background: #fff;
+      padding: 14px;
+      border-radius: 14px;
+      border: 1px solid var(--border);
+      display: inline-block;
+      margin: 14px auto;
+    }
+    .qr-box img {
+      width: 190px;
+      height: 190px;
+      display: block;
     }
     .btn {
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      gap: 10px;
+      gap: 8px;
       width: 100%;
-      padding: 15px 20px;
+      padding: 14px 18px;
       background: var(--green);
       color: #fff;
       font-weight: 700;
-      font-size: 16px;
+      font-size: 15px;
       border-radius: 12px;
       text-decoration: none;
-      margin-bottom: 12px;
+      margin-top: 8px;
       transition: background 0.15s;
     }
     .btn:hover { background: var(--green-dark); }
@@ -84,72 +111,69 @@
       border: 2px solid var(--green);
     }
     .btn-secondary:hover { background: #f0fdf4; }
-    .qr-box {
-      background: #fff;
-      padding: 14px;
-      border-radius: 14px;
-      border: 1px solid var(--border);
-      text-align: center;
-    }
-    .qr-box img {
-      width: 180px;
-      height: 180px;
-      display: block;
-      margin: 0 auto 8px auto;
-    }
-    .meta {
-      font-size: 13px;
-      color: var(--muted);
-      background: #fefce8;
-      border: 1px solid #fde047;
-      padding: 14px 16px;
-      border-radius: 12px;
-    }
     code {
-      background: #f1f5f9;
-      padding: 2px 6px;
+      background: #e2e8f0;
+      padding: 3px 7px;
       border-radius: 6px;
       font-size: 13px;
+      word-break: break-all;
     }
   </style>
 </head>
 <body>
   <div class="container">
-    <span class="badge">ANDROID 16 (API 36) READY • SIGNED RELEASE v2.4.0</span>
-    <h1>📲 Install Agro AI on Your Mobile Phone</h1>
-    <p>Scan the QR code below with your Android phone camera, or tap either download button to install the signed <strong>Agro AI v2.4.0 APK</strong> (4.4 MB) directly on your device for testing.</p>
+    <span class="badge">LIVE MOBILE DEVICE TESTING • ANDROID 16 (API 36) + HTTPS TUNNEL</span>
+    <h1>📲 Test Agro AI on Your Mobile Device</h1>
+    <p>Choose either option below to test Agro AI on your phone right now:</p>
 
-    <div class="grid">
-      <div>
-        <a class="btn" href="https://github.com/vvivekshastrym-coder/Agro-AI/releases/download/v2.4.0/AgroAI-Release.apk">
-          ⬇️ Download APK (Global Cloud Link — Works Anywhere)
-        </a>
-        <a class="btn btn-secondary" href="/api/mobile/download-apk">
-          ⚡ Download APK from Local Server (4.4 MB)
-        </a>
-        <p style="font-size: 13px; margin: 8px 0 0 0;">
-          <strong>Package ID:</strong> <code>com.agroai.kisan</code> &bull;
-          <strong>Version:</strong> <code>2.4.0 (240)</code> &bull;
-          <strong>Target SDK:</strong> <code>API 36</code>
-        </p>
+    <div class="cards">
+      <!-- Option 1: Live Mobile App (HTTPS Tunnel + Local Wi-Fi) -->
+      <div class="option-card primary">
+        <div>
+          <h2>1️⃣ Open Live App Instantly (4G / 5G / Wi-Fi)</h2>
+          <p style="font-size: 14px;">Scan with your phone camera to open the live Agro AI app connected directly to your backend database, Crop Doctor camera, Mart, and AgroGPT.</p>
+          <div class="qr-box">
+            <img src="https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=https%3A%2F%2F17d2ed7f8d4eba.lhr.life" alt="QR Code for Live Mobile App" />
+          </div>
+          <p style="font-size: 12px; margin: 4px 0;">
+            Global HTTPS Link:<br/>
+            <code>https://17d2ed7f8d4eba.lhr.life</code><br/>
+            Same Wi-Fi Link:<br/>
+            <code>http://192.168.31.86:8080</code>
+          </p>
+        </div>
+        <div>
+          <a class="btn" href="https://17d2ed7f8d4eba.lhr.life" target="_blank">
+            🌐 Open Live Mobile URL
+          </a>
+        </div>
       </div>
-      <div class="qr-box">
-        <img src="https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=https%3A%2F%2Fgithub.com%2Fvvivekshastrym-coder%2FAgro-AI%2Freleases%2Fdownload%2Fv2.4.0%2FAgroAI-Release.apk" alt="QR Code to Download Agro AI APK" />
-        <span style="font-size: 12px; font-weight: 600; color: var(--green);">Scan with Phone Camera</span>
+
+      <!-- Option 2: Native Android APK Download -->
+      <div class="option-card">
+        <div>
+          <h2>2️⃣ Install Signed Android APK (v2.4.0)</h2>
+          <p style="font-size: 14px;">Scan to download and install the native signed Android package (<code>com.agroai.kisan</code>, 4.4 MB) directly onto your Android phone.</p>
+          <div class="qr-box">
+            <img src="https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=https%3A%2F%2Fgithub.com%2Fvvivekshastrym-coder%2FAgro-AI%2Freleases%2Fdownload%2Fv2.4.0%2FAgroAI-Release.apk" alt="QR Code to Download Agro AI APK" />
+          </div>
+          <p style="font-size: 12px; margin: 4px 0;">
+            Package: <code>com.agroai.kisan</code> &bull; Target SDK: <code>36</code>
+          </p>
+        </div>
+        <div>
+          <a class="btn" href="https://github.com/vvivekshastrym-coder/Agro-AI/releases/download/v2.4.0/AgroAI-Release.apk">
+            ⬇️ Download Signed APK (Cloud)
+          </a>
+          <a class="btn btn-secondary" href="/api/mobile/download-apk">
+            ⚡ Download APK (Local Server)
+          </a>
+        </div>
       </div>
     </div>
 
-    <div class="meta">
-      <strong>How to install on Android for testing:</strong>
-      <ol style="margin: 8px 0 0 0; padding-left: 20px;">
-        <li>Scan the QR code above on your phone (or open <code>https://github.com/vvivekshastrym-coder/Agro-AI/releases/download/v2.4.0/AgroAI-Release.apk</code>).</li>
-        <li>Open the downloaded <code>AgroAI-Release.apk</code> file.</li>
-        <li>If prompted by Android, tap <strong>Settings &rarr; Allow from this source</strong> and tap <strong>Install</strong>.</li>
-      </ol>
-    </div>
-
-    <p style="margin-top: 20px; font-size: 14px;">
-      <a href="/" style="color: var(--green); font-weight: 600;">&larr; Back to Agro AI Web App</a> &nbsp;|&nbsp;
+    <p style="margin-top: 16px; font-size: 14px;">
+      <a href="/" style="color: var(--green); font-weight: 600;">&larr; Back to Agro AI App</a> &nbsp;|&nbsp;
       <a href="/privacy" style="color: var(--green);">Privacy Policy</a> &nbsp;|&nbsp;
       <a href="/delete-account" style="color: var(--green);">Delete Account Portal</a>
     </p>
