@@ -7,7 +7,7 @@
 
   const SUPABASE_URL = 'https://eziigoiirqdsgimfkquv.supabase.co';
   const SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_fDc46mh4MukSCabbBpeVMA_KqtWdOee';
-  const GOOGLE_CLIENT_ID = '390368260977-87pg849eb5975glaikekhr9s4rlus4e2.apps.googleusercontent.com';
+  const GOOGLE_CLIENT_ID = '390368260977-5qvu1738tqdf26fprobcdrg9jbvs2e3s.apps.googleusercontent.com';
 
   let client = null;
   let gsiInitialized = false;

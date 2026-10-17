@@ -18,8 +18,13 @@ _google_jwks_client: Optional[PyJWKClient] = None
 GUEST_SESSION_SECRET = os.getenv("SERVER_SESSION_SECRET", "agro_ai_internal_guest_secret_key_2026_xyz").strip()
 GOOGLE_CLIENT_ID = os.getenv(
     "GOOGLE_CLIENT_ID",
-    "390368260977-87pg849eb5975glaikekhr9s4rlus4e2.apps.googleusercontent.com",
+    "390368260977-5qvu1738tqdf26fprobcdrg9jbvs2e3s.apps.googleusercontent.com",
 ).strip()
+ALLOWED_GOOGLE_CLIENT_IDS = list({
+    GOOGLE_CLIENT_ID,
+    "390368260977-5qvu1738tqdf26fprobcdrg9jbvs2e3s.apps.googleusercontent.com",
+    "390368260977-87pg849eb5975glaikekhr9s4rlus4e2.apps.googleusercontent.com",
+})
 
 
 def _unauthorized(code: str, message: str) -> HTTPException:
@@ -71,7 +76,7 @@ def verify_supabase_token(token: str) -> dict:
             alg = header.get("alg", "RS256")
             key = _get_google_jwks_client().get_signing_key_from_jwt(token).key
             claims = jwt.decode(
-                token, key, algorithms=[alg], audience=GOOGLE_CLIENT_ID,
+                token, key, algorithms=[alg], audience=ALLOWED_GOOGLE_CLIENT_IDS,
                 options={"require": ["exp", "sub", "aud", "iss"]},
             )
             claims["user_metadata"] = {
