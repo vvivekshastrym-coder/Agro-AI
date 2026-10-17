@@ -480,20 +480,8 @@
     </div>
   </div>
   <script>
-    /* Mobile Native APK Bridge: When running inside Capacitor Android/iOS (https://localhost),
-       route relative /api/ calls to the configured backend server URL automatically. */
+    /* Failsafe: the splash must never block the app, even if a later script fails to load or errors. */
     (function(){
-      var isCap = Boolean(window.Capacitor) || (window.location.protocol === 'https:' && window.location.hostname === 'localhost' && !window.location.port);
-      if (isCap && typeof window.fetch === 'function') {
-        var origFetch = window.fetch.bind(window);
-        window.fetch = function(input, init) {
-          var base = (localStorage.getItem('agro_api_base') || 'https://17d2ed7f8d4eba.lhr.life').replace(/\/+$/, '');
-          if (typeof input === 'string' && input.indexOf('/api/') === 0) {
-            input = base + input;
-          }
-          return origFetch(input, init);
-        };
-      }
       function forceHide(){
         var s = document.getElementById('splashScreen');
         if(s && !s.classList.contains('splash-hide')){
@@ -520,7 +508,6 @@
     <div style="display:flex;gap:6px;align-items:center;">
       <button class="lang-btn" onclick="go('mart')" style="background:#15803d;border-color:#15803d;color:#fff;font-weight:700;" id="topMartBtn" title="Agro AI Mart">🏪 Mart</button>
       <button class="lang-btn" onclick="go('mart-seller')" style="background:#0284c7;border-color:#0284c7;color:#fff;font-weight:600;" id="topSellerBtn" title="Farmer Storefront">🚜 Sell</button>
-      <a class="lang-btn" href="/download-app" style="background:#7c3aed;border-color:#7c3aed;color:#fff;font-weight:700;text-decoration:none;" id="topMobileApkBtn" title="Test on Mobile Phone / Download APK">📲 Mobile App</a>
       <button class="lang-btn" onclick="go('plans')" style="background:var(--sand);border-color:var(--sand-dark);font-weight:600;" id="topPlansBtn" title="Subscription Plans">💎 Plans</button>
       <button class="lang-btn" onclick="openLangModal()">🌐 <span id="topLangLabel">EN</span></button>
       <button class="lang-btn" onclick="go('account')" style="padding:7px 10px;" id="topAcctBtn" title="Account">👤</button>

@@ -71,7 +71,7 @@ def test_sec001_security_headers_present():
 
 
 def test_priv001_privacy_and_delete_account_pages_served():
-    """Verify public /privacy, /delete-account, and /download-app routes."""
+    """Verify public /privacy and /delete-account routes required by Google Play and App Store."""
     priv_res = client.get("/privacy")
     assert priv_res.status_code == 200
     assert "Privacy Policy" in priv_res.text
@@ -79,10 +79,6 @@ def test_priv001_privacy_and_delete_account_pages_served():
     del_res = client.get("/delete-account")
     assert del_res.status_code == 200
     assert "Delete Your Agro AI Account" in del_res.text
-
-    dl_res = client.get("/download-app")
-    assert dl_res.status_code == 200
-    assert "Test Agro AI on Your Mobile Device" in dl_res.text
 
 
 def test_priv001_in_app_account_deletion_cascades_and_revokes_access():
