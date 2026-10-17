@@ -1,0 +1,77 @@
+name: Build Android App Bundle (.aab) & APK for Google Play Store
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  build-android:
+    name: Build Signed Play Store AAB & APK
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Set up JDK 21 (Required for Capacitor 8 / Android Gradle)
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+
+      - name: Install Dependencies
+        run: npm install --legacy-peer-deps
+
+      - name: Package Web Assets & Sync Capacitor Android
+        run: |
+          node scripts/prepare-mobile-dist.mjs
+          if [ ! -d "android" ]; then
+            npx cap add android
+          fi
+          npx cap sync android
+
+      - name: Generate Upload Keystore for Google Play Store Signing
+        run: |
+          keytool -genkeypair -v \
+            -keystore android/app/agroai-upload-key.jks \
+            -keyalg RSA -keysize 2048 -validity 10000 \
+            -alias agroai-key \
+            -storepass AgroAI2026! \
+            -keypass AgroAI2026! \
+            -dname "CN=Agro AI, OU=Mobile, O=AgroAI, L=Bengaluru, S=Karnataka, C=IN"
+
+      - name: Build Signed Release AAB & Release APK
+        working-directory: android
+        run: |
+          chmod +x gradlew
+          ./gradlew bundleRelease assembleRelease
+
+      - name: Collect Build Artifacts
+        run: |
+          AAB_PATH=$(find android/app/build/outputs/bundle/release -name "*.aab" | head -n 1)
+          cp "$AAB_PATH" AgroAI-PlayStore-Release.aab
+          APK_PATH=$(find android/app/build/outputs/apk/release -name "*.apk" | head -n 1)
+          cp "$APK_PATH" AgroAI-Release.apk
+
+      - name: Upload Google Play Store Bundle (.aab) & Keystore
+        uses: actions/upload-artifact@v4
+        with:
+          name: AgroAI-Google-Play-Store-Bundle-AAB
+          path: |
+            AgroAI-PlayStore-Release.aab
+            android/app/agroai-upload-key.jks
+          retention-days: 90
+
+      - name: Upload Android Direct Installer (.apk)
+        uses: actions/upload-artifact@v4
+        with:
+          name: AgroAI-Android-APK
+          path: AgroAI-Release.apk
+          retention-days: 90

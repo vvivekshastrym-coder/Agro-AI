@@ -7,6 +7,9 @@
     "build": "vite build",
     "start": "nitro start",
     "preview": "vite preview",
+    "mobile:prepare": "node scripts/prepare-mobile-dist.mjs",
+    "mobile:sync": "node scripts/prepare-mobile-dist.mjs && npx cap sync android",
+    "mobile:open": "npx cap open android",
     "postinstall": "prisma skills sync || exit 0"
   },
   "dependencies": {

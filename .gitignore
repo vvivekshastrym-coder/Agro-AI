@@ -33,3 +33,14 @@ yarn-error.log*
 .idea/
 .DS_Store
 Thumbs.db
+
+# Mobile & Capacitor build outputs
+dist/
+android/app/src/main/assets/public/
+android/.gradle/
+android/build/
+android/app/build/
+*.jks
+*.aab
+*.apk
+
