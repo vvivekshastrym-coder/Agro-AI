@@ -113,11 +113,11 @@ class SurplusDeclareRequest(BaseModel):
 
 class HarvestOfferCreateRequest(BaseModel):
     crop_name: str
-    catalog_item_id: str
+    catalog_item_id: Optional[str] = "itm_tomato"
     estimated_quantity: float = Field(..., gt=0)
     unit: str = "kg"
     target_harvest_start: str
-    target_harvest_end: str
+    target_harvest_end: Optional[str] = None
     proposed_price_minor: int = Field(..., gt=0)
     min_demand_threshold: float = Field(default=10.0, gt=0)
     service_pincodes: List[str] = Field(default_factory=list)
@@ -125,154 +125,350 @@ class HarvestOfferCreateRequest(BaseModel):
 
 
 class HarvestDemandCreateRequest(BaseModel):
-    offer_id: str
+    offer_id: Optional[str] = None
+    harvest_offer_id: Optional[str] = None
     quantity: float = Field(..., gt=0)
-    contact_phone: str = Field(..., min_length=10, max_length=15)
-    pincode: str = Field(..., min_length=6, max_length=10)
+    contact_phone: Optional[str] = "9999999999"
+    pincode: Optional[str] = None
+    delivery_pincode: Optional[str] = None
     notes: Optional[str] = None
 
 
 # ─── SEED REFERENCE CATALOG ON FIRST RUN ───────────────────────
 
 def seed_default_mart_catalog_if_empty(db: Session):
-    """Populates authoritative produce categories and items if tables are fresh."""
+    """Populates authoritative produce categories, catalog items, and initial pilot farm listings."""
     cat_count = db.query(MartCategory).count()
-    if cat_count > 0:
-        return
+    today_str = datetime.date.today().isoformat()
 
-    logger.info("[Mart] Initializing default produce categories and reference items...")
+    if cat_count == 0:
+        logger.info("[Mart] Initializing default produce categories and reference items...")
 
-    categories = [
-        MartCategory(
-            id="cat_veg",
-            slug="vegetables",
-            name_en="Fresh Vegetables",
-            name_hi="ताजी सब्जियां",
-            name_kn="ತಾಜಾ ತರಕಾರಿಗಳು",
-            icon="🥬",
-            sort_order=1
-        ),
-        MartCategory(
-            id="cat_leafy",
-            slug="leafy-greens",
-            name_en="Leafy Greens",
-            name_hi="हरी पत्तेदार सब्जियां",
-            name_kn="ಸೊಪ್ಪುಗಳು",
-            icon="🌿",
-            sort_order=2
-        ),
-        MartCategory(
-            id="cat_fruits",
-            slug="fruits",
-            name_en="Fresh Fruits",
-            name_hi="ताजे फल",
-            name_kn="ತಾಜಾ ಹಣ್ಣುಗಳು",
-            icon="🍎",
-            sort_order=3
-        ),
-    ]
-    for c in categories:
-        db.add(c)
-    db.flush()
+        categories = [
+            MartCategory(
+                id="cat_veg",
+                slug="vegetables",
+                name_en="Fresh Vegetables",
+                name_hi="ताजी सब्जियां",
+                name_kn="ತಾಜಾ ತರಕಾರಿಗಳು",
+                icon="🥬",
+                sort_order=1
+            ),
+            MartCategory(
+                id="cat_leafy",
+                slug="leafy-greens",
+                name_en="Leafy Greens",
+                name_hi="हरी पत्तेदार सब्जियां",
+                name_kn="ಸೊಪ್ಪುಗಳು",
+                icon="🌿",
+                sort_order=2
+            ),
+            MartCategory(
+                id="cat_fruits",
+                slug="fruits",
+                name_en="Fresh Fruits",
+                name_hi="ताजे फल",
+                name_kn="ತಾಜಾ ಹಣ್ಣುಗಳು",
+                icon="🍎",
+                sort_order=3
+            ),
+            MartCategory(
+                id="cat_herbs",
+                slug="herbs",
+                name_en="Herbs & Spices",
+                name_hi="जड़ी-बूटियां और मसाले",
+                name_kn="ಗಿಡಮೂಲಿಕೆಗಳು ಮತ್ತು ಮಸಾಲೆ",
+                icon="🌱",
+                sort_order=4
+            ),
+        ]
+        for c in categories:
+            db.add(c)
+        db.flush()
 
-    items = [
-        # Vegetables
-        MartCatalogItem(
-            id="itm_tomato", category_id="cat_veg", slug="tomato",
-            name_en="Tomato", name_hi="टमाटर", name_kn="ಟೊಮೆಟೊ",
-            allowed_units=["kg", "500g"]
-        ),
-        MartCatalogItem(
-            id="itm_onion", category_id="cat_veg", slug="onion",
-            name_en="Onion", name_hi="प्याज", name_kn="ಈರುಳ್ಳಿ",
-            allowed_units=["kg", "500g"]
-        ),
-        MartCatalogItem(
-            id="itm_potato", category_id="cat_veg", slug="potato",
-            name_en="Potato", name_hi="आलू", name_kn="ಆಲೂಗಡ್ಡೆ",
-            allowed_units=["kg", "500g"]
-        ),
-        MartCatalogItem(
-            id="itm_carrot", category_id="cat_veg", slug="carrot",
-            name_en="Carrot", name_hi="गाजर", name_kn="ಕ್ಯಾರೆಟ್",
-            allowed_units=["kg", "500g"]
-        ),
-        MartCatalogItem(
-            id="itm_beans", category_id="cat_veg", slug="beans",
-            name_en="French Beans", name_hi="बीन्स", name_kn="ಹುರುಳಿಕಾಯಿ",
-            allowed_units=["kg", "500g"]
-        ),
-        # Leafy Greens
-        MartCatalogItem(
-            id="itm_spinach", category_id="cat_leafy", slug="spinach",
-            name_en="Palak (Spinach)", name_hi="पालक", name_kn="ಪಾಲಕ್ ಸೊಪ್ಪು",
-            allowed_units=["bunch", "kg", "500g"]
-        ),
-        MartCatalogItem(
-            id="itm_coriander", category_id="cat_leafy", slug="coriander",
-            name_en="Coriander Leaves", name_hi="धनिया", name_kn="ಕೊತ್ತಂಬರಿ ಸೊಪ್ಪು",
-            allowed_units=["bunch", "kg"]
-        ),
-        MartCatalogItem(
-            id="itm_methi", category_id="cat_leafy", slug="fenugreek",
-            name_en="Methi (Fenugreek)", name_hi="मेथी", name_kn="ಮೆಂತ್ಯ ಸೊಪ್ಪು",
-            allowed_units=["bunch", "kg"]
-        ),
-        # Fruits
-        MartCatalogItem(
-            id="itm_banana", category_id="cat_fruits", slug="banana",
-            name_en="Banana (Robusta / Yelakki)", name_hi="केला", name_kn="ಬಾಳೆಹಣ್ಣು",
-            allowed_units=["dozen", "kg"]
-        ),
-        MartCatalogItem(
-            id="itm_pomegranate", category_id="cat_fruits", slug="pomegranate",
-            name_en="Pomegranate", name_hi="अनार", name_kn="ದಾಳಿಂಬೆ",
-            allowed_units=["kg", "500g"]
-        ),
-        MartCatalogItem(
-            id="itm_papaya", category_id="cat_fruits", slug="papaya",
-            name_en="Papaya", name_hi="पपीता", name_kn="ಪಪ್ಪಾಯಿ",
-            allowed_units=["piece", "kg"]
-        ),
-    ]
-    for it in items:
-        db.add(it)
+        items = [
+            # Vegetables
+            MartCatalogItem(
+                id="itm_tomato", category_id="cat_veg", slug="tomato",
+                name_en="Tomato", name_hi="टमाटर", name_kn="ಟೊಮೆಟೊ",
+                allowed_units=["kg", "500g"]
+            ),
+            MartCatalogItem(
+                id="itm_onion", category_id="cat_veg", slug="onion",
+                name_en="Onion", name_hi="प्याज", name_kn="ಈರುಳ್ಳಿ",
+                allowed_units=["kg", "500g"]
+            ),
+            MartCatalogItem(
+                id="itm_potato", category_id="cat_veg", slug="potato",
+                name_en="Potato", name_hi="आलू", name_kn="ಆಲೂಗಡ್ಡೆ",
+                allowed_units=["kg", "500g"]
+            ),
+            MartCatalogItem(
+                id="itm_carrot", category_id="cat_veg", slug="carrot",
+                name_en="Carrot", name_hi="गाजर", name_kn="ಕ್ಯಾರೆಟ್",
+                allowed_units=["kg", "500g"]
+            ),
+            MartCatalogItem(
+                id="itm_beans", category_id="cat_veg", slug="beans",
+                name_en="French Beans", name_hi="बीन्स", name_kn="ಹುರುಳಿಕಾಯಿ",
+                allowed_units=["kg", "500g"]
+            ),
+            # Leafy Greens
+            MartCatalogItem(
+                id="itm_spinach", category_id="cat_leafy", slug="spinach",
+                name_en="Palak (Spinach)", name_hi="पालक", name_kn="ಪಾಲಕ್ ಸೊಪ್ಪು",
+                allowed_units=["bunch", "kg", "500g"]
+            ),
+            MartCatalogItem(
+                id="itm_coriander", category_id="cat_leafy", slug="coriander",
+                name_en="Coriander Leaves", name_hi="धनिया", name_kn="ಕೊತ್ತಂಬರಿ ಸೊಪ್ಪು",
+                allowed_units=["bunch", "kg"]
+            ),
+            MartCatalogItem(
+                id="itm_methi", category_id="cat_leafy", slug="fenugreek",
+                name_en="Methi (Fenugreek)", name_hi="मेथी", name_kn="ಮೆಂತ್ಯ ಸೊಪ್ಪು",
+                allowed_units=["bunch", "kg"]
+            ),
+            # Fruits
+            MartCatalogItem(
+                id="itm_banana", category_id="cat_fruits", slug="banana",
+                name_en="Banana (Robusta / Yelakki)", name_hi="केला", name_kn="ಬಾಳೆಹಣ್ಣು",
+                allowed_units=["dozen", "kg"]
+            ),
+            MartCatalogItem(
+                id="itm_pomegranate", category_id="cat_fruits", slug="pomegranate",
+                name_en="Pomegranate", name_hi="अनार", name_kn="ದಾಳಿಂಬೆ",
+                allowed_units=["kg", "500g"]
+            ),
+            MartCatalogItem(
+                id="itm_papaya", category_id="cat_fruits", slug="papaya",
+                name_en="Papaya", name_hi="पपीता", name_kn="ಪಪ್ಪಾಯಿ",
+                allowed_units=["piece", "kg"]
+            ),
+            # Herbs
+            MartCatalogItem(
+                id="itm_chilli", category_id="cat_herbs", slug="green-chilli",
+                name_en="Green Chilli & Curry Leaves", name_hi="हरी मिर्च और करी पत्ता", name_kn="ಹಸಿ ಮೆಣಸಿನಕಾಯಿ ಮತ್ತು ಕರಿಬೇವು",
+                allowed_units=["500g", "bunch", "kg"]
+            ),
+        ]
+        for it in items:
+            db.add(it)
 
-    # Seed Default Pilot Regions
-    default_regions = [
-        MartServiceRegion(
-            id=str(uuid.uuid4()),
-            state="Karnataka",
-            district="Bangalore Urban",
-            pincodes=["560001", "560002", "560004", "560025", "560034", "560076", "560078", "560095", "560100"],
-            is_enabled=True
-        ),
-        MartServiceRegion(
-            id=str(uuid.uuid4()),
+        # Seed Default Pilot Regions
+        default_regions = [
+            MartServiceRegion(
+                id=str(uuid.uuid4()),
+                state="Karnataka",
+                district="Bangalore Urban",
+                pincodes=["560001", "560002", "560004", "560025", "560034", "560076", "560078", "560095", "560100"],
+                is_enabled=True
+            ),
+            MartServiceRegion(
+                id=str(uuid.uuid4()),
+                state="Karnataka",
+                district="Mandya",
+                pincodes=["571401", "571402", "571403", "571404"],
+                is_enabled=True
+            ),
+            MartServiceRegion(
+                id=str(uuid.uuid4()),
+                state="Karnataka",
+                district="Mysore",
+                pincodes=["570001", "570002", "570004", "570008"],
+                is_enabled=True
+            ),
+        ]
+        for r in default_regions:
+            db.add(r)
+
+        db.commit()
+
+    # Ensure cat_herbs exists even on older databases
+    if not db.query(MartCategory).filter(MartCategory.id == "cat_herbs").first():
+        db.add(MartCategory(
+            id="cat_herbs", slug="herbs",
+            name_en="Herbs & Spices", name_hi="जड़ी-बूटियां और मसाले", name_kn="ಗಿಡಮೂಲಿಕೆಗಳು ಮತ್ತು ಮಸಾಲೆ",
+            icon="🌱", sort_order=4
+        ))
+        db.flush()
+    if not db.query(MartCatalogItem).filter(MartCatalogItem.id == "itm_chilli").first():
+        db.add(MartCatalogItem(
+            id="itm_chilli", category_id="cat_herbs", slug="green-chilli",
+            name_en="Green Chilli & Curry Leaves", name_hi="हरी मिर्च और करी पत्ता", name_kn="ಹಸಿ ಮೆಣಸಿನಕಾಯಿ ಮತ್ತು ಕರಿಬೇವು",
+            allowed_units=["500g", "bunch", "kg"]
+        ))
+        db.commit()
+
+    # Seed verified pilot sellers & initial produce listings for pilot PINs (560034, 560001, 571401)
+    if not db.query(MartSellerProfile).filter(MartSellerProfile.id == "pilot_seller_mandya").first():
+        pilot_pins = ["560034", "560001", "560002", "560004", "560025", "560076", "560078", "560095", "560100", "571401", "571402", "570001"]
+        s1 = MartSellerProfile(
+            id="pilot_seller_mandya",
+            user_id="pilot_farmer_shankaregowda",
+            farm_name="Cauvery Natural Farm (Mandya Pilot)",
+            contact_phone="9448011223",
             state="Karnataka",
             district="Mandya",
-            pincodes=["571401", "571402", "571403", "571404"],
-            is_enabled=True
-        ),
-        MartServiceRegion(
-            id=str(uuid.uuid4()),
+            village="Maddur",
+            service_pincodes=pilot_pins,
+            fulfilment_modes=["delivery", "pickup"],
+            status="APPROVED",
+            proof_type="Pahani / RTC (Karnataka)",
+            phone_verified=True,
+            staff_call_completed=True,
+            declaration_cultivates_produce=True
+        )
+        s2 = MartSellerProfile(
+            id="pilot_seller_anekal",
+            user_id="pilot_farmer_lakshmamma",
+            farm_name="Nandi Foothills Greens",
+            contact_phone="9448022334",
             state="Karnataka",
-            district="Mysore",
-            pincodes=["570001", "570002", "570004", "570008"],
-            is_enabled=True
-        ),
-    ]
-    for r in default_regions:
-        db.add(r)
+            district="Bangalore Rural",
+            village="Devanahalli",
+            service_pincodes=pilot_pins,
+            fulfilment_modes=["delivery", "pickup"],
+            status="APPROVED",
+            proof_type="Pahani / RTC (Karnataka)",
+            phone_verified=True,
+            staff_call_completed=True,
+            declaration_cultivates_produce=True
+        )
+        db.add_all([s1, s2])
+        db.flush()
 
-    db.commit()
+        pilot_listings = [
+            MartListing(
+                id="pilot_lst_tomato",
+                seller_id="pilot_seller_mandya",
+                catalog_item_id="itm_tomato",
+                title="Vine-Ripened Desi Tomatoes (Nati)",
+                description="Picked at dawn from Maddur red-loam fields. Naturally tangy, zero wax coating, direct from farmer.",
+                price_minor=3200,
+                unit="kg",
+                min_order_qty=1.0,
+                stock_quantity=65.0,
+                harvest_date=today_str,
+                fulfilment_type="BOTH",
+                status="APPROVED",
+                is_organic_claim=True,
+                claim_reviewed=True,
+                batch_number="LOT-MDY-101"
+            ),
+            MartListing(
+                id="pilot_lst_palak",
+                seller_id="pilot_seller_anekal",
+                catalog_item_id="itm_spinach",
+                title="Hydro-Clean Tender Palak (Spinach)",
+                description="Crisp morning-cut spinach bunches irrigated with borewell water. Washed and bundled at farm gate.",
+                price_minor=2000,
+                unit="bunch",
+                min_order_qty=1.0,
+                stock_quantity=40.0,
+                harvest_date=today_str,
+                fulfilment_type="BOTH",
+                status="APPROVED",
+                is_organic_claim=True,
+                claim_reviewed=True,
+                batch_number="LOT-BLR-204"
+            ),
+            MartListing(
+                id="pilot_lst_banana",
+                seller_id="pilot_seller_mandya",
+                catalog_item_id="itm_banana",
+                title="Mandya Yelakki Bananas (Carbide-Free)",
+                description="Naturally tree-matured sweet Yelakki bananas from Cauvery basin orchards.",
+                price_minor=6500,
+                unit="kg",
+                min_order_qty=1.0,
+                stock_quantity=50.0,
+                harvest_date=today_str,
+                fulfilment_type="BOTH",
+                status="APPROVED",
+                is_organic_claim=False,
+                claim_reviewed=True,
+                batch_number="LOT-MDY-102"
+            ),
+            MartListing(
+                id="pilot_lst_carrot",
+                seller_id="pilot_seller_anekal",
+                catalog_item_id="itm_carrot",
+                title="Sweet Ooty-Variety Farm Carrots",
+                description="Crunchy, recién harvested orange carrots ideal for salads, juicing, and kosambari.",
+                price_minor=4200,
+                unit="kg",
+                min_order_qty=1.0,
+                stock_quantity=45.0,
+                harvest_date=today_str,
+                fulfilment_type="BOTH",
+                status="APPROVED",
+                is_organic_claim=False,
+                claim_reviewed=True,
+                batch_number="LOT-BLR-205"
+            ),
+            MartListing(
+                id="pilot_lst_chilli",
+                seller_id="pilot_seller_anekal",
+                catalog_item_id="itm_chilli",
+                title="Aromatic Curry Leaves & Guntur Green Chilli Pack",
+                description="Freshly snipped organic curry leaf sprigs paired with spicy farm green chillies.",
+                price_minor=1800,
+                unit="bunch",
+                min_order_qty=1.0,
+                stock_quantity=35.0,
+                harvest_date=today_str,
+                fulfilment_type="BOTH",
+                status="APPROVED",
+                is_organic_claim=True,
+                claim_reviewed=True,
+                batch_number="LOT-BLR-206"
+            ),
+            MartListing(
+                id="pilot_lst_papaya_surplus",
+                seller_id="pilot_seller_mandya",
+                catalog_item_id="itm_papaya",
+                title="Red Lady Farm Papaya (Bumper Harvest)",
+                description="Peak-sweetness orchard papayas harvested today — offered on Surplus Rescue to prevent farm gate waste.",
+                price_minor=3600,
+                unit="kg",
+                min_order_qty=1.0,
+                stock_quantity=55.0,
+                harvest_date=today_str,
+                fulfilment_type="BOTH",
+                status="APPROVED",
+                is_surplus=True,
+                surplus_discount_percent=25.0,
+                surplus_valid_until=datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(hours=36),
+                batch_number="LOT-MDY-109"
+            ),
+        ]
+        db.add_all(pilot_listings)
+
+        pilot_offer = MartHarvestOffer(
+            id="pilot_hc_pomegranate",
+            seller_id="pilot_seller_mandya",
+            catalog_item_id="itm_pomegranate",
+            crop_name="Bhagwa Ruby Pomegranates (Orchard Lot)",
+            estimated_quantity=120.0,
+            unit="kg",
+            target_harvest_start=(datetime.date.today() + datetime.timedelta(days=3)).isoformat(),
+            target_harvest_end=(datetime.date.today() + datetime.timedelta(days=5)).isoformat(),
+            proposed_price_minor=9500,
+            min_demand_threshold=40.0,
+            service_pincodes=pilot_pins,
+            status="PROPOSED",
+            notes="Harvesting begins once neighborhood demand reaches 40 kg."
+        )
+        db.add(pilot_offer)
+        db.commit()
 
 
 # ─── PUBLIC CUSTOMER ENDPOINTS ─────────────────────────────────
 
 @router.get("/categories")
 async def get_mart_categories(db: Session = Depends(get_db)):
-    """Returns active produce categories (Vegetables, Fruits, Leafy Greens)."""
+    """Returns active produce categories (Vegetables, Fruits, Leafy Greens, Herbs)."""
     seed_default_mart_catalog_if_empty(db)
     cats = db.query(MartCategory).filter(MartCategory.is_active == True).order_by(MartCategory.sort_order.asc()).all()
     return [
@@ -288,6 +484,7 @@ async def get_mart_categories(db: Session = Depends(get_db)):
 
 
 @router.get("/catalog")
+@router.get("/catalog-items")
 async def get_catalog_items(
     category_slug: Optional[str] = None,
     db: Session = Depends(get_db)
@@ -301,11 +498,14 @@ async def get_catalog_items(
     return [
         {
             "id": it.id,
+            "category_id": it.category_id,
             "category_slug": it.category.slug,
             "slug": it.slug,
             "name_en": it.name_en,
+            "name_english": it.name_en,
             "name_hi": it.name_hi,
             "name_kn": it.name_kn,
+            "name_kannada": it.name_kn,
             "allowed_units": it.allowed_units,
             "image_url": it.image_url
         } for it in items
@@ -330,6 +530,7 @@ async def get_service_regions(db: Session = Depends(get_db)):
 @router.get("/listings")
 async def get_public_listings(
     category: Optional[str] = None,
+    category_id: Optional[str] = None,
     pincode: Optional[str] = None,
     harvested_today: Optional[bool] = None,
     query: Optional[str] = None,
@@ -349,8 +550,24 @@ async def get_public_listings(
         MartSellerProfile.status == "APPROVED"
     )
 
-    if category:
-        q = q.join(MartCatalogItem).join(MartCategory).filter(MartCategory.slug == category)
+    cat_filter = category_id or category
+    if cat_filter and cat_filter != "all":
+        cat_alias_map = {
+            "cat_vegetables": "cat_veg",
+            "cat_veg": "cat_veg",
+            "vegetables": "cat_veg",
+            "cat_leafy_greens": "cat_leafy",
+            "cat_leafy": "cat_leafy",
+            "leafy-greens": "cat_leafy",
+            "cat_fruits": "cat_fruits",
+            "fruits": "cat_fruits",
+            "cat_herbs": "cat_herbs",
+            "herbs": "cat_herbs",
+        }
+        resolved_cat = cat_alias_map.get(cat_filter, cat_filter)
+        q = q.join(MartCatalogItem).join(MartCategory).filter(
+            or_(MartCategory.id == resolved_cat, MartCategory.slug == cat_filter)
+        )
     if harvested_today:
         q = q.filter(MartListing.harvest_date == today_str)
     if query:
@@ -367,8 +584,15 @@ async def get_public_listings(
             if pincode not in service_pins:
                 continue
 
+        cat_item = l.catalog_item
         results.append({
             "id": l.id,
+            "seller_id": seller.id,
+            "farm_name": seller.farm_name,
+            "village": seller.village,
+            "district": seller.district,
+            "state": seller.state,
+            "item_name": cat_item.name_en if cat_item else l.title,
             "title": l.title,
             "description": l.description,
             "price_minor": l.price_minor,
@@ -403,10 +627,17 @@ async def get_listing_detail(listing_id: str, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail={"error": {"code": "LISTING_NOT_FOUND", "message": "Produce listing not found or no longer available."}})
 
     seller = l.seller
+    cat_item = l.catalog_item
     today_str = datetime.date.today().isoformat()
 
     return {
         "id": l.id,
+        "seller_id": seller.id,
+        "farm_name": seller.farm_name,
+        "village": seller.village,
+        "district": seller.district,
+        "state": seller.state,
+        "item_name": cat_item.name_en if cat_item else l.title,
         "title": l.title,
         "description": l.description,
         "price_minor": l.price_minor,
@@ -586,7 +817,17 @@ async def get_my_orders(user: User = Depends(get_current_user), db: Session = De
             "village": seller.village if seller else "",
             "district": seller.district if seller else "",
             "delivery_pincode": o.delivery_pincode,
-            "items_count": len(o.items)
+            "items_count": len(o.items),
+            "items": [
+                {
+                    "listing_id": it.listing_id,
+                    "title": it.item_title,
+                    "unit": it.unit,
+                    "quantity": it.quantity,
+                    "price_minor": it.unit_price_minor,
+                    "total_formatted": f"₹{it.total_minor / 100:.2f}"
+                } for it in o.items
+            ]
         })
     return out
 
@@ -600,6 +841,7 @@ async def get_harvest_circle_offers(
     Agro AI Harvest Circle:
     Returns active community harvest pre-orders/demand pooling offers from verified farmers.
     """
+    seed_default_mart_catalog_if_empty(db)
     q = db.query(MartHarvestOffer).filter(
         MartHarvestOffer.status.in_(["PROPOSED", "THRESHOLD_REACHED", "CONFIRMED"])
     )
@@ -645,12 +887,12 @@ async def create_harvest_offer(
 
     off = MartHarvestOffer(
         seller_id=seller.id,
-        catalog_item_id=req.catalog_item_id,
+        catalog_item_id=req.catalog_item_id or "itm_tomato",
         crop_name=req.crop_name,
         estimated_quantity=req.estimated_quantity,
         unit=req.unit,
         target_harvest_start=req.target_harvest_start,
-        target_harvest_end=req.target_harvest_end,
+        target_harvest_end=req.target_harvest_end or req.target_harvest_start,
         proposed_price_minor=req.proposed_price_minor,
         min_demand_threshold=req.min_demand_threshold,
         service_pincodes=req.service_pincodes or seller.service_pincodes or [],
@@ -668,16 +910,18 @@ async def join_harvest_circle(
     db: Session = Depends(get_db)
 ):
     """Customer expresses interest in an upcoming harvest lot to aggregate demand."""
-    off = db.query(MartHarvestOffer).filter(MartHarvestOffer.id == req.offer_id).first()
+    target_offer_id = req.offer_id or req.harvest_offer_id
+    target_pin = req.pincode or req.delivery_pincode or "560034"
+    off = db.query(MartHarvestOffer).filter(MartHarvestOffer.id == target_offer_id).first()
     if not off or off.status == "CANCELLED":
         raise HTTPException(status_code=404, detail={"error": {"code": "OFFER_NOT_FOUND", "message": "Harvest offer not found or closed."}})
 
     demand = MartHarvestDemand(
         offer_id=off.id,
         customer_id=user.id if user else None,
-        pincode=req.pincode,
+        pincode=target_pin,
         quantity=req.quantity,
-        contact_phone=req.contact_phone,
+        contact_phone=req.contact_phone or (user.phone if user and user.phone else "9999999999"),
         notes=req.notes
     )
     db.add(demand)
@@ -746,6 +990,7 @@ async def get_surplus_rescue_offers(
     db: Session = Depends(get_db)
 ):
     """Surplus Rescue: Genuine time-limited discounted farm surplus."""
+    seed_default_mart_catalog_if_empty(db)
     q = db.query(MartListing).filter(
         MartListing.status == "APPROVED",
         MartListing.stock_quantity > 0,
@@ -1258,6 +1503,7 @@ async def get_seller_orders(user: User = Depends(get_current_user), db: Session 
             "customer_name": cust.full_name if cust else "Customer",
             "customer_phone": cust.phone if cust else "",
             "delivery_address": o.delivery_address,
+            "delivery_pincode": o.delivery_pincode,
             "total_minor": o.total_minor,
             "total_formatted": f"₹{o.total_minor / 100:.2f}",
             "payment_status": o.payment_status,
@@ -1268,6 +1514,7 @@ async def get_seller_orders(user: User = Depends(get_current_user), db: Session 
                     "title": it.item_title,
                     "unit": it.unit,
                     "quantity": it.quantity,
+                    "price_minor": it.unit_price_minor,
                     "total_formatted": f"₹{it.total_minor / 100:.2f}"
                 } for it in o.items
             ]

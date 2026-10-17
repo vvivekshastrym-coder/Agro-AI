@@ -1,5 +1,5 @@
 // KisanAI Service Worker for Offline Farming Support
-const CACHE_NAME = 'agroai-v3';
+const CACHE_NAME = 'agroai-v7-mart';
 const ASSETS = [
   './',
   './index.html',
@@ -7,12 +7,14 @@ const ASSETS = [
   './css/styles.css',
   './js/i18n.js',
   './js/router.js',
+  './js/engine/supabase.js',
   './js/engine/core.js',
   './js/engine/api.js',
   './js/engine/reports.js',
   './js/engine/whatsapp.js',
   './js/components/nav.js',
   './js/pages/home.js',
+  './js/pages/mart.js',
   './js/pages/diagnose.js',
   './js/pages/kisan-gpt.js',
   './js/pages/weather.js',
@@ -24,11 +26,12 @@ const ASSETS = [
 
 // Install Event
 self.addEventListener('install', (e) => {
+  self.skipWaiting();
   e.waitUntil(
     caches.open(CACHE_NAME).then((cache) => {
-      console.log('[Service Worker] Caching App Shell Assets');
+      console.log('[Service Worker] Caching App Shell Assets:', CACHE_NAME);
       return cache.addAll(ASSETS);
-    }).then(() => self.skipWaiting())
+    })
   );
 });
 
@@ -48,23 +51,18 @@ self.addEventListener('activate', (e) => {
   );
 });
 
-// Fetch Event (Network falling back to cache with offline page fallback)
+// Fetch Event (Network-first for HTML/JS/API; cache fallback when offline)
 self.addEventListener('fetch', (e) => {
-  // Only handle GET requests
   if (e.request.method !== 'GET') return;
 
-  // Skip API weather requests to allow real-time checking, falling back to cache if offline
-  if (e.request.url.includes('api.open-meteo.com')) {
-    e.respondWith(
-      fetch(e.request).catch(() => caches.match(e.request))
-    );
+  // Never intercept API calls with static cache
+  if (e.request.url.includes('/api/') || e.request.url.includes('supabase.co')) {
     return;
   }
 
   e.respondWith(
-    fetch(e.request)
+    fetch(e.request, { cache: 'no-store' })
       .then((response) => {
-        // Clone and put in cache if valid response
         if (response && response.status === 200) {
           const responseToCache = response.clone();
           caches.open(CACHE_NAME).then((cache) => {
@@ -74,12 +72,10 @@ self.addEventListener('fetch', (e) => {
         return response;
       })
       .catch(() => {
-        // Offline: try to return from cache
         return caches.match(e.request).then((cachedResponse) => {
           if (cachedResponse) {
             return cachedResponse;
           }
-          // If a page/route is requested, fallback to index
           if (e.request.mode === 'navigate') {
             return caches.match('./index.html');
           }

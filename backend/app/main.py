@@ -57,6 +57,8 @@ async def add_security_headers(request: Request, call_next):
     response.headers['X-Frame-Options'] = 'DENY'
     response.headers['X-XSS-Protection'] = '1; mode=block'
     response.headers['Referrer-Policy'] = 'strict-origin-when-cross-origin'
+    if request.url.path in ('/', '/index.html', '/sw.js') or request.url.path.endswith(('.html', '.js')):
+        response.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
     return response
 
 @app.middleware('http')

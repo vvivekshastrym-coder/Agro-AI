@@ -1152,6 +1152,8 @@
       <!-- MY TRIPS -->
       <div class="section-title" id="lMyTripsTitle" style="margin-top:24px;">My recent trips</div>
       <div id="lMyTripsList" class="card"><div class="muted">Loading your trips...</div></div>
+    </section>
+
     <!-- ============ AGRO AI MART: CUSTOMER STOREFRONT ============ -->
     <section class="view" data-view="mart" style="display:none;padding-bottom:120px;">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
@@ -3953,9 +3955,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
   verifyStoredSession();
 
-  // Register service worker if supported
+  // Register service worker & clear any stale pre-Mart caches
+  if('caches' in window){
+    caches.keys().then(keys => keys.forEach(k => { if(k !== 'agroai-v7-mart') caches.delete(k); })).catch(()=>{});
+  }
   if('serviceWorker' in navigator){
-    navigator.serviceWorker.register('./sw.js').catch(()=>{});
+    navigator.serviceWorker.register('./sw.js?v=7').then(reg => { try { reg.update(); } catch(e){} }).catch(()=>{});
   }
 });
 
