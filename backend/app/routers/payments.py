@@ -181,8 +181,14 @@ async def verify_payment(
             detail={"error": {"code": "ORDER_NOT_FOUND", "message": "Payment order not found."}}
         )
 
-    # Verify signature if Razorpay secret is set
+    # Verify signature if Razorpay secret is set (mandatory in production)
     key_secret = get_razorpay_key_secret()
+    is_prod = os.getenv("ENVIRONMENT", "development").strip().lower() == "production"
+    if is_prod and not key_secret:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail={"error": {"code": "PAYMENT_VERIFICATION_NOT_CONFIGURED", "message": "Payment gateway secret is required in production."}}
+        )
     if key_secret:
         msg = f"{order.provider_order_id}|{req.provider_payment_id}"
         expected_sig = hmac.new(

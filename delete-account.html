@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Delete Account &amp; Personal Data — Agro AI</title>
+  <style>
+    body { font-family: system-ui, -apple-system, sans-serif; background: #FFF8EC; color: #1F2937; max-width: 680px; margin: 0 auto; padding: 32px 20px; line-height: 1.6; }
+    h1, h2 { color: #14532D; }
+    .card { background: #FFFFFF; border: 1px solid #E5E7EB; border-radius: 16px; padding: 24px; margin-bottom: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.04); }
+    .btn-danger { background: #DC2626; color: #FFFFFF; border: none; padding: 12px 18px; border-radius: 10px; font-weight: 700; cursor: pointer; width: 100%; font-size: 15px; }
+    .btn-outline { background: #FFFFFF; color: #14532D; border: 1.5px solid #14532D; padding: 10px 16px; border-radius: 10px; font-weight: 700; cursor: pointer; width: 100%; font-size: 14px; }
+    input, textarea { width: 100%; padding: 10px 12px; border: 1.5px solid #D1D5DB; border-radius: 10px; font-size: 14px; margin-top: 4px; margin-bottom: 12px; box-sizing: border-box; }
+    .status { padding: 12px; border-radius: 10px; margin-top: 12px; display: none; font-weight: 600; font-size: 14px; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>Delete Your Agro AI Account</h1>
+    <p>In accordance with Google Play Data Safety requirements and Apple App Store Guidelines, you can permanently delete your Agro AI account and associated personal data either directly from an active session below or by submitting a verified deletion request.</p>
+    <h3>What is deleted immediately:</h3>
+    <ul>
+      <li>Your user profile (name, email, phone number, avatar, language preferences)</li>
+      <li>Your saved farms, fields, crop diagnosis reports, and Kisan GPT chat history</li>
+      <li>Your saved marketplace items and active session access</li>
+    </ul>
+    <h3>What is anonymized for legal/financial compliance:</h3>
+    <ul>
+      <li>Completed marketplace order ledger entries and subscription payment transaction references are stripped of personal identifiers and retained solely for statutory audit and dispute resolution.</li>
+    </ul>
+  </div>
+
+  <div class="card">
+    <h2>Option 1: Instant Self-Service Account Deletion (Signed-In Users)</h2>
+    <p>If you are signed in on this browser or device, click below to permanently delete your account immediately.</p>
+    <button class="btn-danger" onclick="deleteSignedInAccount()">Permanently Delete My Signed-In Account</button>
+    <div id="selfDeleteStatus" class="status"></div>
+  </div>
+
+  <div class="card">
+    <h2>Option 2: Web Account Deletion Request (Without App Installed)</h2>
+    <p>If you uninstalled the app, enter the email address or phone number registered with your Agro AI account to record a formal account deletion request.</p>
+    <label for="delIdentifier"><strong>Registered Email or Phone Number:</strong></label>
+    <input type="text" id="delIdentifier" placeholder="e.g. farmer@example.com or 9876543210">
+    <label for="delReason"><strong>Reason / Notes (Optional):</strong></label>
+    <textarea id="delReason" rows="2" placeholder="Please delete my account and associated farm records."></textarea>
+    <button class="btn-outline" onclick="submitWebDeletionRequest()">Submit Account Deletion Request</button>
+    <div id="webDeleteStatus" class="status"></div>
+  </div>
+
+  <p><a href="/" style="color:#15803D;font-weight:600;">← Return to Agro AI</a> · <a href="/privacy" style="color:#15803D;font-weight:600;">Privacy Policy</a></p>
+
+  <script>
+    function getToken() {
+      return localStorage.getItem('kisanAuth') || '';
+    }
+    async function deleteSignedInAccount() {
+      const box = document.getElementById('selfDeleteStatus');
+      const token = getToken();
+      if (!token) {
+        box.style.display = 'block';
+        box.style.background = '#FEF2F2';
+        box.style.color = '#991B1B';
+        box.textContent = 'No active signed-in session found in this browser. Please sign in first or use Option 2 below.';
+        return;
+      }
+      if (!confirm('Are you sure you want to permanently delete your Agro AI account and personal data? This action cannot be undone.')) return;
+      try {
+        const res = await fetch('/api/auth/me', {
+          method: 'DELETE',
+          headers: { 'Authorization': 'Bearer ' + token }
+        });
+        const data = await res.json();
+        box.style.display = 'block';
+        if (res.ok) {
+          localStorage.removeItem('kisanAuth');
+          localStorage.removeItem('agroai_session_v2');
+          box.style.background = '#DCFCE7';
+          box.style.color = '#166534';
+          box.textContent = data.message || 'Your account and personal data have been permanently deleted.';
+        } else {
+          box.style.background = '#FEF2F2';
+          box.style.color = '#991B1B';
+          box.textContent = data.detail?.error?.message || 'Could not delete account.';
+        }
+      } catch (e) {
+        box.style.display = 'block';
+        box.style.background = '#FEF2F2';
+        box.style.color = '#991B1B';
+        box.textContent = 'Network error. Please retry.';
+      }
+    }
+
+    async function submitWebDeletionRequest() {
+      const identifier = document.getElementById('delIdentifier').value.trim();
+      const notes = document.getElementById('delReason').value.trim();
+      const box = document.getElementById('webDeleteStatus');
+      if (identifier.length < 5) {
+        box.style.display = 'block';
+        box.style.background = '#FEF2F2';
+        box.style.color = '#991B1B';
+        box.textContent = 'Please enter a valid registered email or phone number.';
+        return;
+      }
+      try {
+        const res = await fetch('/api/auth/delete-account-request', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ identifier, notes })
+        });
+        const data = await res.json();
+        box.style.display = 'block';
+        if (res.ok) {
+          box.style.background = '#DCFCE7';
+          box.style.color = '#166534';
+          box.textContent = data.message;
+        } else {
+          box.style.background = '#FEF2F2';
+          box.style.color = '#991B1B';
+          box.textContent = data.detail?.error?.message || 'Request failed.';
+        }
+      } catch (e) {
+        box.style.display = 'block';
+        box.style.background = '#FEF2F2';
+        box.style.color = '#991B1B';
+        box.textContent = 'Network error. Please retry.';
+      }
+    }
+  </script>
+</body>
+</html>

@@ -14,6 +14,8 @@ const filesToCopy = [
   'index.html',
   'index.modular.html',
   'demo.html',
+  'privacy.html',
+  'delete-account.html',
   'favicon.png',
   'manifest.webmanifest',
   'sw.js',

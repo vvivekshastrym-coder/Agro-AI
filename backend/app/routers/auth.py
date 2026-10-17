@@ -100,9 +100,128 @@ async def create_guest_session(db: Session = Depends(get_db)):
     }
 
 
+from ..database.models import (
+    User, UserRole, Farm, Field as FarmField, DiagnosisReport,
+    AgroGPTConversation, AgroGPTMessage, MartSavedItem, MartSellerProfile,
+    AdminUser, DataRequest
+)
+import uuid
+import datetime
+
+
+class WebDeleteAccountRequest(BaseModel):
+    identifier: str = Field(..., min_length=4, max_length=150)
+    reason: Optional[str] = Field(None, max_length=500)
+    notes: Optional[str] = Field(None, max_length=500)
+
+
+@router.delete("/me")
+async def delete_my_account(
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    DELETE /api/auth/me
+    Store-compliant self-service account and personal data deletion (Google Play & Apple App Store Guideline 5.1.1(v)).
+    - Permanently deletes user farms, fields, crop diagnosis reports, chat conversations, and saved items.
+    - Deactivates seller/admin profiles.
+    - Anonymizes personal identifiers and disables the account so existing session tokens are immediately rejected,
+      while preserving anonymized financial/order ledger integrity where required by law.
+    """
+    uid = user.id
+
+    # 1. Delete user-owned farms, fields, diagnosis reports, chat history, and saved items
+    db.query(DiagnosisReport).filter(DiagnosisReport.farmer_id == uid).delete(synchronize_session=False)
+    user_farms = db.query(Farm).filter(Farm.user_id == uid).all()
+    for f in user_farms:
+        db.query(FarmField).filter(FarmField.farm_id == f.id).delete(synchronize_session=False)
+    db.query(Farm).filter(Farm.user_id == uid).delete(synchronize_session=False)
+
+    convs = db.query(AgroGPTConversation).filter(AgroGPTConversation.farmer_id == uid).all()
+    for c in convs:
+        db.query(AgroGPTMessage).filter(AgroGPTMessage.conversation_id == c.id).delete(synchronize_session=False)
+    db.query(AgroGPTConversation).filter(AgroGPTConversation.farmer_id == uid).delete(synchronize_session=False)
+
+    db.query(MartSavedItem).filter(MartSavedItem.user_id == uid).delete(synchronize_session=False)
+
+    # 2. Deactivate seller and admin profiles if any
+    seller = db.query(MartSellerProfile).filter(MartSellerProfile.user_id == uid).first()
+    if seller:
+        seller.status = "SUSPENDED"
+        seller.contact_phone = "REDACTED"
+
+    admin_rec = db.query(AdminUser).filter(AdminUser.user_id == uid).first()
+    if admin_rec:
+        admin_rec.is_active = False
+
+    # 3. Record deletion compliance log
+    req_entry = DataRequest(
+        id=str(uuid.uuid4()),
+        user_id=uid,
+        request_type="delete",
+        status="completed",
+        details={"source": "in_app_self_service"},
+        admin_notes="Self-service in-app account deletion completed; PII erased and account disabled.",
+        processed_at=datetime.datetime.now(datetime.timezone.utc)
+    )
+    db.add(req_entry)
+
+    # 4. Anonymize PII and disable user record (immediately invalidates bearer token on subsequent calls)
+    user.email = None
+    user.phone = None
+    user.full_name = "Deleted User"
+    user.avatar_url = None
+    user.password_hash = None
+    user.is_active = False
+    user.is_verified = False
+
+    db.commit()
+
+    return {
+        "status": "deleted",
+        "user_id": uid,
+        "message": "Your account and personal data have been permanently deleted and your session has been revoked."
+    }
+
+
+@router.post("/delete-account-request")
+async def request_web_account_deletion(
+    body: WebDeleteAccountRequest,
+    db: Session = Depends(get_db)
+):
+    """
+    POST /api/auth/delete-account-request
+    Public web endpoint for users who uninstalled the app to request account & data deletion
+    (Google Play Data Safety external deletion resource requirement).
+    """
+    clean_id = body.identifier.strip().lower()
+    matched_user = db.query(User).filter(
+        (User.email == clean_id) | (User.phone == clean_id)
+    ).first()
+
+    note_text = body.reason or body.notes or "None"
+    req_entry = DataRequest(
+        id=str(uuid.uuid4()),
+        user_id=matched_user.id if matched_user else "external_web_request",
+        request_type="delete",
+        status="pending",
+        details={"identifier": clean_id, "reason": note_text, "source": "web_portal"},
+        admin_notes=f"Web deletion request for identifier '{clean_id}'. Notes: {note_text}"
+    )
+    db.add(req_entry)
+    db.commit()
+
+    return {
+        "status": "received",
+        "request_id": req_entry.id,
+        "message": "Your account deletion request has been recorded and queued for processing within 7 business days."
+    }
+
+
 # Fake OTP / Google endpoints accepted any input and issued forgeable tokens. They are retired.
 @router.post("/send-otp")
 @router.post("/verify-otp")
 @router.post("/google")
 async def retired_auth_endpoints():
     raise HTTPException(status_code=status.HTTP_410_GONE, detail=_RETIRED)
+

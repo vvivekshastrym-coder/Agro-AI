@@ -828,6 +828,10 @@
           <button class="btn btn-outline" style="flex:1" id="acctExportBtn" onclick="exportDataWhatsApp()">⬇ Export my data</button>
           <button class="btn btn-outline" style="flex:1;border-color:var(--danger);color:var(--danger);" id="acctDeleteBtn" onclick="requestDeleteAccount()">Delete account</button>
         </div>
+        <div style="display:flex;justify-content:space-between;margin-top:10px;font-size:12px;">
+          <a href="/privacy" target="_blank" style="color:var(--forest);font-weight:600;text-decoration:none;">🛡️ Privacy Policy ↗</a>
+          <a href="/delete-account" target="_blank" style="color:var(--danger);font-weight:600;text-decoration:none;">🗑️ Web Account Deletion Portal ↗</a>
+        </div>
       </div>
 
       <div class="section-title" style="margin-top:0;">Administration</div>
@@ -2896,10 +2900,22 @@ function signOut(){
   goAuth('auth-welcome');
 }
 
-function requestDeleteAccount(){
-  if(!confirm('This will permanently delete your Agro AI account and farm data. Continue?')) return;
+async function requestDeleteAccount(){
+  if(!confirm('This will permanently delete your Agro AI account and farm data on the server. Continue?')) return;
+  try {
+    const tok = session?.token || localStorage.getItem('kisanAuth') || '';
+    if(tok) {
+      await fetch('/api/auth/me', {
+        method: 'DELETE',
+        headers: { 'Authorization': 'Bearer ' + tok }
+      });
+    }
+    if(window.supabaseClient) await window.supabaseClient.auth.signOut();
+  } catch(e) {
+    console.warn('Server account deletion notice:', e);
+  }
   localStorage.clear();
-  showToast('Account deleted');
+  showToast('Account and personal data deleted');
   setTimeout(()=>location.reload(), 1200);
 }
 

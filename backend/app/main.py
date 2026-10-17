@@ -50,14 +50,43 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+from fastapi.responses import JSONResponse
+
+_BLOCKED_PREFIXES = (
+    "/backend", "/supabase", "/prisma", "/exports", "/scripts",
+    "/android", "/ios", "/flutter_app", "/node_modules", "/utils", "/docs/"
+)
+_BLOCKED_EXTENSIONS = (
+    ".db", ".sqlite", ".sqlite3", ".sql", ".py", ".pyc", ".env",
+    ".bak", ".jks", ".aab", ".apk", ".toml", ".lock", ".ts"
+)
+_BLOCKED_FILENAMES = {
+    "package.json", "package-lock.json", "skills-lock.json",
+    "dockerfile", "procfile", "vercel.json", "components.json"
+}
+
 @app.middleware('http')
 async def add_security_headers(request: Request, call_next):
+    raw_path = request.url.path or "/"
+    norm_path = raw_path.lower()
+    segments = [seg for seg in norm_path.split("/") if seg]
+    # Block dot-files/directories (.env, .git, .claude, etc.) and internal server directories
+    if (
+        any(seg.startswith(".") for seg in segments)
+        or any(norm_path == p or norm_path.startswith(p + "/") for p in _BLOCKED_PREFIXES)
+        or (not norm_path.startswith("/api/") and norm_path.endswith(_BLOCKED_EXTENSIONS))
+        or (segments and segments[-1] in _BLOCKED_FILENAMES)
+    ):
+        return JSONResponse(status_code=404, content={"detail": "Not Found"})
+
     response = await call_next(request)
     response.headers['X-Content-Type-Options'] = 'nosniff'
     response.headers['X-Frame-Options'] = 'DENY'
     response.headers['X-XSS-Protection'] = '1; mode=block'
     response.headers['Referrer-Policy'] = 'strict-origin-when-cross-origin'
-    if request.url.path in ('/', '/index.html', '/sw.js') or request.url.path.endswith(('.html', '.js')):
+    response.headers['Permissions-Policy'] = 'camera=(self), microphone=(self), geolocation=(self)'
+    response.headers['Strict-Transport-Security'] = 'max-age=31536000; includeSubDomains'
+    if raw_path in ('/', '/index.html', '/sw.js', '/privacy', '/delete-account') or raw_path.endswith(('.html', '.js')):
         response.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
     return response
 
@@ -225,6 +254,23 @@ if os.path.exists(admin_dist):
             return FileResponse(index_file)
         raise HTTPException(status_code=404, detail="Admin console build not found")
 
+@app.get("/privacy", include_in_schema=False)
+async def serve_privacy_policy():
+    privacy_file = os.path.join(project_root, "privacy.html")
+    if os.path.isfile(privacy_file):
+        return FileResponse(privacy_file)
+    raise HTTPException(status_code=404, detail="Privacy policy not found")
+
+
+@app.get("/delete-account", include_in_schema=False)
+async def serve_delete_account_page():
+    delete_file = os.path.join(project_root, "delete-account.html")
+    if os.path.isfile(delete_file):
+        return FileResponse(delete_file)
+    raise HTTPException(status_code=404, detail="Account deletion page not found")
+
+
 if os.path.exists(project_root):
     app.mount("/", StaticFiles(directory=project_root, html=True), name="frontend")
+
 

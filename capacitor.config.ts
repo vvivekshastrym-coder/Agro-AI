@@ -10,7 +10,7 @@ const config: CapacitorConfig = {
     ? {
         server: {
           url: serverUrl,
-          cleartext: true,
+          cleartext: process.env.CAPACITOR_ALLOW_CLEARTEXT === "true",
           androidScheme: "https",
         },
       }
@@ -21,7 +21,7 @@ const config: CapacitorConfig = {
       }),
   android: {
     backgroundColor: "#FFF8EC",
-    allowMixedContent: true,
+    allowMixedContent: false,
   },
   ios: {
     backgroundColor: "#FFF8EC",

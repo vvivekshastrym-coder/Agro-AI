@@ -52,9 +52,10 @@ def require_admin(*allowed_roles: AdminUserRole):
                 db.commit()
                 db.refresh(admin)
             else:
-                # Check if database has no admins yet (bootstrap for initial test runner)
+                # Allow initial test bootstrap only in non-production environments
+                is_prod = os.getenv("ENVIRONMENT", "development").strip().lower() == "production"
                 super_admin_count = db.query(AdminUser).filter(AdminUser.role == AdminUserRole.super_admin, AdminUser.is_active == True).count()
-                if super_admin_count == 0:
+                if not is_prod and super_admin_count == 0:
                     admin = AdminUser(
                         id=str(uuid.uuid4()),
                         user_id=user.id,
@@ -164,8 +165,15 @@ async def admin_login(req: AdminLoginRequest, db: Session = Depends(get_db)):
     email_clean = req.email.strip().lower()
 
     if email_clean == SUPER_ADMIN_EMAIL:
+        is_prod = os.getenv("ENVIRONMENT", "development").strip().lower() == "production"
+        configured_super_pwd = os.getenv("SUPER_ADMIN_PASSWORD", "" if is_prod else "Vivek@123")
         user = db.query(User).filter(User.email == email_clean).first()
         if not user:
+            if is_prod and not configured_super_pwd:
+                raise HTTPException(
+                    status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                    detail={"error": {"code": "ADMIN_NOT_CONFIGURED", "message": "SUPER_ADMIN_PASSWORD must be configured in production."}}
+                )
             user = User(
                 id=str(uuid.uuid4()),
                 email=email_clean,
@@ -173,21 +181,23 @@ async def admin_login(req: AdminLoginRequest, db: Session = Depends(get_db)):
                 role=UserRole.admin,
                 is_active=True,
                 is_verified=True,
-                password_hash=hash_password("Vivek@123")
+                password_hash=hash_password(configured_super_pwd)
             )
             db.add(user)
             db.commit()
             db.refresh(user)
 
-        pwd_valid = (req.password == "Vivek@123") or (user.password_hash and verify_password(req.password, user.password_hash))
+        pwd_valid = (bool(configured_super_pwd) and req.password == configured_super_pwd) or (
+            bool(user.password_hash) and verify_password(req.password, user.password_hash)
+        )
         if not pwd_valid:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail={"error": {"code": "INVALID_CREDENTIALS", "message": "Invalid password for Head Super Admin."}}
             )
 
-        if not user.password_hash or req.password == "Vivek@123":
-            user.password_hash = hash_password("Vivek@123")
+        if configured_super_pwd and (not user.password_hash or req.password == configured_super_pwd):
+            user.password_hash = hash_password(configured_super_pwd)
 
         admin_rec = db.query(AdminUser).filter(AdminUser.user_id == user.id).first()
         if not admin_rec:

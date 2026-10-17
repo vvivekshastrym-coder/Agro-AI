@@ -969,3 +969,91 @@ CREATE TABLE IF NOT EXISTS trip_events (
 	PRIMARY KEY (id), 
 	FOREIGN KEY(trip_id) REFERENCES logistics_trips (id) ON DELETE CASCADE
 );
+
+-- ============================================================================
+-- PHASE 7 SECURITY HARDENING: SUPABASE POSTGRESQL ROW-LEVEL SECURITY (RLS)
+-- Enforces default-deny across all 55 public tables for PostgREST / anon key
+-- while allowing authenticated users to access only their own records and
+-- public catalog tables to be read safely. Backend service_role / postgres
+-- connection continues to operate with full administrative privileges.
+-- ============================================================================
+
+ALTER TABLE ai_usage ENABLE ROW LEVEL SECURITY;
+ALTER TABLE api_logs ENABLE ROW LEVEL SECURITY;
+ALTER TABLE drone_operators ENABLE ROW LEVEL SECURITY;
+ALTER TABLE government_schemes ENABLE ROW LEVEL SECURITY;
+ALTER TABLE market_prices ENABLE ROW LEVEL SECURITY;
+ALTER TABLE marketplace_sellers ENABLE ROW LEVEL SECURITY;
+ALTER TABLE mart_categories ENABLE ROW LEVEL SECURITY;
+ALTER TABLE payment_webhook_events ENABLE ROW LEVEL SECURITY;
+ALTER TABLE platform_feature_history ENABLE ROW LEVEL SECURITY;
+ALTER TABLE subscription_plans ENABLE ROW LEVEL SECURITY;
+ALTER TABLE users ENABLE ROW LEVEL SECURITY;
+ALTER TABLE weather_cache ENABLE ROW LEVEL SECURITY;
+ALTER TABLE admin_access_requests ENABLE ROW LEVEL SECURITY;
+ALTER TABLE admin_audit_logs ENABLE ROW LEVEL SECURITY;
+ALTER TABLE admin_users ENABLE ROW LEVEL SECURITY;
+ALTER TABLE agro_gpt_conversations ENABLE ROW LEVEL SECURITY;
+ALTER TABLE ai_context ENABLE ROW LEVEL SECURITY;
+ALTER TABLE broadcast_items ENABLE ROW LEVEL SECURITY;
+ALTER TABLE carbon_credits ENABLE ROW LEVEL SECURITY;
+ALTER TABLE data_requests ENABLE ROW LEVEL SECURITY;
+ALTER TABLE drivers ENABLE ROW LEVEL SECURITY;
+ALTER TABLE farms ENABLE ROW LEVEL SECURITY;
+ALTER TABLE marketplace_products ENABLE ROW LEVEL SECURITY;
+ALTER TABLE mart_catalog_items ENABLE ROW LEVEL SECURITY;
+ALTER TABLE mart_seller_profiles ENABLE ROW LEVEL SECURITY;
+ALTER TABLE mart_service_regions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE mart_waitlist ENABLE ROW LEVEL SECURITY;
+ALTER TABLE platform_features ENABLE ROW LEVEL SECURITY;
+ALTER TABLE subscription_plan_versions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE subscription_usage ENABLE ROW LEVEL SECURITY;
+ALTER TABLE user_sessions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE agro_gpt_messages ENABLE ROW LEVEL SECURITY;
+ALTER TABLE driver_documents ENABLE ROW LEVEL SECURITY;
+ALTER TABLE farm_crops ENABLE ROW LEVEL SECURITY;
+ALTER TABLE fields ENABLE ROW LEVEL SECURITY;
+ALTER TABLE mart_bulk_buying_groups ENABLE ROW LEVEL SECURITY;
+ALTER TABLE mart_harvest_offers ENABLE ROW LEVEL SECURITY;
+ALTER TABLE mart_listings ENABLE ROW LEVEL SECURITY;
+ALTER TABLE mart_orders ENABLE ROW LEVEL SECURITY;
+ALTER TABLE payment_orders ENABLE ROW LEVEL SECURITY;
+ALTER TABLE plan_entitlements ENABLE ROW LEVEL SECURITY;
+ALTER TABLE user_subscriptions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE vehicles ENABLE ROW LEVEL SECURITY;
+ALTER TABLE diagnosis_reports ENABLE ROW LEVEL SECURITY;
+ALTER TABLE logistics_trips ENABLE ROW LEVEL SECURITY;
+ALTER TABLE mart_harvest_demands ENABLE ROW LEVEL SECURITY;
+ALTER TABLE mart_order_items ENABLE ROW LEVEL SECURITY;
+ALTER TABLE mart_order_status_history ENABLE ROW LEVEL SECURITY;
+ALTER TABLE mart_product_reviews ENABLE ROW LEVEL SECURITY;
+ALTER TABLE mart_saved_items ENABLE ROW LEVEL SECURITY;
+ALTER TABLE payment_transactions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE diagnosis_images ENABLE ROW LEVEL SECURITY;
+ALTER TABLE driver_locations ENABLE ROW LEVEL SECURITY;
+ALTER TABLE fare_calculations ENABLE ROW LEVEL SECURITY;
+ALTER TABLE trip_events ENABLE ROW LEVEL SECURITY;
+
+-- Public read-only reference / catalog tables
+CREATE POLICY "Public read government_schemes" ON government_schemes FOR SELECT USING (is_active = TRUE);
+CREATE POLICY "Public read market_prices" ON market_prices FOR SELECT USING (TRUE);
+CREATE POLICY "Public read mart_categories" ON mart_categories FOR SELECT USING (is_active = TRUE);
+CREATE POLICY "Public read mart_catalog_items" ON mart_catalog_items FOR SELECT USING (is_active = TRUE);
+CREATE POLICY "Public read mart_listings" ON mart_listings FOR SELECT USING (status = 'active');
+CREATE POLICY "Public read mart_service_regions" ON mart_service_regions FOR SELECT USING (is_active = TRUE);
+CREATE POLICY "Public read subscription_plans" ON subscription_plans FOR SELECT USING (status = 'active');
+CREATE POLICY "Public read broadcast_items" ON broadcast_items FOR SELECT USING (status = 'published');
+
+-- Authenticated user self-owned data policies (auth.uid()::text matches user_id / id)
+CREATE POLICY "Users read own profile" ON users FOR SELECT TO authenticated USING (id = (SELECT auth.uid()::text));
+CREATE POLICY "Users update own profile" ON users FOR UPDATE TO authenticated USING (id = (SELECT auth.uid()::text)) WITH CHECK (id = (SELECT auth.uid()::text));
+
+CREATE POLICY "Users manage own farms" ON farms FOR ALL TO authenticated USING (user_id = (SELECT auth.uid()::text)) WITH CHECK (user_id = (SELECT auth.uid()::text));
+CREATE POLICY "Users manage own diagnosis_reports" ON diagnosis_reports FOR ALL TO authenticated USING (user_id = (SELECT auth.uid()::text)) WITH CHECK (user_id = (SELECT auth.uid()::text));
+CREATE POLICY "Users manage own agro_gpt_conversations" ON agro_gpt_conversations FOR ALL TO authenticated USING (user_id = (SELECT auth.uid()::text)) WITH CHECK (user_id = (SELECT auth.uid()::text));
+CREATE POLICY "Users manage own mart_saved_items" ON mart_saved_items FOR ALL TO authenticated USING (user_id = (SELECT auth.uid()::text)) WITH CHECK (user_id = (SELECT auth.uid()::text));
+CREATE POLICY "Users read own mart_orders" ON mart_orders FOR SELECT TO authenticated USING (buyer_user_id = (SELECT auth.uid()::text));
+CREATE POLICY "Users read own payment_orders" ON payment_orders FOR SELECT TO authenticated USING (user_id = (SELECT auth.uid()::text));
+CREATE POLICY "Users read own payment_transactions" ON payment_transactions FOR SELECT TO authenticated USING (user_id = (SELECT auth.uid()::text));
+CREATE POLICY "Users read own subscriptions" ON user_subscriptions FOR SELECT TO authenticated USING (user_id = (SELECT auth.uid()::text));
+CREATE POLICY "Users read own data_requests" ON data_requests FOR SELECT TO authenticated USING (user_id = (SELECT auth.uid()::text));
