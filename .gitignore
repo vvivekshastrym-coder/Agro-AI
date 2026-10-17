@@ -44,3 +44,6 @@ android/app/build/
 *.aab
 *.apk
 
+
+# Local signed mobile release artifacts & keystores
+releases/

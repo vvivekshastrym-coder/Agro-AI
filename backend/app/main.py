@@ -53,7 +53,7 @@ app.add_middleware(
 from fastapi.responses import JSONResponse
 
 _BLOCKED_PREFIXES = (
-    "/backend", "/supabase", "/prisma", "/exports", "/scripts",
+    "/backend", "/supabase", "/prisma", "/exports", "/scripts", "/releases",
     "/android", "/ios", "/flutter_app", "/node_modules", "/utils", "/docs/"
 )
 _BLOCKED_EXTENSIONS = (
@@ -268,6 +268,26 @@ async def serve_delete_account_page():
     if os.path.isfile(delete_file):
         return FileResponse(delete_file)
     raise HTTPException(status_code=404, detail="Account deletion page not found")
+
+
+@app.get("/download-app", include_in_schema=False)
+async def serve_download_app_page():
+    dl_page = os.path.join(project_root, "download-app.html")
+    if os.path.isfile(dl_page):
+        return FileResponse(dl_page)
+    raise HTTPException(status_code=404, detail="Download page not found")
+
+
+@app.get("/api/mobile/download-apk", tags=["Mobile Release"])
+async def download_signed_apk():
+    apk_file = os.path.join(project_root, "releases", "AgroAI-Release.apk")
+    if os.path.isfile(apk_file):
+        return FileResponse(
+            apk_file,
+            media_type="application/vnd.android.package-archive",
+            filename="AgroAI-v2.4.0-Release.apk"
+        )
+    raise HTTPException(status_code=404, detail="Signed APK not found on server")
 
 
 if os.path.exists(project_root):
