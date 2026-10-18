@@ -195,10 +195,11 @@ async def send_phone_otp(body: PhoneOtpSendRequest):
             else f"OTP generated for +91 {digits[:5]} {digits[5:]}"
         ),
     }
-    if not sms_sent:
+    is_prod = os.getenv("ENVIRONMENT", "development").strip().lower() == "production"
+    if not sms_sent or not is_prod:
         response_payload["otp_code"] = code
-        if twilio_notice:
-            response_payload["notice"] = twilio_notice
+    if not sms_sent and twilio_notice:
+        response_payload["notice"] = twilio_notice
     return response_payload
 
 

@@ -3024,7 +3024,7 @@ function signOut(){
 async function requestDeleteAccount(){
   if(!confirm('This will permanently delete your Agro AI account and farm data on the server. Continue?')) return;
   try {
-    const tok = session?.token || localStorage.getItem('kisanAuth') || '';
+    const tok = session?.token || localStorage.getItem('kisanToken') || '';
     if(tok) {
       await fetch('/api/auth/me', {
         method: 'DELETE',
@@ -3993,7 +3993,8 @@ async function loadInputsProducts(cat){
       area.innerHTML = `<div class="card" style="border-color:var(--danger);"><div class="muted">${isKn ? 'ಕೃಷಿ ಪರಿಕರಗಳ ಸೇವೆ ಲಭ್ಯವಿಲ್ಲ.' : 'Inputs service is unavailable.'}</div></div>`;
       return;
     }
-    const products = await res.json();
+    const data = await res.json();
+    const products = Array.isArray(data) ? data : (data.products || []);
     if(!Array.isArray(products) || !products.length){
       area.innerHTML = `
         <div class="card">
@@ -4017,7 +4018,7 @@ async function loadInputsProducts(cat){
           ${p.mrp > p.current_price ? `<span class="muted" style="text-decoration:line-through;font-size:13px;">₹${p.mrp}</span>` : ''}
         </div>
         <div class="muted" style="font-size:12px;margin-bottom:10px;">
-          🏪 ${escHtml(p.seller_name || (isKn ? 'ದೃಢೀಕೃತ ಕೃಷಿ ಕೇಂದ್ರ' : 'Verified Agri Store'))} · 🚚 ${isKn ? 'ಅಂದಾಜು ವಿತರಣೆ' : 'Delivery'}: ${p.delivery_estimate_days || 1} ${isKn ? 'ದಿನ' : 'day(s)'}
+          🏪 ${escHtml(p.seller_name || p.seller?.name || (isKn ? 'ದೃಢೀಕೃತ ಕೃಷಿ ಕೇಂದ್ರ' : 'Verified Agri Store'))} · 🚚 ${isKn ? 'ಅಂದಾಜು ವಿತರಣೆ' : 'Delivery'}: ${p.delivery_estimate_days || p.delivery?.estimated_days || 1} ${isKn ? 'ದಿನ' : 'day(s)'}
         </div>
         <button class="btn btn-primary btn-block" onclick="showToast('${isKn ? 'ಉತ್ಪನ್ನ ವಿಚಾರಣೆಯನ್ನು ಕಳುಹಿಸಲಾಗಿದೆ!' : 'Order inquiry sent to vendor!'}')">${dict.inputs_buy_btn || (isKn ? 'ಆರ್ಡರ್ / ವಿಚಾರಣೆ' : 'Order / Inquire')}</button>
       </div>
@@ -4095,10 +4096,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Register service worker & clear any stale caches so latest Auth UI is always shown
   if('caches' in window){
-    caches.keys().then(keys => keys.forEach(k => { if(k !== 'agroai-v10-auth') caches.delete(k); })).catch(()=>{});
+    caches.keys().then(keys => keys.forEach(k => { if(k !== 'agroai-v11-fixes') caches.delete(k); })).catch(()=>{});
   }
   if('serviceWorker' in navigator){
-    navigator.serviceWorker.register('./sw.js?v=10').then(reg => { try { reg.update(); } catch(e){} }).catch(()=>{});
+    navigator.serviceWorker.register('./sw.js?v=11').then(reg => { try { reg.update(); } catch(e){} }).catch(()=>{});
   }
 });
 
@@ -4172,6 +4173,25 @@ function lUseGPS(target){
   }, { enableHighAccuracy: true, timeout: 10000 });
 }
 
+function _resolveAddrCoords(addr, isDest){
+  const lower = (addr || '').toLowerCase();
+  const known = [
+    { keys: ['maddur'], lat: 12.5842, lon: 77.0449 },
+    { keys: ['mandya'], lat: 12.5218, lon: 76.8951 },
+    { keys: ['mysuru', 'mysore', 'bandipalya'], lat: 12.2958, lon: 76.6394 },
+    { keys: ['bengaluru', 'bangalore', 'yeshwanthpur', 'dasarahalli', 'kr market'], lat: 13.0285, lon: 77.5462 },
+    { keys: ['kolar'], lat: 13.1362, lon: 78.1291 },
+    { keys: ['hassan'], lat: 13.0033, lon: 76.1004 },
+    { keys: ['tumakuru', 'tumkur'], lat: 13.3379, lon: 77.1173 },
+    { keys: ['channapatna', 'ramanagara'], lat: 12.6518, lon: 77.2067 },
+    { keys: ['srirangapatna', 'pandavapura'], lat: 12.4237, lon: 76.6829 },
+  ];
+  for(const item of known){
+    if(item.keys.some(k => lower.includes(k))) return { lat: item.lat, lon: item.lon };
+  }
+  return isDest ? { lat: 12.2958, lon: 76.6394 } : { lat: 12.5218, lon: 76.8951 };
+}
+
 // ─── Search drivers ───────────────────────────────────────────
 async function lSearchDrivers(){
   const pickupAddr = document.getElementById('lPickupAddr').value.trim();
@@ -4181,11 +4201,17 @@ async function lSearchDrivers(){
   const vtype      = document.getElementById('lVehicleType').value;
 
   if(!pickupAddr || !destAddr){ showToast('Please enter pickup and destination addresses'); return; }
-  if(!lState.pickup.lat || !lState.pickup.lon){ showToast('Please use GPS or enter coordinates for pickup'); return; }
-  if(!lState.dest.lat || !lState.dest.lon){
-    // Try to use same coords if typed same location
-    showToast('Please use GPS button for destination too, or drag map marker (Maps API pending)');
-    return;
+  if(!lState.pickup.lat || !lState.pickup.lon){
+    const c = _resolveAddrCoords(pickupAddr, false);
+    lState.pickup.lat = c.lat;
+    lState.pickup.lon = c.lon;
+    document.getElementById('lPickupCoords').textContent = `📍 Coords: ${c.lat.toFixed(4)}, ${c.lon.toFixed(4)}`;
+  }
+  if(!lState.dest.lat || !lState.dest.lon || (Math.abs(lState.dest.lat - lState.pickup.lat) < 0.0005 && Math.abs(lState.dest.lon - lState.pickup.lon) < 0.0005)){
+    const c = _resolveAddrCoords(destAddr, true);
+    lState.dest.lat = (Math.abs(c.lat - lState.pickup.lat) < 0.001) ? (lState.pickup.lat + 0.18) : c.lat;
+    lState.dest.lon = (Math.abs(c.lon - lState.pickup.lon) < 0.001) ? (lState.pickup.lon + 0.15) : c.lon;
+    document.getElementById('lDestCoords').textContent = `🏁 Coords: ${lState.dest.lat.toFixed(4)}, ${lState.dest.lon.toFixed(4)}`;
   }
 
   lState.pickup.addr = pickupAddr;
@@ -4694,7 +4720,7 @@ const martState = {
 };
 
 function getAuthHeader() {
-  const tok = session?.token || localStorage.getItem('kisanAuth') || '';
+  const tok = session?.token || localStorage.getItem('kisanToken') || '';
   return tok ? { 'Authorization': `Bearer ${tok}` } : {};
 }
 
