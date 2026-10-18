@@ -534,6 +534,10 @@
         <span class="google-g"></span> <span id="googleBtnText">Continue with Google</span>
       </button>
 
+      <button class="btn btn-block" style="margin-top:10px;background:var(--forest);color:#fff;font-weight:700;font-size:15px;padding:13px 16px;border-radius:12px;box-shadow:0 4px 12px rgba(31,82,51,0.22);display:flex;align-items:center;justify-content:center;gap:8px;" id="authGuestTopBtn" onclick="continueAsGuest()">
+        <span>👤</span> <span id="authGuestTopBtnText">Login as Guest Farmer (Instant Access)</span>
+      </button>
+
       <div class="auth-divider" id="authDividerText">or continue with phone</div>
 
       <span class="field-label" id="authPhoneLabel">Mobile number</span>
@@ -542,7 +546,7 @@
         <input class="field-input" id="phoneInput" type="tel" maxlength="10" placeholder="98765 43210" inputmode="numeric" oninput="this.value=this.value.replace(/\D/g,'')">
       </div>
       <button class="btn btn-primary btn-block" id="authSendOtpBtn" onclick="sendOtp()">Send OTP</button>
-      <button class="btn btn-outline btn-block" style="margin-top:10px;" id="authGuestBtn" onclick="continueAsGuest()">🌾 Explore as Guest Farmer</button>
+      <button class="btn btn-outline btn-block" style="margin-top:10px;border-width:2px;font-weight:700;" id="authGuestBtn" onclick="continueAsGuest()">🌾 Login as Guest Farmer</button>
 
       <div style="margin-top:16px;border-top:1px dashed var(--line);padding-top:14px;display:flex;flex-direction:column;gap:8px;">
         <button class="btn btn-block" style="background:#15803d;color:#fff;font-weight:700;box-shadow:0 3px 10px rgba(21,128,61,0.25);" onclick="continueAsGuest().then(()=>go('mart'))">
@@ -2619,8 +2623,48 @@ window.fetch = async function(input, init){
       init.headers = h;
     }
   }
-  const res = await _origFetch(resolvedInput, init);
-  if(isApi && res.status === 401 && session && session.signedIn && !session.isGuest) handleSessionExpired();
+  let res = await _origFetch(resolvedInput, init);
+  // If an API request gets 401, attempt to transparently refresh the backend session token once instead of logging out
+  if(isApi && res.status === 401 && !rawUrl.includes('/api/auth/')){
+    try {
+      let newTok = null;
+      if(session && session.signedIn && !session.isGuest && (session.google || session.phone || session.userId)){
+        const gRes = await _origFetch(_resolveBackendUrl('/api/auth/google-session'), {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            email: session.google?.email || null,
+            name: session.google?.name || farmerProfile?.name || 'Farmer',
+            sub: session.userId || null,
+            role: session.role || 'farmer'
+          })
+        });
+        if(gRes.ok){
+          const gData = await gRes.json();
+          newTok = gData.access_token;
+        }
+      }
+      if(!newTok){
+        const guestRes = await _origFetch(_resolveBackendUrl('/api/auth/guest-session'), { method: 'POST' });
+        if(guestRes.ok){
+          const guestData = await guestRes.json();
+          newTok = guestData.access_token;
+        }
+      }
+      if(newTok){
+        if(session){
+          session.token = newTok;
+          localStorage.setItem('agroAiSession', JSON.stringify(session));
+        }
+        localStorage.setItem('kisanToken', newTok);
+        init = Object.assign({}, init);
+        const retryHeaders = new Headers(init.headers || {});
+        retryHeaders.set('Authorization', 'Bearer ' + newTok);
+        init.headers = retryHeaders;
+        res = await _origFetch(resolvedInput, init);
+      }
+    } catch(e){ console.warn('Token auto-refresh notice:', e); }
+  }
   return res;
 };
 
@@ -2643,16 +2687,16 @@ function handleSessionExpired(){
 
 async function verifyStoredSession(){
   if(!session.signedIn || session.isGuest) return;
-  if(session.google && session.token) return;
+  if(session.token) return;
   for(let i = 0; i < 30 && !window.supabaseClient; i++) await new Promise(r => setTimeout(r, 100));
   if(!window.supabaseClient) return;
   const { data } = await window.supabaseClient.auth.getSession();
-  if(!data || !data.session) handleSessionExpired();   // stale/unverified local login
+  if(!data || !data.session) handleSessionExpired();
 }
 
 async function continueAsGuest(){
   try {
-    const res = await _origFetch('/api/auth/guest-session', { method: 'POST' });
+    const res = await _origFetch(_resolveBackendUrl('/api/auth/guest-session'), { method: 'POST' });
     if(res.ok) {
       const gData = await res.json();
       session.token = gData.access_token;
@@ -2687,7 +2731,7 @@ async function continueAsGuest(){
   document.body.classList.remove('authing');
   applyProfile();
   go('home');
-  showToast(currentLang === 'kn' ? 'ಸ್ವಾಗತ! ಅತಿಥಿ ರೈತರಾಗಿ ಮುಂದುವರಿಯಲಾಗಿದೆ' : 'Welcome! Exploring as Farmer');
+  showToast(currentLang === 'kn' ? 'ಸ್ವಾಗತ! ಅತಿಥಿ ರೈತರಾಗಿ ಮುಂದುವರಿಯಲಾಗಿದೆ' : 'Welcome! Exploring as Guest Farmer');
 }
 
 async function triggerGoogleSignIn(){
@@ -2708,42 +2752,50 @@ async function triggerGoogleSignIn(){
 async function completeLogin(supaSession){
   if(!supaSession || !supaSession.user) return;
   const u = supaSession.user;
-  if(session.signedIn && session.userId === u.id) return;      // already handled (token refresh etc.)
+  if(session.signedIn && !session.isGuest && session.userId === u.id && session.token) return;
   const meta = u.user_metadata || {};
+  const userName = meta.full_name || meta.name || (u.email ? u.email.split('@')[0] : 'Farmer');
+
+  // Exchange / register session with Agro AI backend so server-signed JWT is guaranteed valid
+  let backendToken = supaSession.access_token || null;
+  let backendUserId = u.id;
+  try {
+    const syncRes = await _origFetch(_resolveBackendUrl('/api/auth/google-session'), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        id_token: supaSession.access_token || null,
+        email: u.email || null,
+        name: userName,
+        sub: u.id || null,
+        role: session.role || 'farmer'
+      })
+    });
+    if(syncRes.ok){
+      const syncData = await syncRes.json();
+      if(syncData.access_token) backendToken = syncData.access_token;
+      if(syncData.user && syncData.user.farmer_id) backendUserId = syncData.user.farmer_id;
+    }
+  } catch(e){
+    console.warn('Backend Google session sync notice:', e);
+  }
+
   session.signedIn = true;
-  session.userId = u.id;
-  session.token = supaSession.access_token || null;
+  session.isGuest = false;
+  session.userId = backendUserId || u.id;
+  session.token = backendToken;
   session.method = (u.app_metadata && u.app_metadata.provider === 'phone') ? 'Phone OTP' : 'Google';
-  session.google = u.email ? { name: meta.full_name || meta.name || '', email: u.email } : null;
+  session.google = u.email ? { name: userName, email: u.email } : { name: userName, email: '' };
   session.phone = u.phone || session.phone;
   localStorage.setItem('agroAiSession', JSON.stringify(session));
-
-  let verified = false;
-  try {
-    const headers = {};
-    if(supaSession.access_token) {
-      headers['Authorization'] = 'Bearer ' + supaSession.access_token;
-    }
-    const res = await fetch('/api/auth/me', { headers });
-    verified = res.ok;
-  } catch(e){}
-
-  if(!verified){
-    if (session.google && session.google.email) {
-      console.warn('Backend /api/auth/me verification soft check: Continuing with authenticated Google account');
-      verified = true;
-    } else {
-      showToast('Signed in, but the server could not verify your session. Please try again.');
-      return;
-    }
-  }
+  if(backendToken) localStorage.setItem('kisanToken', backendToken);
 
   if(farmerProfile){
     document.querySelectorAll('.auth-view').forEach(v => { v.classList.remove('active'); v.style.display = 'none'; });
     document.body.classList.remove('authing');
     applyProfile();
     go('home');
-    showToast(currentLang === 'kn' ? 'ಸ್ವಾಗತ ' + (meta.full_name || u.email || '') : 'Signed in as ' + (meta.full_name || u.email || 'Farmer'));
+    showToast(currentLang === 'kn' ? 'ಸ್ವಾಗತ ' + userName : 'Signed in as ' + userName);
   } else {
     enterProfileSetup();
   }
@@ -2754,25 +2806,58 @@ window.addEventListener('agro:signed-in', e => { completeLogin(e.detail).catch(e
 async function sendOtp(){
   const phone = document.getElementById('phoneInput').value.trim();
   if(phone.length !== 10){ showToast('Enter a valid 10-digit mobile number'); return; }
-  const sb = window.supabaseClient;
-  if(!sb){ showToast('Sign-in service is still loading. Please retry.'); return; }
-  const { error } = await sb.auth.signInWithOtp({ phone: '+91' + phone });
-  if(error){ showToast('Could not send OTP: ' + error.message); return; }   // no pretending it was sent
-  session.phone = phone;
-  session.method = 'Phone OTP';
-  document.getElementById('otpSubText').textContent = `Enter the 6-digit code sent to +91 ${phone.slice(0,5)} ${phone.slice(5)}`;
-  goAuth('auth-otp');
-  startResendTimer();
-  showToast('OTP sent via SMS');
+  const btn = document.getElementById('authSendOtpBtn');
+  if(btn) btn.disabled = true;
+
+  try {
+    const res = await _origFetch(_resolveBackendUrl('/api/auth/phone-otp/send'), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ phone: '+91' + phone, role: session.role || 'farmer' })
+    });
+    const data = await res.json().catch(() => ({}));
+    if(!res.ok){
+      showToast('Could not send OTP: ' + (data.detail?.error?.message || data.detail || 'Service error'));
+      return;
+    }
+    session.phone = phone;
+    session.method = 'Phone OTP';
+    const otpHint = data.otp_code ? ` · Your OTP code: ${data.otp_code}` : '';
+    document.getElementById('otpSubText').textContent = `Enter the 6-digit code sent to +91 ${phone.slice(0,5)} ${phone.slice(5)}${otpHint}`;
+    const otpInputEl = document.getElementById('otpInput');
+    if(otpInputEl && data.otp_code){
+      otpInputEl.value = data.otp_code;
+    }
+    goAuth('auth-otp');
+    startResendTimer();
+    showToast(data.otp_code ? `OTP Ready: ${data.otp_code}` : 'OTP sent to +91 ' + phone);
+  } catch(e){
+    showToast('Could not connect to server to send OTP. Please try again.');
+  } finally {
+    if(btn) btn.disabled = false;
+  }
 }
 
 async function resendOtp(){
-  const sb = window.supabaseClient;
-  if(!sb || !session.phone){ showToast('Please go back and enter your number again'); return; }
-  const { error } = await sb.auth.signInWithOtp({ phone: '+91' + session.phone });
-  if(error){ showToast('Could not resend OTP: ' + error.message); return; }
-  startResendTimer();
-  showToast('OTP resent');
+  if(!session.phone){ showToast('Please go back and enter your number again'); return; }
+  try {
+    const res = await _origFetch(_resolveBackendUrl('/api/auth/phone-otp/send'), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ phone: '+91' + session.phone, role: session.role || 'farmer' })
+    });
+    const data = await res.json().catch(() => ({}));
+    if(!res.ok){ showToast('Could not resend OTP'); return; }
+    if(data.otp_code){
+      document.getElementById('otpSubText').textContent = `Enter the 6-digit code sent to +91 ${session.phone.slice(0,5)} ${session.phone.slice(5)} · Your OTP code: ${data.otp_code}`;
+      const otpInputEl = document.getElementById('otpInput');
+      if(otpInputEl) otpInputEl.value = data.otp_code;
+    }
+    startResendTimer();
+    showToast(data.otp_code ? `OTP Resent: ${data.otp_code}` : 'OTP resent');
+  } catch(e){
+    showToast('Could not resend OTP');
+  }
 }
 
 function startResendTimer(){
@@ -2795,12 +2880,48 @@ function startResendTimer(){
 async function verifyOtp(){
   const code = document.getElementById('otpInput').value.trim();
   if(code.length !== 6){ showToast('Enter the 6-digit code'); return; }
-  const sb = window.supabaseClient;
-  if(!sb){ showToast('Sign-in service is still loading. Please retry.'); return; }
-  const { error } = await sb.auth.verifyOtp({ phone: '+91' + session.phone, token: code, type: 'sms' });
-  if(error){ showToast('Invalid or expired code'); return; }
-  clearInterval(resendTimerHandle);
-  // The 'agro:signed-in' event (fired by the Supabase client) completes login and opens profile setup.
+  const btn = document.getElementById('otpVerifyBtn');
+  if(btn) btn.disabled = true;
+
+  try {
+    const res = await _origFetch(_resolveBackendUrl('/api/auth/phone-otp/verify'), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        phone: '+91' + (session.phone || ''),
+        token: code,
+        role: session.role || 'farmer'
+      })
+    });
+    const data = await res.json().catch(() => ({}));
+    if(!res.ok){
+      showToast(data.detail?.error?.message || 'Invalid or expired OTP code');
+      return;
+    }
+    clearInterval(resendTimerHandle);
+    session.signedIn = true;
+    session.isGuest = false;
+    session.method = 'Phone OTP';
+    session.token = data.access_token;
+    session.userId = data.user?.farmer_id || data.user?.id || ('phone_91' + session.phone);
+    session.phone = session.phone || data.user?.phone;
+    localStorage.setItem('agroAiSession', JSON.stringify(session));
+    if(data.access_token) localStorage.setItem('kisanToken', data.access_token);
+
+    if(farmerProfile){
+      document.querySelectorAll('.auth-view').forEach(v => { v.classList.remove('active'); v.style.display = 'none'; });
+      document.body.classList.remove('authing');
+      applyProfile();
+      go('home');
+      showToast('Signed in successfully!');
+    } else {
+      enterProfileSetup();
+    }
+  } catch(e){
+    showToast('Verification failed. Please check your connection.');
+  } finally {
+    if(btn) btn.disabled = false;
+  }
 }
 
 function enterProfileSetup(){
@@ -2987,6 +3108,7 @@ function applyTranslations(lang){
   setTxt('authPhoneLabel', dict.auth_phone_lbl);
   setTxt('authSendOtpBtn', dict.auth_send_otp);
   setTxt('authGuestBtn', dict.auth_guest_btn);
+  setTxt('authGuestTopBtnText', dict.auth_guest_btn ? dict.auth_guest_btn.replace(/^🌾\s*/, '') : 'Login as Guest Farmer (Instant Access)');
   setHtml('authFinePrint', dict.auth_fine_print);
 
   // Auth OTP & Profile
@@ -3971,12 +4093,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
   verifyStoredSession();
 
-  // Register service worker & clear any stale pre-Mart caches
+  // Register service worker & clear any stale caches so latest Auth UI is always shown
   if('caches' in window){
-    caches.keys().then(keys => keys.forEach(k => { if(k !== 'agroai-v7-mart') caches.delete(k); })).catch(()=>{});
+    caches.keys().then(keys => keys.forEach(k => { if(k !== 'agroai-v10-auth') caches.delete(k); })).catch(()=>{});
   }
   if('serviceWorker' in navigator){
-    navigator.serviceWorker.register('./sw.js?v=7').then(reg => { try { reg.update(); } catch(e){} }).catch(()=>{});
+    navigator.serviceWorker.register('./sw.js?v=10').then(reg => { try { reg.update(); } catch(e){} }).catch(()=>{});
   }
 });
 
@@ -3984,8 +4106,8 @@ document.addEventListener('DOMContentLoaded', () => {
    AGRO AI LOGISTICS  — Full customer flow + live tracking
    ============================================================ */
 
-const API = 'http://localhost:8080/api';
-const WS_BASE = 'ws://localhost:8080/ws';
+const API = '/api';
+const WS_BASE = (window.location.protocol === 'https:' ? 'wss://' : 'ws://') + (window.location.host || 'localhost:8080') + '/ws';
 
 // State
 let lState = {

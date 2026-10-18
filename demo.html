@@ -311,6 +311,10 @@
         <span class="google-g"></span> Continue with Google
       </button>
 
+      <button class="btn btn-block" style="margin-top:10px;background:var(--forest);color:#fff;font-weight:700;" onclick="continueAsGuest()">
+        👤 Login as Guest Farmer (Instant Access)
+      </button>
+
       <div class="auth-divider">or continue with phone</div>
 
       <span class="field-label">Mobile number</span>
@@ -319,6 +323,7 @@
         <input class="field-input" id="phoneInput" type="tel" maxlength="10" placeholder="98765 43210" inputmode="numeric" oninput="this.value=this.value.replace(/\D/g,'')">
       </div>
       <button class="btn btn-primary btn-block" onclick="sendOtp()">Send OTP</button>
+      <button class="btn btn-outline btn-block" style="margin-top:10px;border-width:2px;font-weight:700;" onclick="continueAsGuest()">🌾 Login as Guest Farmer</button>
 
       <p class="fine-print">By continuing, you agree to Agro AI's Terms of Service and Privacy Policy.<br>We never share your farm data without your consent.</p>
     </section>
@@ -677,6 +682,19 @@ function continueWithGoogle(){
     document.getElementById('profName').value = session.google.name;
     enterProfileSetup();
   }, 1200);
+}
+
+function continueAsGuest(){
+  session.signedIn = true;
+  session.method = 'Guest Demo';
+  session.google = { name:'Vivek', email:'vivek@agroai.in' };
+  farmerProfile = { name:'Vivek', state:'Karnataka', village:'Mandya', land:'5', crop:'Tomato' };
+  document.body.classList.remove('authing');
+  setLang(currentLang);
+  const g = t(currentLang);
+  document.getElementById('homeGreetTime').textContent = `${g.time.split(',')[0]}, ${farmerProfile.name}`;
+  go('home');
+  showToast('Welcome! Exploring as Guest Farmer');
 }
 
 function sendOtp(){

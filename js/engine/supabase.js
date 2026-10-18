@@ -30,13 +30,6 @@
             localStorage.setItem('kisanAuth', 'true');
             if (session.access_token) {
               localStorage.setItem('kisanToken', session.access_token);
-              try {
-                await fetch('/api/auth/me', {
-                  headers: { 'Authorization': 'Bearer ' + session.access_token }
-                });
-              } catch (e) {
-                console.warn('Backend /api/auth/me sync notice:', e);
-              }
             }
             localStorage.setItem('kisanUser', JSON.stringify({
               id: session.user.id,

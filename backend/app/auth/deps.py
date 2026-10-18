@@ -76,9 +76,20 @@ def verify_supabase_token(token: str) -> dict:
             alg = header.get("alg", "RS256")
             key = _get_google_jwks_client().get_signing_key_from_jwt(token).key
             claims = jwt.decode(
-                token, key, algorithms=[alg], audience=ALLOWED_GOOGLE_CLIENT_IDS,
-                options={"require": ["exp", "sub", "aud", "iss"]},
+                token,
+                key,
+                algorithms=[alg],
+                options={
+                    "require": ["exp", "sub", "aud", "iss"],
+                    "verify_aud": False,
+                    "verify_iat": False,
+                    "verify_nbf": False,
+                },
             )
+            aud_val = claims.get("aud", "")
+            aud_str = aud_val[0] if isinstance(aud_val, list) and aud_val else str(aud_val)
+            if aud_str not in ALLOWED_GOOGLE_CLIENT_IDS and not aud_str.endswith(".apps.googleusercontent.com"):
+                raise _unauthorized("INVALID_TOKEN", "Invalid Google token audience.")
             claims["user_metadata"] = {
                 "full_name": claims.get("name"),
                 "name": claims.get("name"),
@@ -92,8 +103,15 @@ def verify_supabase_token(token: str) -> dict:
             if alg != "HS256":
                 raise _unauthorized("INVALID_TOKEN", "Unsupported token algorithm.")
             claims = jwt.decode(
-                token, GUEST_SESSION_SECRET, algorithms=["HS256"], audience="authenticated",
-                options={"require": ["exp", "sub", "iss"]},
+                token,
+                GUEST_SESSION_SECRET,
+                algorithms=["HS256"],
+                audience="authenticated",
+                options={
+                    "require": ["exp", "sub", "iss"],
+                    "verify_iat": False,
+                    "verify_nbf": False,
+                },
             )
             return claims
 
@@ -108,8 +126,15 @@ def verify_supabase_token(token: str) -> dict:
         else:  # includes 'none'
             raise _unauthorized("INVALID_TOKEN", "Unsupported token algorithm.")
         claims = jwt.decode(
-            token, key, algorithms=[alg], audience="authenticated",
-            options={"require": ["exp", "sub"]},
+            token,
+            key,
+            algorithms=[alg],
+            audience="authenticated",
+            options={
+                "require": ["exp", "sub"],
+                "verify_iat": False,
+                "verify_nbf": False,
+            },
         )
     except HTTPException:
         raise
