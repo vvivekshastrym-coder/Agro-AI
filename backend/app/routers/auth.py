@@ -133,7 +133,11 @@ class GoogleSessionExchangeRequest(BaseModel):
 
 @router.post("/phone-otp/send")
 async def send_phone_otp(body: PhoneOtpSendRequest):
-    """Generates and dispatches a 6-digit OTP for mobile login."""
+    """Generates and dispatches a 6-digit OTP via Twilio SMS for mobile login."""
+    import httpx
+    from dotenv import load_dotenv
+    load_dotenv()
+
     digits = _re.sub(r"\D", "", body.phone)
     if len(digits) > 10 and digits.startswith("91"):
         digits = digits[2:]
@@ -147,13 +151,55 @@ async def send_phone_otp(body: PhoneOtpSendRequest):
         "code": code,
         "expires_at": time.time() + 600,  # 10 minutes
     }
-    return {
+
+    twilio_sid = (os.getenv("TWILIO_ACCOUNT_SID") or "").strip()
+    twilio_token = (os.getenv("TWILIO_AUTH_TOKEN") or "").strip()
+    twilio_from = (os.getenv("TWILIO_PHONE_NUMBER") or "").strip()
+
+    sms_sent = False
+    delivery_channel = "local"
+    twilio_notice = None
+
+    if twilio_sid and twilio_token and twilio_from:
+        url = f"https://api.twilio.com/2010-04-01/Accounts/{twilio_sid}/Messages.json"
+        sms_body = f"Your Agro AI verification code is: {code}. Valid for 10 minutes. Do not share this OTP."
+        try:
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                resp = await client.post(
+                    url,
+                    auth=(twilio_sid, twilio_token),
+                    data={
+                        "To": f"+91{digits}",
+                        "From": twilio_from,
+                        "Body": sms_body,
+                    },
+                )
+            if resp.status_code in (200, 201):
+                sms_sent = True
+                delivery_channel = "twilio_sms"
+            else:
+                err_data = resp.json() if "application/json" in resp.headers.get("content-type", "") else {}
+                twilio_notice = err_data.get("message") or f"Twilio status {resp.status_code}"
+        except Exception as exc:
+            twilio_notice = str(exc)
+
+    response_payload = {
         "status": "sent",
         "sent": True,
+        "sms_sent": sms_sent,
+        "delivery": delivery_channel,
         "phone": digits,
-        "otp_code": code,
-        "message": f"OTP sent to +91 {digits[:5]} {digits[5:]}"
+        "message": (
+            f"OTP sent via SMS to +91 {digits[:5]} {digits[5:]}"
+            if sms_sent
+            else f"OTP generated for +91 {digits[:5]} {digits[5:]}"
+        ),
     }
+    if not sms_sent:
+        response_payload["otp_code"] = code
+        if twilio_notice:
+            response_payload["notice"] = twilio_notice
+    return response_payload
 
 
 @router.post("/phone-otp/verify")

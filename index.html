@@ -2825,12 +2825,12 @@ async function sendOtp(){
     const otpHint = data.otp_code ? ` · Your OTP code: ${data.otp_code}` : '';
     document.getElementById('otpSubText').textContent = `Enter the 6-digit code sent to +91 ${phone.slice(0,5)} ${phone.slice(5)}${otpHint}`;
     const otpInputEl = document.getElementById('otpInput');
-    if(otpInputEl && data.otp_code){
-      otpInputEl.value = data.otp_code;
+    if(otpInputEl){
+      otpInputEl.value = data.otp_code || '';
     }
     goAuth('auth-otp');
     startResendTimer();
-    showToast(data.otp_code ? `OTP Ready: ${data.otp_code}` : 'OTP sent to +91 ' + phone);
+    showToast(data.sms_sent ? `OTP sent via SMS to +91 ${phone}` : (data.otp_code ? `OTP Ready: ${data.otp_code}` : 'OTP sent to +91 ' + phone));
   } catch(e){
     showToast('Could not connect to server to send OTP. Please try again.');
   } finally {
