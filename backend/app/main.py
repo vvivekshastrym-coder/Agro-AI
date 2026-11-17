@@ -8,6 +8,13 @@ from slowapi.errors import RateLimitExceeded
 import logging
 import time
 import os
+
+# ─── Base URL configuration ────────────────────────────────────────
+USE_TUNNEL = os.getenv("USE_TUNNEL", "false").lower() == "true"
+TUNNEL_URL = os.getenv("TUNNEL_URL")
+DEFAULT_BASE_URL = "http://192.168.31.86:8080"
+BASE_URL = TUNNEL_URL if USE_TUNNEL and TUNNEL_URL else DEFAULT_BASE_URL
+
 from .database.connection import engine, Base
 from .routers import auth, agri, weather, market, satellite, diagnosis, agro_gpt, logistics, marketplace, drone, admin, plans, payments, schemes, mart
 from .routers.logistics import trip_manager
@@ -39,7 +46,10 @@ app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 # ─── Middleware ───────────────────────────────────────────────
-_allowed_raw = os.getenv("ALLOWED_ORIGINS", "http://localhost:8080,http://127.0.0.1:8080,http://localhost:3000,http://localhost:5173")
+_allowed_raw = os.getenv(
+    "ALLOWED_ORIGINS",
+    "http://localhost:8000,http://127.0.0.1:8000,http://localhost:8080,http://127.0.0.1:8080,http://localhost:3000,http://localhost:5173"
+)
 ALLOWED_ORIGINS = [orig.strip() for orig in _allowed_raw.split(",") if orig.strip()]
 
 app.add_middleware(
@@ -153,6 +163,40 @@ async def health_check():
         'gemini_configured': bool(os.getenv('GEMINI_API_KEY'))
     }
 
+@app.get('/api/base-url', tags=['Configuration'])
+async def get_base_url():
+    """Return the base URL used for QR‑code and download‑app links.
+    When USE_TUNNEL is true the tunnel URL is used, otherwise the safe local address.
+    """
+    return {"base_url": BASE_URL}
+
+@app.on_event('startup')
+def patch_outbound_requests():
+    """Monkey‑patch outbound HTTP clients to block any request to *.lhr.life.
+    This prevents the server from unintentionally contacting the public tunnel.
+    """
+    import httpx, requests
+    # httpx async client patch
+    _orig_httpx_request = httpx.AsyncClient.request
+    async def _blocked_httpx(self, method, url, *args, **kwargs):
+        try:
+            host = httpx.URL(url).host
+        except Exception:
+            host = ''
+        if host.endswith('.lhr.life'):
+            raise httpx.HTTPError('Outbound requests to .lhr.life are blocked')
+        return await _orig_httpx_request(self, method, url, *args, **kwargs)
+    httpx.AsyncClient.request = _blocked_httpx
+    # requests sync client patch
+    _orig_requests_request = requests.sessions.Session.request
+    def _blocked_requests(self, method, url, *args, **kwargs):
+        parsed = requests.utils.urlparse(url)
+        hostname = parsed.hostname or ''
+        if hostname.endswith('.lhr.life'):
+            raise requests.RequestException('Outbound requests to .lhr.life are blocked')
+        return _orig_requests_request(self, method, url, *args, **kwargs)
+    requests.sessions.Session.request = _blocked_requests
+
 
 # ─── Public Farmer Broadcasts & Promotional Offers ─────────────
 @app.get('/api/broadcasts', tags=['Announcements & Offers'])
@@ -253,6 +297,38 @@ if os.path.exists(admin_dist):
         if os.path.isfile(index_file):
             return FileResponse(index_file)
         raise HTTPException(status_code=404, detail="Admin console build not found")
+@app.get("/admin-console")
+@app.get("/admin-console/")
+@app.get("/admin-console/{full_path:path}")
+async def serve_admin_console(full_path: str = ""):
+    # Serve static files from the admin build if they exist
+    if full_path:
+        target_file = os.path.join(admin_dist, full_path)
+        if os.path.isfile(target_file):
+            return FileResponse(target_file)
+    # Fallback to the SPA index.html for client‑side routing
+    index_file = os.path.join(admin_dist, "index.html")
+    if os.path.isfile(index_file):
+        return FileResponse(index_file)
+    raise HTTPException(status_code=404, detail="Admin console build not found")
+
+
+@app.get("/api/download/testing-apk", include_in_schema=False)
+@app.get("/AgroAI_Testing.apk", include_in_schema=False)
+async def download_testing_apk():
+    apk_candidates = [
+        os.path.join(project_root, "releases", "AgroAI_Testing.apk"),
+        os.path.join(project_root, "android", "app", "build", "outputs", "apk", "debug", "app-debug.apk"),
+    ]
+    for candidate in apk_candidates:
+        if os.path.isfile(candidate):
+            return FileResponse(
+                candidate,
+                media_type="application/vnd.android.package-archive",
+                filename="AgroAI_Testing.apk"
+            )
+    raise HTTPException(status_code=404, detail="Testing APK not found")
+
 
 @app.get("/privacy", include_in_schema=False)
 async def serve_privacy_policy():

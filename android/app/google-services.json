@@ -1,0 +1,39 @@
+{
+  "project_info": {
+    "project_number": "390368260977",
+    "project_id": "gen-lang-client-0224945015",
+    "storage_bucket": "gen-lang-client-0224945015.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:390368260977:android:049c62244936c6291dbcd0",
+        "android_client_info": {
+          "package_name": "com.agroai.kisan"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "390368260977-650a3hjjiq8a4t1296jcuobdpjau3qp1.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyB6TFjYNkvhuBNRSrfeTz7m21P-5PwcGVI"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "390368260977-650a3hjjiq8a4t1296jcuobdpjau3qp1.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

@@ -1,4 +1,4 @@
-from sqlalchemy import Column, String, Integer, Float, Boolean, DateTime, Text, ForeignKey, JSON, Enum
+from sqlalchemy import Column, String, Integer, Float, Boolean, DateTime, Text, ForeignKey, JSON, Enum, UniqueConstraint, Index
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 import uuid
@@ -534,6 +534,21 @@ class MarketPrice(Base):
     unit = Column(String(20), default='quintal')
     price_date = Column(DateTime(timezone=True), index=True)
     data_source = Column(String(100), default='Agmarknet / Govt Mandi Data API')
+class MandiMarket(Base):
+    """Master directory of genuine APMC and regulated agricultural markets across India."""
+    __tablename__ = 'mandi_markets'
+    __table_args__ = (
+        UniqueConstraint('state', 'district', 'market_name', name='uq_mandi_market_state_dist_name'),
+        Index('ix_mandi_markets_state_dist', 'state', 'district'),
+    )
+
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    market_name = Column(String(150), nullable=False, index=True)
+    district = Column(String(100), nullable=False, index=True)
+    state = Column(String(100), nullable=False, index=True)
+    market_type = Column(String(50), default='Principal Yard', nullable=False)
+    data_source = Column(String(150), default='Agmarknet / State Agricultural Marketing Board', nullable=False)
+    is_active = Column(Boolean, default=True, nullable=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
 
@@ -555,6 +570,8 @@ class WeatherCache(Base):
 
 class AdminUserRole(str, enum.Enum):
     super_admin = 'super_admin'
+    admin = 'admin'
+    staff = 'staff'
     listing_reviewer = 'listing_reviewer'
     seller_reviewer = 'seller_reviewer'
     plan_manager = 'plan_manager'
@@ -607,6 +624,9 @@ class AdminUser(Base):
     id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
     user_id = Column(String, ForeignKey('users.id', ondelete='CASCADE'), unique=True, index=True)
     role = Column(Enum(AdminUserRole), nullable=False)
+    hierarchy_level = Column(String(30), default='STAFF', nullable=True) # SUPER_ADMIN_HEAD, ADMIN, STAFF
+    permissions = Column(JSON, default=dict, nullable=True) # granular module->actions matrix
+    assigned_by = Column(String, nullable=True)
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
@@ -784,6 +804,9 @@ class DataRequest(Base):
     details = Column(JSON, default=dict)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+    assigned_to = Column(String, nullable=True)
+    priority = Column(String(20), default='normal', nullable=True)
+    category = Column(String(50), default='privacy', nullable=True)
     processed_by = Column(String, ForeignKey('users.id', ondelete='SET NULL'), nullable=True)
     processed_at = Column(DateTime(timezone=True), nullable=True)
     admin_notes = Column(Text, nullable=True)
@@ -831,6 +854,9 @@ class BroadcastItem(Base):
     approved_at = Column(DateTime(timezone=True), nullable=True)
     super_admin_notes = Column(Text, nullable=True)
     
+    language = Column(String(20), default='en', nullable=True)
+    category = Column(String(50), default='general', nullable=True)
+    target_region = Column(String(100), nullable=True)
     valid_from = Column(DateTime(timezone=True), nullable=True)
     valid_until = Column(DateTime(timezone=True), nullable=True)
     
@@ -977,6 +1003,10 @@ class MartListing(Base):
     is_organic_claim = Column(Boolean, default=False, nullable=False)
     claim_reviewed = Column(Boolean, default=False, nullable=False)
     photos = Column(JSON, default=list, nullable=False)
+    submitted_by = Column(String, nullable=True)
+    reviewed_by = Column(String, nullable=True)
+    reviewed_at = Column(DateTime(timezone=True), nullable=True)
+    review_notes = Column(Text, nullable=True)
 
     # Differentiating Features: Trust Passport lot & Surplus Rescue
     batch_number = Column(String(50), nullable=True) # Trust Passport lot reference
@@ -1054,6 +1084,25 @@ class MartOrderStatusHistory(Base):
     actor_role = Column(String(50), nullable=True) # customer, seller, admin
     notes = Column(Text, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+
+class MartOrderIdempotency(Base):
+    """Maps (user, Idempotency-Key) -> the order that request created.
+
+    Guarantees that a retried or double-tapped checkout request never creates a
+    second order or takes stock twice. ``request_hash`` detects a key being
+    reused with a different payload (a client bug that must not be silently
+    treated as a retry).
+    """
+    __tablename__ = 'mart_order_idempotency'
+    __table_args__ = (UniqueConstraint('user_id', 'idem_key', name='uq_mart_idem_user_key'),)
+
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    user_id = Column(String, nullable=False, index=True)
+    idem_key = Column(String(128), nullable=False)
+    request_hash = Column(String(64), nullable=False)
+    order_id = Column(String, ForeignKey('mart_orders.id', ondelete='CASCADE'), nullable=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), index=True)
 
 
 class MartWaitlist(Base):
@@ -1161,3 +1210,33 @@ class MartBulkBuyingGroup(Base):
 
     seller = relationship('MartSellerProfile')
     catalog_item = relationship('MartCatalogItem')
+
+
+
+class ExcelImportJob(Base):
+    """Tracks Excel/CSV spreadsheet uploads, validation previews, row-level errors, and publication workflow."""
+    __tablename__ = 'excel_import_jobs'
+
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    filename = Column(String(255), nullable=False)
+    file_type = Column(String(20), nullable=False) # csv, xlsx
+    file_size_bytes = Column(Integer, default=0, nullable=False)
+    target_dataset = Column(String(50), default='mandi_prices', nullable=False) # mandi_prices, mandi_markets, camp_registrations, advisories
+    column_mapping = Column(JSON, default=dict)
+    total_rows = Column(Integer, default=0, nullable=False)
+    valid_rows_count = Column(Integer, default=0, nullable=False)
+    invalid_rows_count = Column(Integer, default=0, nullable=False)
+    duplicate_rows_count = Column(Integer, default=0, nullable=False)
+    preview_rows = Column(JSON, default=list)
+    error_rows = Column(JSON, default=list)
+    status = Column(String(30), default='PENDING_REVIEW', nullable=False, index=True) # PENDING_REVIEW, APPROVED, PUBLISHED, REJECTED, ROLLED_BACK
+    uploaded_by = Column(String, nullable=True)
+    uploaded_by_role = Column(String(50), nullable=True)
+    reviewed_by = Column(String, nullable=True)
+    reviewed_at = Column(DateTime(timezone=True), nullable=True)
+    published_by = Column(String, nullable=True)
+    published_at = Column(DateTime(timezone=True), nullable=True)
+    review_notes = Column(Text, nullable=True)
+    published_record_ids = Column(JSON, default=list)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())

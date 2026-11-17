@@ -45,7 +45,8 @@ interface BroadcastRecord {
 }
 
 export const BroadcastManager: React.FC = () => {
-  const { profile, isSuperAdmin } = useAdminAuth();
+  const { profile, isSuperAdmin, isAdminOrAbove, hasPermission } = useAdminAuth();
+  const canApprovePosts = isAdminOrAbove || hasPermission('posts_offers', 'approve');
 
   const [items, setItems] = useState<BroadcastRecord[]>([]);
   const [loading, setLoading] = useState(true);
@@ -146,8 +147,8 @@ export const BroadcastManager: React.FC = () => {
   };
 
   const handleApprove = async (id: string, itemTitle: string) => {
-    if (!isSuperAdmin) {
-      setError('Executive Decision: Only Head Super Admin (vvivekshastrym@gmail.com) can approve posts and offers.');
+    if (!canApprovePosts) {
+      setError('Only Super Admin Head or authorized Level 2 Admins can approve posts and offers.');
       return;
     }
     try {
@@ -463,7 +464,7 @@ export const BroadcastManager: React.FC = () => {
                     </button>
 
                     {item.status === 'pending_approval' && (
-                      isSuperAdmin ? (
+                      canApprovePosts ? (
                         <div className="flex items-center gap-2">
                           <button
                             onClick={() => {
@@ -485,7 +486,7 @@ export const BroadcastManager: React.FC = () => {
                       ) : (
                         <div className="text-[11px] font-semibold text-amber-700 flex items-center gap-1">
                           <Clock size={12} />
-                          Awaiting Super Admin Approval
+                          Awaiting Admin Approval
                         </div>
                       )
                     )}

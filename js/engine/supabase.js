@@ -7,7 +7,7 @@
 
   const SUPABASE_URL = 'https://eziigoiirqdsgimfkquv.supabase.co';
   const SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_fDc46mh4MukSCabbBpeVMA_KqtWdOee';
-  const GOOGLE_CLIENT_ID = '390368260977-5qvu1738tqdf26fprobcdrg9jbvs2e3s.apps.googleusercontent.com';
+  const GOOGLE_CLIENT_ID = '390368260977-650a3hjjiq8a4t1296jcuobdpjau3qp1.apps.googleusercontent.com';
 
   let client = null;
   let gsiInitialized = false;
@@ -180,6 +180,8 @@
           shape: 'pill',
           width: el.clientWidth > 100 ? el.clientWidth : 280,
         });
+        const fallbackBtn = document.getElementById('googleBtn');
+        if (fallbackBtn) fallbackBtn.style.display = 'none';
       }
     });
   }
@@ -220,15 +222,12 @@
         window.google.accounts.id.prompt((notification) => {
           if (notification.isNotDisplayed() || notification.isSkippedMoment()) {
             const reason = notification.getNotDisplayedReason?.() || notification.getSkippedReason?.() || 'prompt_suppressed';
-            console.log('GIS One Tap prompt not shown (' + reason + '), triggering OAuth redirect...');
-            fallbackToOAuthRedirect().catch(err => {
-              console.error('OAuth redirect fallback error:', err);
-            });
+            console.log('GIS One Tap prompt status (' + reason + ')');
           }
         });
         return { method: 'gis_prompt' };
       } catch (err) {
-        console.warn('GIS prompt exception, falling back to OAuth redirect:', err);
+        console.warn('GIS prompt exception:', err);
       }
     }
 

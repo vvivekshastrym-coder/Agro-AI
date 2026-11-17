@@ -95,7 +95,7 @@ async def agro_gpt_chat(req: ChatRequest, db: Session = Depends(get_db), user: U
     except Exception as e:
         logger.error(f"Error in Agro GPT chat: {e}")
         raise HTTPException(status_code=503, detail={"error": {"code": "ASSISTANT_UNAVAILABLE",
-                            "message": "Kisan GPT is temporarily unavailable. Your message was saved; please retry.", "retryable": True}})
+                            "message": "Agro GPT is temporarily unavailable. Your message was saved; please retry.", "retryable": True}})
 
     # Save Assistant Response to DB
     assistant_msg = AgroGPTMessage(
@@ -267,4 +267,197 @@ Guidelines:
         logger.error(f"Daily digest generation failed: {e}")
         raise HTTPException(status_code=503, detail={"error": {"code": "DIGEST_UNAVAILABLE",
                             "message": "Daily digest is unavailable right now.", "retryable": True}})
+
+
+@router.get("/conversations")
+async def list_agro_gpt_conversations(
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user)
+):
+    """
+    GET /api/agro-gpt/conversations
+    Returns past Agro GPT conversations for the authenticated farmer.
+    """
+    convs = (
+        db.query(AgroGPTConversation)
+        .filter(AgroGPTConversation.farmer_id == user.id)
+        .order_by(AgroGPTConversation.created_at.desc())
+        .limit(30)
+        .all()
+    )
+    items = []
+    for c in convs:
+        first_msg = (
+            db.query(AgroGPTMessage)
+            .filter(AgroGPTMessage.conversation_id == c.id, AgroGPTMessage.role == "user")
+            .order_by(AgroGPTMessage.created_at.asc())
+            .first()
+        )
+        title = first_msg.content[:55] if first_msg and first_msg.content else "New conversation"
+        items.append({
+            "id": c.id,
+            "title": title,
+            "language": c.language or "en",
+            "created_at": c.created_at.isoformat() + "Z" if c.created_at else None
+        })
+    return {"conversations": items}
+
+
+@router.get("/conversations/{conversation_id}")
+async def get_agro_gpt_conversation_messages(
+    conversation_id: str,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user)
+):
+    """
+    GET /api/agro-gpt/conversations/{conversation_id}
+    Returns all messages in a specific Agro GPT conversation.
+    """
+    conv = db.query(AgroGPTConversation).filter(AgroGPTConversation.id == conversation_id).first()
+    if not conv:
+        raise HTTPException(status_code=404, detail="Conversation not found")
+    if conv.farmer_id != user.id:
+        raise HTTPException(status_code=403, detail={"error": {"code": "FORBIDDEN", "message": "Not permitted."}})
+    msgs = (
+        db.query(AgroGPTMessage)
+        .filter(AgroGPTMessage.conversation_id == conversation_id)
+        .order_by(AgroGPTMessage.created_at.asc())
+        .all()
+    )
+    return {
+        "conversation_id": conv.id,
+        "language": conv.language,
+        "messages": [
+            {
+                "id": m.id,
+                "role": m.role,
+                "content": m.content,
+                "created_at": m.created_at.isoformat() + "Z" if m.created_at else None
+            }
+            for m in msgs
+        ]
+    }
+
+
+KARNATAKA_CITIES_KN = {
+    "Mandya": "ಮಂಡ್ಯ", "Bengaluru": "ಬೆಂಗಳೂರು", "Bangalore": "ಬೆಂಗಳೂರು",
+    "Mysuru": "ಮೈಸೂರು", "Mysore": "ಮೈಸೂರು", "Kolar": "ಕೋಲಾರ",
+    "Hassan": "ಹಾಸನ", "Tumakuru": "ತುಮಕೂರು", "Tumkur": "ತುಮಕೂರು",
+    "Shivamogga": "ಶಿವಮೊಗ್ಗ", "Belagavi": "ಬೆಳಗಾವಿ", "Hubballi": "ಹುಬ್ಬಳ್ಳಿ",
+    "Dharwad": "ಧಾರವಾಡ", "Ballari": "ಬಳ್ಳಾರಿ", "Vijayapura": "ವಿಜಯಪುರ",
+    "Kalaburagi": "ಕಲಬುರಗಿ", "Chikkamagaluru": "ಚಿಕ್ಕಮಗಳೂರು", "Chitradurga": "ಚಿತ್ರದುರ್ಗ",
+    "Davanagere": "ದಾವಣಗೆರೆ", "Udupi": "ಉಡುಪಿ", "Mangaluru": "ಮಂಗಳೂರು",
+    "Bagalkote": "ಬಾಗಲಕೋಟೆ", "Gadag": "ಗದಗ", "Haveri": "ಹಾವೇರಿ",
+    "Koppal": "ಕೊಪ್ಪಳ", "Raichur": "ರಾಯಚೂರು", "Yadgir": "ಯಾದಗಿರಿ",
+    "Chamarajanagar": "ಚಾಮರಾಜನಗರ", "Ramanagara": "ರಾಮನಗರ", "Chikkaballapur": "ಚಿಕ್ಕಬಳ್ಳಾಪುರ",
+    "Kodagu": "ಕೊಡಗು", "Uttara Kannada": "ಉತ್ತರ ಕನ್ನಡ"
+}
+
+CROPS_KN = {
+    "Tomato": "ಟೊಮೆಟೊ", "Wheat": "ಗೋಧಿ", "Rice": "ಭತ್ತ", "Paddy": "ಭತ್ತ",
+    "Rice / Paddy": "ಭತ್ತ", "Cotton": "ಹತ್ತಿ", "Sugarcane": "ಕಬ್ಬು",
+    "Maize": "ಮೆಕ್ಕೆಜೋಳ", "Corn": "ಮೆಕ್ಕೆಜೋಳ", "Onion": "ಈರುಳ್ಳಿ",
+    "Potato": "ಆಲೂಗಡ್ಡೆ", "Chilli": "ಮೆಣಸಿನಕಾಯಿ", "Chili": "ಮೆಣಸಿನಕಾಯಿ",
+    "Groundnut": "ಕಡಲೆಕಾಯಿ", "Ragi": "ರಾಗಿ", "Other": "ಬೆಳೆ"
+}
+
+@router.get("/daily-report")
+async def get_daily_farm_report(
+    location: str = "Mandya",
+    crop: str = "Tomato",
+    language: str = "en",
+    db: Session = Depends(get_db)
+):
+    """
+    GET /api/agro-gpt/daily-report
+    Generates a structured Daily Farm Report grounded in live weather and APMC data.
+    Supports English (en), Kannada (kn), and Hindi (hi).
+    """
+    from datetime import datetime
+    from .weather import get_current_weather
+    from ..database.models import MarketPrice
+
+    w_data = await get_current_weather(q=location)
+    temp_max = w_data.get("temp_max") or w_data.get("temp") or 29
+    humidity = w_data.get("humidity") or 65
+    wind_speed = w_data.get("wind_speed") or 10
+    condition = w_data.get("condition") or "partly cloudy"
+    city_display = w_data.get("city") or location or "Mandya"
+    today_str = datetime.now().strftime("%Y-%m-%d")
+
+    # Query latest local Mandi price if available (prefer farmer's state / Karnataka)
+    latest_price = (
+        db.query(MarketPrice)
+        .filter(MarketPrice.commodity.ilike(f"%{crop}%"), MarketPrice.state.ilike("%Karnataka%"))
+        .order_by(MarketPrice.price_date.desc())
+        .first()
+    )
+    if not latest_price:
+        latest_price = (
+            db.query(MarketPrice)
+            .filter(MarketPrice.commodity.ilike(f"%{crop}%"))
+            .order_by(MarketPrice.price_date.desc())
+            .first()
+        )
+
+    if language == "kn":
+        city_kn = KARNATAKA_CITIES_KN.get(city_display, city_display)
+        crop_kn = CROPS_KN.get(crop, crop)
+        headline = f"{city_kn} ಜಿಲ್ಲೆಯ ನಮ್ಮ ಶ್ರಮಜೀವಿ ರೈತರಿಗೆ ಶುಭೋದಯ."
+        summary = f"ಇಂದು ಜಿಲ್ಲೆಯಾದ್ಯಂತ ಸಾಧಾರಣ ತಾಪಮಾನದೊಂದಿಗೆ ಭಾಗಶಃ ಮೋಡ ಕವಿದ ವಾತಾವರಣ ನಿರೀಕ್ಷಿಸಲಾಗಿದೆ."
+        weather_brief = f"ಮಧ್ಯಾಹ್ನದ ವೇಳೆಗೆ ಗರಿಷ್ಠ {temp_max}°C ತಾಪಮಾನ, {humidity}% ತೇವಾಂಶ ಮತ್ತು ಸಾಧಾರಣ ಗಾಳಿ ({wind_speed} ಕಿ.ಮೀ/ಗಂ) ಇರಲಿದೆ."
+        if humidity > 75:
+            pest_brief = f"ಹೆಚ್ಚಿನ ತೇವಾಂಶವು ನಿಮ್ಮ {crop_kn} ಬೆಳೆಯಲ್ಲಿ ಶಿಲೀಂಧ್ರ ರೋಗ ಮತ್ತು ಎಲೆ ಚುಕ್ಕೆ ರೋಗದ ಅಪಾಯವನ್ನು ಹೆಚ್ಚಿಸುತ್ತದೆ."
+        else:
+            pest_brief = f"ಒಣ ಮತ್ತು ಗಾಳಿಯ ವಾತಾವರಣವು ನಿಮ್ಮ ನಿಂತ ಬೆಳೆಗಳ ಮೇಲೆ ಥ್ರಿಪ್ಸ್ (ನುಸಿ) ಮತ್ತು ಹೇನುಗಳ ಬಾಧೆಯ ಅಪಾಯವನ್ನು ಹೆಚ್ಚಿಸುತ್ತದೆ."
+        crop_action_brief = "ಹಗಲಿನ ಶಾಖದ ವಿರುದ್ಧ ಮಣ್ಣಿನ ತೇವಾಂಶವನ್ನು ಕಾಪಾಡಿಕೊಳ್ಳಲು ಸಂಜೆಯ ಸಮಯದಲ್ಲಿ ಸೂಕ್ತ ನೀರಾವರಿ ಒದಗಿಸಿ."
+        if latest_price:
+            market_brief = f"{latest_price.market_name} ನಲ್ಲಿ {crop_kn} ಮಾದರಿ ದರ ₹{int(latest_price.modal_price)}/ಕ್ವಿಂಟಾಲ್ ಆಗಿದೆ. ಹೆಚ್ಚಿನ ಮಾಹಿತಿಗಾಗಿ ಮಂಡಿ ವಿಭಾಗ ನೋಡಿ."
+        else:
+            market_brief = "ಇತ್ತೀಚಿನ ಸ್ಥಳೀಯ ಬೆಳೆ ಬೆಲೆಗಳಿಗಾಗಿ, ದಯವಿಟ್ಟು ಅಪ್ಲಿಕೇಶನ್‌ನಲ್ಲಿರುವ ಮಂಡಿ ಟ್ಯಾಬ್ ಅನ್ನು ಪರಿಶೀಲಿಸಿ."
+        quote = "ನಿಮ್ಮ ಪರಿಶ್ರಮವೇ ದೇಶಕ್ಕೆ ಅನ್ನ; ನಿಮ್ಮ ಪ್ರಯತ್ನದಷ್ಟೇ ನಿಮ್ಮ ಫಸಲು ಸಮೃದ್ಧವಾಗಿರಲಿ."
+    elif language == "hi":
+        headline = f"{city_display} के हमारे मेहनती किसान को सुप्रभात।"
+        summary = "आज जिले भर में मध्यम तापमान के साथ आंशिक रूप से बादल छाए रहने की उम्मीद है।"
+        weather_brief = f"दोपहर में अधिकतम {temp_max}°C तापमान, {humidity}% नमी और हल्की हवा ({wind_speed} किमी/घंटा) रहने की संभावना है।"
+        if humidity > 75:
+            pest_brief = f"अधिक नमी से आपकी खड़ी {crop} फसलों पर फफूंद और झुलसा रोग का खतरा बढ़ जाता है।"
+        else:
+            pest_brief = "शुष्क और हवादार परिस्थितियां आपकी खड़ी फसलों पर थ्रिप्स और माहू (एफिड्स) के जोखिम को बढ़ाती हैं।"
+        crop_action_brief = "दिन की गर्मी के खिलाफ मिट्टी की नमी बनाए रखने के लिए शाम के समय पर्याप्त सिंचाई सुनिश्चित करें।"
+        if latest_price:
+            market_brief = f"{latest_price.market_name} में {latest_price.commodity} का मॉडल भाव ₹{int(latest_price.modal_price)}/क्विंटल है। अधिक भाव के लिए मंडी टैब देखें।"
+        else:
+            market_brief = "नवीनतम स्थानीय फसल कीमतों के लिए, कृपया एप्लिकेशन में मंडी (Mandi) टैब देखें।"
+        quote = "आपका समर्पण राष्ट्र का पोषण करता है; आपकी फसल आपकी मेहनत जितनी ही समृद्ध हो।"
+    else:
+        headline = f"Good morning to our hardworking farmer in {city_display}."
+        summary = f"{condition.capitalize()} skies with moderate temperatures are expected today across the district."
+        weather_brief = f"Expect a high of {temp_max}°C with {humidity}% humidity and light breezes ({wind_speed} km/h) throughout the afternoon."
+        if humidity > 75:
+            pest_brief = f"Elevated humidity ({humidity}%) increases the risk of fungal blight and leaf spot on your standing {crop} crops."
+        else:
+            pest_brief = "Dry and windy conditions increase the risk of thrips and aphids on your standing crops."
+        crop_action_brief = "Ensure adequate irrigation during the evening to maintain soil moisture levels against the daytime heat."
+        if latest_price:
+            market_brief = f"Latest verified {latest_price.commodity} modal price at {latest_price.market_name} is ₹{int(latest_price.modal_price)}/quintal. Check the Mandi tab for full directory."
+        else:
+            market_brief = "For the latest local crop prices, please check the Mandi tab in the application."
+        quote = "Your dedication feeds the nation; may your harvest be as bountiful as your efforts."
+
+    return {
+        "available": True,
+        "date": today_str,
+        "location": city_display,
+        "crop": crop,
+        "language": language,
+        "headline": headline,
+        "summary": summary,
+        "weather": weather_brief,
+        "pest_disease": pest_brief,
+        "crop_action": crop_action_brief,
+        "market": market_brief,
+        "quote": quote
+    }
+
 

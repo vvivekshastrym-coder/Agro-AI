@@ -9,7 +9,6 @@ import {
   FileText,
   LogOut,
   ChevronRight,
-  ShieldAlert,
   Menu,
   X,
   Megaphone,
@@ -19,6 +18,7 @@ import {
 
 interface NavItem {
   id: string;
+  moduleKey: string;
   label: string;
   icon: React.ReactNode;
   roles: AdminRole[];
@@ -31,33 +31,48 @@ interface AdminLayoutProps {
 }
 
 const NAV_ITEMS: NavItem[] = [
-  { id: 'overview', label: 'Overview', icon: <LayoutDashboard size={18} />, roles: ['super_admin', 'plan_manager', 'payment_manager', 'support_agent', 'content_manager', 'analyst'] },
-  { id: 'mart', label: 'Agro AI Mart', icon: <ShoppingBag size={18} />, roles: ['super_admin', 'plan_manager', 'payment_manager', 'support_agent', 'content_manager', 'analyst'] },
-  { id: 'broadcasts', label: 'Posts & Offers', icon: <Megaphone size={18} />, roles: ['super_admin', 'content_manager', 'plan_manager', 'support_agent', 'analyst'] },
-  { id: 'farmer_exports', label: 'Excel Data Registry', icon: <FileSpreadsheet size={18} />, roles: ['super_admin', 'support_agent', 'analyst', 'plan_manager'] },
-  { id: 'plans', label: 'Subscription Plans', icon: <Layers size={18} />, roles: ['super_admin', 'plan_manager', 'analyst'] },
-  { id: 'users', label: 'Users & Roles', icon: <Users size={18} />, roles: ['super_admin', 'support_agent', 'analyst'] },
-  { id: 'payments', label: 'Payment Orders', icon: <CreditCard size={18} />, roles: ['super_admin', 'payment_manager', 'support_agent', 'analyst'] },
-  { id: 'data_requests', label: 'Data Requests', icon: <FileText size={18} />, roles: ['super_admin', 'support_agent'] },
-  { id: 'audit_logs', label: 'Security Audit Logs', icon: <ShieldCheck size={18} />, roles: ['super_admin', 'analyst'] },
+  { id: 'overview', moduleKey: 'overview', label: 'Overview', icon: <LayoutDashboard size={18} />, roles: ['super_admin', 'admin', 'staff', 'plan_manager', 'payment_manager', 'payment_staff', 'support_agent', 'content_manager', 'listing_reviewer', 'seller_reviewer', 'analyst'] },
+  { id: 'mart', moduleKey: 'mart', label: 'Agro AI Mart', icon: <ShoppingBag size={18} />, roles: ['super_admin', 'admin', 'staff', 'plan_manager', 'payment_manager', 'support_agent', 'content_manager', 'listing_reviewer', 'seller_reviewer', 'analyst'] },
+  { id: 'broadcasts', moduleKey: 'posts_offers', label: 'Posts & Offers', icon: <Megaphone size={18} />, roles: ['super_admin', 'admin', 'staff', 'content_manager', 'plan_manager', 'support_agent', 'analyst'] },
+  { id: 'farmer_exports', moduleKey: 'excel_registry', label: 'Excel Data Registry', icon: <FileSpreadsheet size={18} />, roles: ['super_admin', 'admin', 'staff', 'support_agent', 'content_manager', 'analyst', 'plan_manager'] },
+  { id: 'plans', moduleKey: 'subscription_plans', label: 'Subscription Plans', icon: <Layers size={18} />, roles: ['super_admin', 'admin', 'plan_manager', 'analyst'] },
+  { id: 'users', moduleKey: 'users_roles', label: 'Users & Roles', icon: <Users size={18} />, roles: ['super_admin', 'admin', 'support_agent', 'analyst'] },
+  { id: 'payments', moduleKey: 'payment_orders', label: 'Payment Orders', icon: <CreditCard size={18} />, roles: ['super_admin', 'admin', 'staff', 'payment_manager', 'payment_staff', 'support_agent', 'analyst'] },
+  { id: 'data_requests', moduleKey: 'data_requests', label: 'Data Requests', icon: <FileText size={18} />, roles: ['super_admin', 'admin', 'staff', 'support_agent', 'analyst'] },
+  { id: 'audit_logs', moduleKey: 'audit_logs', label: 'Security Audit Logs', icon: <ShieldCheck size={18} />, roles: ['super_admin', 'admin', 'analyst'] },
 ];
 
 export const AdminLayout: React.FC<AdminLayoutProps> = ({ currentTab, onTabChange, children }) => {
   const { profile, logout } = useAdminAuth();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
-  const role = profile?.role || 'analyst';
+  const role = profile?.role || 'staff';
+  const hierarchyLevel = profile?.hierarchy_level || (role === 'super_admin' ? 'SUPER_ADMIN_HEAD' : role === 'admin' ? 'ADMIN' : 'STAFF');
 
-  const roleBadgeColors: Record<AdminRole, string> = {
-    super_admin: 'bg-[#B91C1C]/15 text-[#B91C1C] border-[#B91C1C]/30',
-    plan_manager: 'bg-[#2D6A4F]/15 text-[#2D6A4F] border-[#2D6A4F]/30',
-    payment_manager: 'bg-[#B26E28]/15 text-[#B26E28] border-[#B26E28]/30',
-    support_agent: 'bg-[#1D4ED8]/15 text-[#1D4ED8] border-[#1D4ED8]/30',
-    content_manager: 'bg-[#7C3AED]/15 text-[#7C3AED] border-[#7C3AED]/30',
-    analyst: 'bg-[#4B5563]/15 text-[#4B5563] border-[#4B5563]/30',
+  const tierLabelMap: Record<string, string> = {
+    SUPER_ADMIN_HEAD: 'Level 1 · Super Admin Head',
+    ADMIN: 'Level 2 · Admin',
+    STAFF: 'Level 3 · Staff',
   };
 
-  const allowedNav = NAV_ITEMS.filter(item => item.roles.includes(role));
+  const roleBadgeColors: Record<string, string> = {
+    super_admin: 'bg-[#B91C1C]/20 text-[#FCA5A5] border-[#B91C1C]/40',
+    admin: 'bg-[#2D6A4F]/25 text-[#A7F3D0] border-[#40916C]/50',
+    staff: 'bg-[#1D4ED8]/20 text-[#93C5FD] border-[#3B82F6]/40',
+    plan_manager: 'bg-[#2D6A4F]/20 text-[#A7F3D0] border-[#2D6A4F]/40',
+    payment_manager: 'bg-[#B26E28]/20 text-[#FCD34D] border-[#B26E28]/40',
+    support_agent: 'bg-[#1D4ED8]/20 text-[#93C5FD] border-[#1D4ED8]/40',
+    content_manager: 'bg-[#7C3AED]/20 text-[#C4B5FD] border-[#7C3AED]/40',
+    analyst: 'bg-[#4B5563]/20 text-[#D1D5DB] border-[#4B5563]/40',
+  };
+
+  const allowedNav = NAV_ITEMS.filter(item => {
+    if (role === 'super_admin' || hierarchyLevel === 'SUPER_ADMIN_HEAD') return true;
+    if (profile?.authorized_modules && profile.authorized_modules.length > 0) {
+      return profile.authorized_modules.includes(item.moduleKey);
+    }
+    return item.roles.includes(role);
+  });
 
   return (
     <div className="flex h-screen overflow-hidden bg-[#FAF8F5]">
@@ -83,7 +98,7 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ currentTab, onTabChang
           {/* Navigation Links */}
           <nav className="flex-1 px-3 py-4 space-y-1.5 overflow-y-auto">
             <div className="px-3 pb-2 text-[11px] font-semibold text-[#6EE7B7] uppercase tracking-wider">
-              Management
+              Authorized Modules ({allowedNav.length})
             </div>
             {allowedNav.map(item => {
               const active = currentTab === item.id;
@@ -94,7 +109,7 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ currentTab, onTabChang
                     onTabChange(item.id);
                     setMobileMenuOpen(false);
                   }}
-                  className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-sm font-medium transition-all ${
+                  className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-sm font-medium transition-all cursor-pointer ${
                     active
                       ? 'bg-[#2D6A4F] text-white shadow-sm font-semibold'
                       : 'text-[#9CA3AF] hover:bg-[#1B4332]/60 hover:text-white'
@@ -120,18 +135,23 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ currentTab, onTabChang
               <button
                 onClick={logout}
                 title="Sign out"
-                className="p-1.5 rounded-lg text-[#9CA3AF] hover:text-red-400 hover:bg-red-950/40 transition"
+                className="p-1.5 rounded-lg text-[#9CA3AF] hover:text-red-400 hover:bg-red-950/40 transition cursor-pointer"
               >
                 <LogOut size={16} />
               </button>
             </div>
-            <div className="flex items-center gap-2">
-              <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border uppercase tracking-wider ${roleBadgeColors[role] || 'bg-gray-800 text-gray-300'}`}>
-                {role.replace('_', ' ')}
-              </span>
-              <span className="flex items-center gap-1 text-[10px] text-[#A7F3D0]">
-                <ShieldCheck size={12} /> MFA Verified
-              </span>
+            <div className="flex flex-col gap-1.5">
+              <div className="text-[10px] font-bold text-[#6EE7B7] uppercase tracking-wider">
+                {tierLabelMap[hierarchyLevel] || 'Level 3 · Staff'}
+              </div>
+              <div className="flex items-center gap-2">
+                <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border uppercase tracking-wider ${roleBadgeColors[role] || 'bg-gray-800 text-gray-300'}`}>
+                  {role.replace('_', ' ')}
+                </span>
+                <span className="flex items-center gap-1 text-[10px] text-[#A7F3D0]">
+                  <ShieldCheck size={12} /> RBAC Enforced
+                </span>
+              </div>
             </div>
           </div>
         </div>
@@ -149,14 +169,14 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ currentTab, onTabChang
               <Menu size={20} />
             </button>
             <h2 className="font-display text-lg font-semibold text-[#1B4332] capitalize">
-              {currentTab.replace('_', ' ')}
+              {allowedNav.find(n => n.id === currentTab)?.label || currentTab.replace('_', ' ')}
             </h2>
           </div>
 
           <div className="flex items-center gap-4">
             <div className="hidden sm:flex items-center gap-2 px-3 py-1 rounded-full bg-[#E8F5E9] text-[#2D6A4F] text-xs font-semibold border border-[#C8E6C9]">
               <span className="w-2 h-2 rounded-full bg-[#2D6A4F] animate-pulse"></span>
-              Live Supabase Project
+              {tierLabelMap[hierarchyLevel]}
             </div>
             <a
               href="http://127.0.0.1:8080"

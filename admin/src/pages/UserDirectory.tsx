@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { useAdminAuth, AdminRole } from '../context/AdminAuthContext';
-import { Users, Shield, Search, CheckCircle, AlertTriangle, RefreshCw, UserCheck, XCircle, Clock, Lock } from 'lucide-react';
+import { useAdminAuth, AdminRole, HierarchyLevel } from '../context/AdminAuthContext';
+import { Shield, Search, CheckCircle, AlertTriangle, RefreshCw, XCircle, Clock, UserCheck, Ban } from 'lucide-react';
 import { adminFetch } from '../lib/api';
 
 interface UserRecord {
@@ -9,6 +9,8 @@ interface UserRecord {
   full_name?: string;
   role?: string;
   admin_role?: AdminRole | null;
+  hierarchy_level?: HierarchyLevel | null;
+  permissions?: Record<string, string[]>;
   is_active: boolean;
   created_at?: string;
 }
@@ -26,19 +28,24 @@ interface AccessRequestRecord {
   created_at?: string;
 }
 
-const ALL_ROLES: { role: AdminRole; label: string }[] = [
-  { role: 'plan_manager', label: 'Plan Operations (Drafting & Limits)' },
-  { role: 'payment_manager', label: 'Finance & Payment Settlements' },
-  { role: 'support_agent', label: 'Farmer Support & Privacy Queue' },
-  { role: 'analyst', label: 'Data Analytics & Audit Inspector' },
-  { role: 'content_manager', label: 'Crop Advisory Content' },
-  { role: 'super_admin', label: 'Super Admin (Executive Authority)' }
+const ALL_ROLES: { role: AdminRole; label: string; tier: HierarchyLevel }[] = [
+  { role: 'super_admin', label: 'Level 1 — Super Admin Head (Executive Owner)', tier: 'SUPER_ADMIN_HEAD' },
+  { role: 'admin', label: 'Level 2 — Admin (Module Manager & Approver)', tier: 'ADMIN' },
+  { role: 'staff', label: 'Level 3 — Staff (Operations & Data Entry)', tier: 'STAFF' },
+  { role: 'plan_manager', label: 'Level 2 — Plan Operations (Drafting & Limits)', tier: 'ADMIN' },
+  { role: 'payment_manager', label: 'Level 2 — Finance & Payment Settlements', tier: 'ADMIN' },
+  { role: 'listing_reviewer', label: 'Level 3 — Mart Product Reviewer', tier: 'STAFF' },
+  { role: 'seller_reviewer', label: 'Level 3 — Farmer Seller Reviewer', tier: 'STAFF' },
+  { role: 'content_manager', label: 'Level 3 — Crop Advisory & Posts Staff', tier: 'STAFF' },
+  { role: 'support_agent', label: 'Level 3 — Farmer Support & Data Requests', tier: 'STAFF' },
+  { role: 'payment_staff', label: 'Level 3 — Payment Operations Staff', tier: 'STAFF' },
+  { role: 'analyst', label: 'Level 3 — Data Analytics & Audit Inspector', tier: 'STAFF' },
 ];
 
 export const UserDirectory: React.FC = () => {
-  const { profile, isSuperAdmin } = useAdminAuth();
-  
-  const [activeTab, setActiveTab] = useState<'users' | 'requests'>('requests');
+  const { isSuperAdmin, isAdminOrAbove } = useAdminAuth();
+
+  const [activeTab, setActiveTab] = useState<'users' | 'requests'>('users');
   const [users, setUsers] = useState<UserRecord[]>([]);
   const [accessRequests, setAccessRequests] = useState<AccessRequestRecord[]>([]);
   const [loading, setLoading] = useState(true);
@@ -48,7 +55,6 @@ export const UserDirectory: React.FC = () => {
   const [actionSuccess, setActionSuccess] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
 
-  // Selected roles map for approving access requests
   const [selectedApproveRoles, setSelectedApproveRoles] = useState<Record<string, AdminRole>>({});
 
   const fetchUsers = async () => {
@@ -77,10 +83,9 @@ export const UserDirectory: React.FC = () => {
       if (res.ok) {
         const data = await res.json();
         setAccessRequests(data);
-        // Pre-fill selected approve roles
         const initialMap: Record<string, AdminRole> = {};
         data.forEach((r: AccessRequestRecord) => {
-          initialMap[r.id] = (r.requested_role as AdminRole) || 'support_agent';
+          initialMap[r.id] = (r.requested_role as AdminRole) || 'staff';
         });
         setSelectedApproveRoles(initialMap);
       }
@@ -95,25 +100,12 @@ export const UserDirectory: React.FC = () => {
     fetchUsers();
     if (isSuperAdmin) {
       fetchAccessRequests();
-    } else {
-      setActiveTab('users');
     }
-
     const timer = setInterval(() => {
       fetchUsers();
       if (isSuperAdmin) fetchAccessRequests();
-    }, 12000);
-
-    const handleFocus = () => {
-      fetchUsers();
-      if (isSuperAdmin) fetchAccessRequests();
-    };
-    window.addEventListener('focus', handleFocus);
-
-    return () => {
-      clearInterval(timer);
-      window.removeEventListener('focus', handleFocus);
-    };
+    }, 15000);
+    return () => clearInterval(timer);
   }, [isSuperAdmin]);
 
   const handleApproveRequest = async (requestId: string) => {
@@ -121,7 +113,7 @@ export const UserDirectory: React.FC = () => {
     setActionSuccess(null);
     setError(null);
     try {
-      const roleToAssign = selectedApproveRoles[requestId] || 'support_agent';
+      const roleToAssign = selectedApproveRoles[requestId] || 'staff';
       const res = await adminFetch(`/api/admin/access-requests/${requestId}/approve`, {
         method: 'POST',
         body: JSON.stringify({ role: roleToAssign })
@@ -164,6 +156,7 @@ export const UserDirectory: React.FC = () => {
   };
 
   const handleAssignRole = async (userId: string, newRole: AdminRole) => {
+    if (!confirm(`Confirm role assignment to "${newRole.replace('_', ' ').toUpperCase()}"?`)) return;
     setActionLoading(userId);
     setActionSuccess(null);
     setError(null);
@@ -185,20 +178,42 @@ export const UserDirectory: React.FC = () => {
     }
   };
 
-  const handleToggleActive = async (userId: string, currentActive: boolean) => {
+  const handleVerifyFarmer = async (userId: string, verified: boolean) => {
     setActionLoading(userId);
     setActionSuccess(null);
     setError(null);
     try {
-      const res = await adminFetch('/api/admin/users/assign-role', {
+      const res = await adminFetch(`/api/admin/users/${userId}/verify-farmer`, {
         method: 'POST',
-        body: JSON.stringify({ user_id: userId, is_active: !currentActive })
+        body: JSON.stringify({ verified, notes: verified ? 'Verified via Admin Console' : 'Verification revoked' })
       });
       if (!res.ok) {
         const errData = await res.json().catch(() => ({}));
-        throw new Error(errData?.detail?.error?.message || errData?.detail || 'Failed to toggle access status');
+        throw new Error(errData?.detail?.error?.message || errData?.detail || 'Failed to update farmer verification');
       }
-      setActionSuccess(`Account access ${!currentActive ? 'reactivated' : 'revoked'}.`);
+      setActionSuccess(verified ? 'Farmer verified successfully.' : 'Farmer verification revoked.');
+      await fetchUsers();
+    } catch (err: any) {
+      setError(err.message || 'Error updating farmer verification');
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const handleToggleSuspend = async (userId: string, currentActive: boolean) => {
+    setActionLoading(userId);
+    setActionSuccess(null);
+    setError(null);
+    try {
+      const res = await adminFetch(`/api/admin/users/${userId}/suspend`, {
+        method: 'POST',
+        body: JSON.stringify({ suspended: currentActive, reason: currentActive ? 'Suspended via Admin Console' : 'Restored via Admin Console' })
+      });
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData?.detail?.error?.message || errData?.detail || 'Failed to toggle suspension status');
+      }
+      setActionSuccess(`User account ${currentActive ? 'suspended' : 'restored'}.`);
       await fetchUsers();
     } catch (err: any) {
       setError(err.message || 'Error updating account status');
@@ -209,13 +224,18 @@ export const UserDirectory: React.FC = () => {
 
   const pendingRequests = accessRequests.filter(r => r.status === 'pending');
 
+  const assignableRoles = isSuperAdmin
+    ? ALL_ROLES
+    : ALL_ROLES.filter(r => r.tier === 'STAFF');
+
   const filteredUsers = users.filter(u => {
     const s = search.toLowerCase();
     return (
       u.email?.toLowerCase().includes(s) ||
       u.full_name?.toLowerCase().includes(s) ||
       u.id?.toLowerCase().includes(s) ||
-      u.admin_role?.toLowerCase().includes(s)
+      u.admin_role?.toLowerCase().includes(s) ||
+      u.hierarchy_level?.toLowerCase().includes(s)
     );
   });
 
@@ -224,9 +244,9 @@ export const UserDirectory: React.FC = () => {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-display font-bold text-[#1B4332]">Staff & Platform Permissions</h1>
+          <h1 className="text-2xl font-display font-bold text-[#1B4332]">Users & Roles (3-Tier Hierarchy)</h1>
           <p className="text-sm text-[#4B5563]">
-            Access Approval Architecture: Only Head Super Admin can authorize company workers and assign permissions.
+            Level 1 Super Admin Head controls all platform permissions. Level 2 Admins manage assigned modules & delegate Level 3 Staff roles.
           </p>
         </div>
         <button
@@ -246,13 +266,15 @@ export const UserDirectory: React.FC = () => {
         <div className="flex items-center gap-2.5">
           <Shield size={18} className="text-[#2D6A4F] shrink-0" />
           <div>
-            <span className="font-bold">Head of Agro AI (Super Admin):</span> vvivekshastrym@gmail.com
+            <span className="font-bold">Level 1 — Super Admin Head:</span> vvivekshastrym@gmail.com
             <span className="mx-2 text-[#81C784]">|</span>
-            <span className="text-[#2E7D32]">All major plan publishing and staff access decisions require Super Admin approval.</span>
+            <span className="text-[#2E7D32]">
+              Only Super Admin Head can promote Admins or publish subscription plans. Admins can assign Level 3 Staff permissions.
+            </span>
           </div>
         </div>
-        <span className="hidden sm:inline-block px-2 py-0.5 rounded-full bg-[#2D6A4F] text-white font-semibold text-[11px]">
-          {isSuperAdmin ? 'Logged in as Super Admin' : 'Worker (Read/Manage Mode)'}
+        <span className="hidden sm:inline-block px-2.5 py-0.5 rounded-full bg-[#2D6A4F] text-white font-semibold text-[11px]">
+          {isSuperAdmin ? 'Level 1 · Super Admin Head' : isAdminOrAbove ? 'Level 2 · Admin' : 'Level 3 · Staff'}
         </span>
       </div>
 
@@ -274,6 +296,19 @@ export const UserDirectory: React.FC = () => {
       {isSuperAdmin && (
         <div className="flex border-b border-[#E5DFD3] gap-6 text-sm font-semibold">
           <button
+            onClick={() => setActiveTab('users')}
+            className={`pb-3 relative transition flex items-center gap-2 cursor-pointer ${
+              activeTab === 'users'
+                ? 'text-[#1B4332] border-b-2 border-[#1B4332]'
+                : 'text-[#6B7280] hover:text-[#1F2937]'
+            }`}
+          >
+            <span>All Registered Users & Staff</span>
+            <span className="px-2 py-0.5 rounded-full text-xs bg-[#E5DFD3] text-[#374151]">
+              {users.length}
+            </span>
+          </button>
+          <button
             onClick={() => setActiveTab('requests')}
             className={`pb-3 relative transition flex items-center gap-2 cursor-pointer ${
               activeTab === 'requests'
@@ -288,23 +323,10 @@ export const UserDirectory: React.FC = () => {
               </span>
             )}
           </button>
-          <button
-            onClick={() => setActiveTab('users')}
-            className={`pb-3 relative transition flex items-center gap-2 cursor-pointer ${
-              activeTab === 'users'
-                ? 'text-[#1B4332] border-b-2 border-[#1B4332]'
-                : 'text-[#6B7280] hover:text-[#1F2937]'
-            }`}
-          >
-            <span>All Registered Users & Staff</span>
-            <span className="px-2 py-0.5 rounded-full text-xs bg-[#E5DFD3] text-[#374151]">
-              {users.length}
-            </span>
-          </button>
         </div>
       )}
 
-      {/* TAB 1: PENDING STAFF ACCESS REQUESTS */}
+      {/* TAB: PENDING STAFF ACCESS REQUESTS */}
       {isSuperAdmin && activeTab === 'requests' && (
         <div className="space-y-4">
           <div className="bg-white rounded-2xl border border-[#E5DFD3] shadow-xs overflow-hidden">
@@ -377,7 +399,7 @@ export const UserDirectory: React.FC = () => {
                           {req.status === 'pending' ? (
                             <div className="flex items-center justify-end gap-2">
                               <select
-                                value={selectedApproveRoles[req.id] || 'support_agent'}
+                                value={selectedApproveRoles[req.id] || 'staff'}
                                 onChange={e => setSelectedApproveRoles(prev => ({ ...prev, [req.id]: e.target.value as AdminRole }))}
                                 className="text-xs px-2.5 py-1.5 rounded-lg border border-[#D1D5DB] bg-white text-[#1B4332] font-medium"
                               >
@@ -417,7 +439,7 @@ export const UserDirectory: React.FC = () => {
         </div>
       )}
 
-      {/* TAB 2: ACTIVE USERS & PERMISSIONS TABLE */}
+      {/* TAB: ACTIVE USERS & PERMISSIONS TABLE */}
       {(!isSuperAdmin || activeTab === 'users') && (
         <div className="space-y-4">
           {/* Search Bar */}
@@ -427,7 +449,7 @@ export const UserDirectory: React.FC = () => {
               type="text"
               value={search}
               onChange={e => setSearch(e.target.value)}
-              placeholder="Search by name, email, user ID, or role..."
+              placeholder="Search by name, email, user ID, role, or hierarchy tier..."
               className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-[#E5DFD3] bg-white text-sm text-[#1B4332] focus:outline-none focus:ring-2 focus:ring-[#2D6A4F]/20 focus:border-[#2D6A4F]"
             />
           </div>
@@ -440,9 +462,9 @@ export const UserDirectory: React.FC = () => {
                   <tr>
                     <th className="px-6 py-4">User</th>
                     <th className="px-6 py-4">Status</th>
-                    <th className="px-6 py-4">Farmer Role</th>
-                    <th className="px-6 py-4">Admin Privileges</th>
-                    <th className="px-6 py-4 text-right">Super Admin Actions</th>
+                    <th className="px-6 py-4">Farmer Status</th>
+                    <th className="px-6 py-4">Hierarchy & Role</th>
+                    <th className="px-6 py-4 text-right">Governance Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[#E5DFD3]">
@@ -461,6 +483,7 @@ export const UserDirectory: React.FC = () => {
                   ) : (
                     filteredUsers.map(user => {
                       const isHeadSuperAdmin = user.email?.toLowerCase() === 'vvivekshastrym@gmail.com';
+                      const isVerifiedFarmer = user.role === 'verified_farmer';
                       return (
                         <tr key={user.id} className={`hover:bg-[#FAF8F5]/60 transition ${isHeadSuperAdmin ? 'bg-emerald-50/40' : ''}`}>
                           <td className="px-6 py-4">
@@ -468,7 +491,7 @@ export const UserDirectory: React.FC = () => {
                               <span className="font-semibold text-[#1B4332]">{user.full_name || 'Unnamed User'}</span>
                               {isHeadSuperAdmin && (
                                 <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#1B4332] text-white">
-                                  HEAD SUPER ADMIN
+                                  LEVEL 1 · SUPER ADMIN HEAD
                                 </span>
                               )}
                             </div>
@@ -484,26 +507,51 @@ export const UserDirectory: React.FC = () => {
                             </span>
                           </td>
                           <td className="px-6 py-4">
-                            <span className="capitalize text-xs font-medium text-[#4B5563]">
-                              {user.role || 'farmer'}
-                            </span>
+                            <div className="flex items-center gap-2">
+                              <span className={`px-2 py-0.5 rounded-md text-xs font-semibold ${
+                                isVerifiedFarmer
+                                  ? 'bg-emerald-100 text-emerald-800'
+                                  : 'bg-gray-100 text-gray-700'
+                              }`}>
+                                {isVerifiedFarmer ? 'Verified Farmer' : (user.role || 'farmer')}
+                              </span>
+                              {isAdminOrAbove && !isHeadSuperAdmin && (
+                                <button
+                                  onClick={() => handleVerifyFarmer(user.id, !isVerifiedFarmer)}
+                                  disabled={actionLoading === user.id}
+                                  className="text-[11px] font-semibold text-[#2D6A4F] hover:underline cursor-pointer"
+                                  title={isVerifiedFarmer ? 'Revoke farmer verification' : 'Verify farmer identity'}
+                                >
+                                  {isVerifiedFarmer ? 'Unverify' : 'Verify'}
+                                </button>
+                              )}
+                            </div>
                           </td>
                           <td className="px-6 py-4">
                             {user.admin_role ? (
-                              <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold ${
-                                user.admin_role === 'super_admin'
-                                  ? 'bg-[#1B4332] text-white'
-                                  : 'bg-[#2D6A4F]/10 text-[#2D6A4F] border border-[#2D6A4F]/20'
-                              } uppercase tracking-wide`}>
-                                <Shield size={12} />
-                                {user.admin_role.replace('_', ' ')}
-                              </span>
+                              <div className="flex flex-col gap-1">
+                                <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold w-fit ${
+                                  user.hierarchy_level === 'SUPER_ADMIN_HEAD'
+                                    ? 'bg-[#1B4332] text-white'
+                                    : user.hierarchy_level === 'ADMIN'
+                                    ? 'bg-blue-50 text-blue-800 border border-blue-200'
+                                    : 'bg-[#2D6A4F]/10 text-[#2D6A4F] border border-[#2D6A4F]/20'
+                                } uppercase tracking-wide`}>
+                                  <Shield size={12} />
+                                  {user.admin_role.replace('_', ' ')}
+                                </span>
+                                {user.hierarchy_level && (
+                                  <span className="text-[10px] font-bold text-[#6B7280]">
+                                    Tier: {user.hierarchy_level}
+                                  </span>
+                                )}
+                              </div>
                             ) : (
-                              <span className="text-xs text-[#9CA3AF]">None</span>
+                              <span className="text-xs text-[#9CA3AF]">Customer / Farmer Only</span>
                             )}
                           </td>
                           <td className="px-6 py-4 text-right">
-                            {isSuperAdmin ? (
+                            {isAdminOrAbove ? (
                               <div className="inline-flex items-center gap-2">
                                 {!isHeadSuperAdmin ? (
                                   <>
@@ -517,27 +565,28 @@ export const UserDirectory: React.FC = () => {
                                       }}
                                       className="text-xs px-2.5 py-1.5 rounded-lg border border-[#E5DFD3] bg-white text-[#1B4332] font-medium focus:ring-1 focus:ring-[#2D6A4F] disabled:opacity-50"
                                     >
-                                      <option value="" disabled>Change role...</option>
-                                      {ALL_ROLES.map(r => (
+                                      <option value="" disabled>Assign Role...</option>
+                                      {assignableRoles.map(r => (
                                         <option key={r.role} value={r.role}>
-                                          {r.role.replace('_', ' ').toUpperCase()}
+                                          {r.label}
                                         </option>
                                       ))}
                                     </select>
                                     <button
-                                      onClick={() => handleToggleActive(user.id, user.is_active)}
+                                      onClick={() => handleToggleSuspend(user.id, user.is_active)}
                                       disabled={actionLoading === user.id}
-                                      className={`px-2.5 py-1 rounded-lg text-xs font-medium border transition ${
+                                      className={`px-2.5 py-1.5 rounded-lg text-xs font-semibold border transition flex items-center gap-1 cursor-pointer ${
                                         user.is_active
                                           ? 'border-red-200 text-red-600 hover:bg-red-50'
                                           : 'border-emerald-200 text-emerald-600 hover:bg-emerald-50'
                                       }`}
                                     >
-                                      {user.is_active ? 'Revoke' : 'Activate'}
+                                      {user.is_active ? <Ban size={12} /> : <UserCheck size={12} />}
+                                      {user.is_active ? 'Suspend' : 'Restore'}
                                     </button>
                                   </>
                                 ) : (
-                                  <span className="text-xs font-semibold text-[#2D6A4F]">Permanent Head</span>
+                                  <span className="text-xs font-semibold text-[#2D6A4F]">Protected Owner</span>
                                 )}
                               </div>
                             ) : (

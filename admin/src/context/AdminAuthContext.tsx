@@ -1,7 +1,20 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
 
-export type AdminRole = 'super_admin' | 'plan_manager' | 'payment_manager' | 'support_agent' | 'content_manager' | 'analyst';
+export type AdminRole =
+  | 'super_admin'
+  | 'admin'
+  | 'staff'
+  | 'plan_manager'
+  | 'payment_manager'
+  | 'payment_staff'
+  | 'support_agent'
+  | 'content_manager'
+  | 'listing_reviewer'
+  | 'seller_reviewer'
+  | 'analyst';
+
+export type HierarchyLevel = 'SUPER_ADMIN_HEAD' | 'ADMIN' | 'STAFF';
 
 export interface AdminProfile {
   id: string;
@@ -9,6 +22,9 @@ export interface AdminProfile {
   email: string;
   full_name: string;
   role: AdminRole;
+  hierarchy_level: HierarchyLevel;
+  permissions: Record<string, string[]>;
+  authorized_modules: string[];
   is_active: boolean;
   mfa_verified: boolean;
 }
@@ -20,7 +36,9 @@ interface AdminAuthContextType {
   loading: boolean;
   error: string | null;
   isSuperAdmin: boolean;
+  isAdminOrAbove: boolean;
   mfaRequired: boolean;
+  hasPermission: (module: string, action: string) => boolean;
   login: (email: string, password?: string) => Promise<void>;
   logout: () => Promise<void>;
   verifyMfa: (code: string) => Promise<boolean>;
@@ -47,12 +65,19 @@ export const AdminAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
       if (res.ok) {
         const data = await res.json();
+        const roleVal = (data.role || 'staff') as AdminRole;
+        const hLevel: HierarchyLevel =
+          data.hierarchy_level ||
+          (roleVal === 'super_admin' ? 'SUPER_ADMIN_HEAD' : roleVal === 'admin' ? 'ADMIN' : 'STAFF');
         const profileObj: AdminProfile = {
           id: data.id || data.user_id,
           user_id: data.user_id,
           email: data.email,
           full_name: data.full_name || data.email?.split('@')[0] || 'Administrator',
-          role: data.role as AdminRole,
+          role: roleVal,
+          hierarchy_level: hLevel,
+          permissions: data.permissions || {},
+          authorized_modules: data.authorized_modules || [],
           is_active: data.is_active ?? true,
           mfa_verified: true,
         };
@@ -62,7 +87,6 @@ export const AdminAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         return true;
       }
 
-      // If backend rejected token, clear local token
       if (res.status === 401 || res.status === 403) {
         const errJson = await res.json().catch(() => ({}));
         const errMsg = errJson?.detail?.error?.message || errJson?.detail || 'Access Denied: Administrative privileges required.';
@@ -93,7 +117,6 @@ export const AdminAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         }
       }
 
-      // Supabase session fallback with safety timeout
       try {
         const sessionPromise = supabase.auth.getSession();
         const timeoutPromise = new Promise<{ data: { session: null } }>((resolve) =>
@@ -133,7 +156,6 @@ export const AdminAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     setLoading(true);
     setError(null);
     try {
-      // 1. Primary backend admin login with password & Super Admin approval enforcement
       const res = await fetch('/api/admin/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -148,25 +170,30 @@ export const AdminAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         throw new Error(errMsg);
       }
 
-      // Successfully authenticated
       const jwtToken = data.access_token;
       localStorage.setItem('agro_admin_token', jwtToken);
       setToken(jwtToken);
 
-      const userObj = data.user;
-      setUser(userObj);
-      setProfile({
-        id: userObj.id,
-        user_id: userObj.id,
-        email: userObj.email,
-        full_name: userObj.full_name,
-        role: data.role as AdminRole,
-        is_active: true,
-        mfa_verified: true,
-      });
+      const ok = await fetchAdminRole(jwtToken, data.user);
+      if (!ok) {
+        const userObj = data.user;
+        const roleVal = (data.role || 'staff') as AdminRole;
+        setUser(userObj);
+        setProfile({
+          id: userObj.id,
+          user_id: userObj.id,
+          email: userObj.email,
+          full_name: userObj.full_name,
+          role: roleVal,
+          hierarchy_level: roleVal === 'super_admin' ? 'SUPER_ADMIN_HEAD' : roleVal === 'admin' ? 'ADMIN' : 'STAFF',
+          permissions: {},
+          authorized_modules: [],
+          is_active: true,
+          mfa_verified: true,
+        });
+      }
       setError(null);
     } catch (err: any) {
-      // Fallback: If network or server error, try Supabase password login if available
       if (password && !err.message.includes('approval') && !err.message.includes('Head Super Admin')) {
         try {
           const { data, error: supaErr } = await supabase.auth.signInWithPassword({ email, password });
@@ -178,7 +205,7 @@ export const AdminAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chi
             }
           }
         } catch {
-          // ignore fallback error and keep primary error
+          // ignore fallback error
         }
       }
       throw err;
@@ -235,7 +262,18 @@ export const AdminAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     setMfaRequired(false);
   };
 
-  const isSuperAdmin = profile?.role === 'super_admin';
+  const isSuperAdmin = profile?.role === 'super_admin' || profile?.hierarchy_level === 'SUPER_ADMIN_HEAD';
+  const isAdminOrAbove = isSuperAdmin || profile?.role === 'admin' || profile?.hierarchy_level === 'ADMIN';
+
+  const hasPermission = (module: string, action: string): boolean => {
+    if (!profile) return false;
+    if (profile.role === 'super_admin' || profile.hierarchy_level === 'SUPER_ADMIN_HEAD') return true;
+    const modPerms = profile.permissions?.[module];
+    if (Array.isArray(modPerms)) {
+      return modPerms.includes(action);
+    }
+    return false;
+  };
 
   return (
     <AdminAuthContext.Provider
@@ -246,7 +284,9 @@ export const AdminAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         loading,
         error,
         isSuperAdmin,
+        isAdminOrAbove,
         mfaRequired,
+        hasPermission,
         login,
         logout,
         verifyMfa,

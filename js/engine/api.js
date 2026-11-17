@@ -6,9 +6,20 @@
 (function () {
   'use strict';
 
-  const isLocalDev = (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') && window.location.port !== '8080' && window.location.port !== '';
-  const BACKEND_BASE = isLocalDev ? `http://${window.location.hostname}:8080/api` : `${window.location.origin}/api`;
-  const WS_BASE = isLocalDev ? `ws://${window.location.hostname}:8080` : `${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.host}`;
+  const isCapacitorNative = Boolean(
+    (window.Capacitor && typeof window.Capacitor.isNativePlatform === 'function' && window.Capacitor.isNativePlatform()) ||
+    window.location.protocol === 'capacitor:' ||
+    ((window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') && window.location.port === '')
+  );
+  const configuredMobileHost = (typeof localStorage !== 'undefined' && localStorage.getItem('AGROAI_BACKEND_URL')) || 'http://192.168.31.86:8080';
+  const isSeparateDevServer = (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') && (window.location.port === '5173' || window.location.port === '3000');
+  const targetDevPort = (typeof localStorage !== 'undefined' && localStorage.getItem('AGROAI_BACKEND_PORT')) || '8000';
+  const BACKEND_BASE = isCapacitorNative
+    ? `${configuredMobileHost.replace(/\/+$/, '')}/api`
+    : (isSeparateDevServer ? `http://${window.location.hostname}:${targetDevPort}/api` : `${window.location.origin}/api`);
+  const WS_BASE = isCapacitorNative
+    ? configuredMobileHost.replace(/^http/, 'ws').replace(/\/+$/, '')
+    : (isSeparateDevServer ? `ws://${window.location.hostname}:${targetDevPort}` : `${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.host}`);
 
   // Helper for standard HTTP request with error handling
   async function apiFetch(endpoint, options = {}) {

@@ -50,10 +50,19 @@ from ..database.connection import get_db
 from ..auth.deps import get_current_user
 from ..database.models import (
     Driver, Vehicle, LogisticsTrip, VerificationStatus, TripStatus,
-    User, DriverLocation, TripEvent, FareCalculation, DriverDocument
+    User, UserRole, DriverLocation, TripEvent, FareCalculation, DriverDocument
 )
 
 router = APIRouter()
+
+def require_registered_farmer(user: User = Depends(get_current_user)) -> User:
+    """Enforces that only verified registered farmers (with Google or phone credentials) can access Logistics."""
+    if user.id == "farmer_guest" or getattr(user, "is_guest", False) or (not user.phone and (not user.email or user.email == "guest@agroai.in")):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only registered farmers can access Logistics. Please sign in with your Google account or Phone number to manage transport."
+        )
+    return user
 
 # ─── Config ──────────────────────────────────────────────────────────────────
 GOOGLE_MAPS_API_KEY = os.getenv("GOOGLE_MAPS_API_KEY", "")
@@ -175,7 +184,25 @@ class DriverRegisterRequest(BaseModel):
     base_charge: Optional[float] = 500.0
 
 
+class RouteCalculationRequest(BaseModel):
+    pickup_address: Optional[str] = None
+    pickup_lat: float
+    pickup_lon: float
+    dest_address: Optional[str] = None
+    dest_lat: float
+    dest_lon: float
+    pickup_source: Optional[str] = "manual_search"
+    require_verified_provider: bool = True
+
+
 # ─── Helpers ──────────────────────────────────────────────────────────────────
+
+def _validate_logistics_coords(lat: float, lon: float, label: str = "location") -> None:
+    if lat is None or lon is None or math.isnan(lat) or math.isnan(lon):
+        raise HTTPException(status_code=400, detail=f"Missing or NaN coordinates for {label}.")
+    if lat < -90.0 or lat > 90.0 or lon < -180.0 or lon > 180.0:
+        raise HTTPException(status_code=400, detail=f"Invalid {label} coordinates ({lat}, {lon}). Must be within -90..90 and -180..180.")
+
 
 def _haversine_km(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
     """Straight-line distance × 1.30 road-correction fudge. Emergency fallback only."""
@@ -186,7 +213,7 @@ def _haversine_km(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
     return round(R * 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a)) * 1.30, 2)
 
 
-async def _get_road_distance(lat1: float, lon1: float, lat2: float, lon2: float) -> dict:
+async def _get_road_distance(lat1: float, lon1: float, lat2: float, lon2: float, allow_fallback: bool = True) -> Optional[dict]:
     """
     Returns {'distance_km': float, 'duration_mins': int, 'source': str, 'polyline': str|None,
              'retrieved_at': str (ISO UTC), 'status': 'verified'|'estimated'}
@@ -194,7 +221,7 @@ async def _get_road_distance(lat1: float, lon1: float, lat2: float, lon2: float)
     Priority:
       1. Google Maps Directions API (when GOOGLE_MAPS_API_KEY set)
       2. OSRM public API (free, open source routing)
-      3. Haversine x 1.30 (last resort - marked ESTIMATED)
+      3. Haversine x 1.30 (only when allow_fallback=True - marked ESTIMATED)
     """
     now = datetime.datetime.utcnow().isoformat() + "Z"
 
@@ -239,6 +266,9 @@ async def _get_road_distance(lat1: float, lon1: float, lat2: float, lon2: float)
                     "retrieved_at": now, "status": "verified"}
     except Exception:
         pass
+
+    if not allow_fallback:
+        return None
 
     # 3. Haversine fallback - mark as ESTIMATED, never as verified
     dist_km = _haversine_km(lat1, lon1, lat2, lon2)
@@ -323,6 +353,7 @@ def _ensure_default_drivers(db: Session) -> None:
         Driver.is_online == True,
         Driver.is_busy == False,
     ).all()
+    has_active_vehicle = False
     if existing_online:
         for d in existing_online:
             if not d.last_heartbeat or (now - d.last_heartbeat.replace(tzinfo=None)).total_seconds() > 120:
@@ -330,8 +361,12 @@ def _ensure_default_drivers(db: Session) -> None:
             if d.current_lat is None:
                 d.current_lat = 12.5218
                 d.current_lon = 76.8951
+            v = db.query(Vehicle).filter(Vehicle.driver_id == d.id, Vehicle.is_active == True).first()
+            if v:
+                has_active_vehicle = True
         db.commit()
-        return
+        if has_active_vehicle:
+            return
 
     fleet_specs = [
         ("drv-user-tata-ace", "Ramesh Gowda", "9845100101", "KA11-20210045123", "drv-mandya-1", 12.5260, 76.8980, 4.9, 142, "veh-mandya-1", "Tata Ace", "KA-11-B-4521", 1.0, 22.0, 400.0),
@@ -349,8 +384,6 @@ def _ensure_default_drivers(db: Session) -> None:
                 phone=phone,
                 full_name=name,
                 role=UserRole.driver,
-                state="Karnataka",
-                district="Mandya",
                 is_verified=True,
             )
             db.add(u)
@@ -402,9 +435,99 @@ def _ensure_default_drivers(db: Session) -> None:
 
 # ─── Endpoints ────────────────────────────────────────────────────────────────
 
+@router.get("/locations/search")
+async def search_logistics_locations(
+    q: str = Query("", description="Search query for pickup or destination village, town, district, or APMC market"),
+    limit: int = Query(15, ge=1, le=50),
+    db: Session = Depends(get_db),
+):
+    """Shared location search endpoint for Logistics origin and destination selection."""
+    from .weather import search_locations
+    return await search_locations(q=q, limit=limit, db=db)
+
+
+@router.get("/locations/reverse")
+async def reverse_logistics_location(
+    lat: float = Query(..., description="Latitude (-90 to 90)"),
+    lon: float = Query(..., description="Longitude (-180 to 180)"),
+):
+    """Shared reverse-geocoding endpoint for Logistics GPS origin/destination selection."""
+    from .weather import reverse_geocode_location
+    return await reverse_geocode_location(lat=lat, lon=lon)
+
+
+@router.post("/route")
+async def calculate_logistics_route(req: RouteCalculationRequest):
+    """
+    Calculates real road distance and travel duration between validated origin and destination coordinates.
+    Never fabricates route distances or ETAs when routing providers fail in strict mode.
+    Clearly distinguishes customer one-time origin selection from live vehicle tracking.
+    """
+    _validate_logistics_coords(req.pickup_lat, req.pickup_lon, "pickup")
+    _validate_logistics_coords(req.dest_lat, req.dest_lon, "destination")
+
+    straight_km = _haversine_km(req.pickup_lat, req.pickup_lon, req.dest_lat, req.dest_lon)
+    if straight_km < 0.02:
+        raise HTTPException(
+            status_code=400,
+            detail="Pickup and destination cannot be the exact same location. Please choose a distinct destination.",
+        )
+
+    route = await _get_road_distance(
+        req.pickup_lat,
+        req.pickup_lon,
+        req.dest_lat,
+        req.dest_lon,
+        allow_fallback=not req.require_verified_provider,
+    )
+
+    origin_meta = {
+        "address": req.pickup_address or f"({req.pickup_lat:.4f}, {req.pickup_lon:.4f})",
+        "lat": req.pickup_lat,
+        "lon": req.pickup_lon,
+        "source": req.pickup_source or "manual_search",
+    }
+    dest_meta = {
+        "address": req.dest_address or f"({req.dest_lat:.4f}, {req.dest_lon:.4f})",
+        "lat": req.dest_lat,
+        "lon": req.dest_lon,
+    }
+
+    if route is None:
+        return {
+            "available": False,
+            "reason": "routing_unavailable",
+            "message": "Routing service could not calculate a road route between the selected pickup and destination. Please verify the locations or try again.",
+            "origin": origin_meta,
+            "destination": dest_meta,
+            "customer_tracking_mode": "one_time_origin_selection_only",
+        }
+
+    return {
+        "available": True,
+        "distance_km": route["distance_km"],
+        "duration_mins": route["duration_mins"],
+        "source": route["source"],
+        "status": route["status"],
+        "retrieved_at": route["retrieved_at"],
+        "polyline": route.get("polyline"),
+        "origin": origin_meta,
+        "destination": dest_meta,
+        "customer_tracking_mode": "one_time_origin_selection_only",
+        "privacy_notice": "Customer phone GPS is used only as a one-time origin selection. Live tracking applies only to authorized active transport vehicles.",
+    }
+
+
 @router.post("/search")
-async def search_logistics_options(req: LogisticsSearchRequest, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+async def search_logistics_options(req: LogisticsSearchRequest, db: Session = Depends(get_db), user: User = Depends(require_registered_farmer)):
     """Find available verified drivers with fare estimate for a route."""
+    _validate_logistics_coords(req.pickup_lat, req.pickup_lon, "pickup")
+    _validate_logistics_coords(req.dest_lat, req.dest_lon, "destination")
+    if _haversine_km(req.pickup_lat, req.pickup_lon, req.dest_lat, req.dest_lon) < 0.02:
+        raise HTTPException(
+            status_code=400,
+            detail="Pickup and destination cannot be the exact same location.",
+        )
     try:
         _ensure_default_drivers(db)
     except Exception:
@@ -523,7 +646,7 @@ async def search_logistics_options(req: LogisticsSearchRequest, db: Session = De
 
 
 @router.post("/trips", status_code=201)
-async def create_trip(req: CreateTripRequest, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+async def create_trip(req: CreateTripRequest, db: Session = Depends(get_db), user: User = Depends(require_registered_farmer)):
     """Farmer books a trip — creates the trip record and marks driver busy."""
     driver = db.query(Driver).filter(Driver.id == req.driver_id).first()
     if not driver:
@@ -601,7 +724,7 @@ async def create_trip(req: CreateTripRequest, db: Session = Depends(get_db), use
 
 
 @router.get("/trips")
-async def list_trips(farmer_id: Optional[str] = Query(None), db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+async def list_trips(farmer_id: Optional[str] = Query(None), db: Session = Depends(get_db), user: User = Depends(require_registered_farmer)):
     """The authenticated farmer's own trip history (farmer_id query param is ignored)."""
     trips = db.query(LogisticsTrip).filter(
         LogisticsTrip.farmer_id == user.id
@@ -804,6 +927,7 @@ async def push_driver_location(req: DriverLocationUpdate, db: Session = Depends(
     Driver app pushes GPS heartbeat.
     Updates driver's current position + freshness, records history, broadcasts via WebSocket.
     """
+    _validate_logistics_coords(req.lat, req.lon, "driver GPS")
     driver = db.query(Driver).filter(Driver.id == req.driver_id).first()
     if not driver:
         raise HTTPException(404, "Driver not found")
@@ -1010,12 +1134,14 @@ def _serialize_trip(trip: LogisticsTrip, include_location: bool = False, public:
                    if loc.recorded_at else 9999
         freshness = "LIVE" if age_secs < 30 else "RECENT" if age_secs < 120 else "STALE"
         last_loc = {
-            "lat":        loc.lat,
-            "lon":        loc.lon,
-            "heading":    loc.heading_deg,
-            "speed_kmh":  loc.speed_kmh,
-            "freshness":  freshness,
-            "recorded_at": loc.recorded_at.isoformat() if loc.recorded_at else None,
+            "lat":            loc.lat,
+            "lon":            loc.lon,
+            "accuracy_m":     loc.accuracy_m,
+            "heading":        loc.heading_deg,
+            "speed_kmh":      loc.speed_kmh,
+            "freshness":      freshness,
+            "recorded_at":    loc.recorded_at.isoformat() if loc.recorded_at else None,
+            "last_heartbeat": loc.recorded_at.isoformat() if loc.recorded_at else None,
         }
 
     result = {

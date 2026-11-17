@@ -16,6 +16,7 @@ const filesToCopy = [
   'demo.html',
   'privacy.html',
   'delete-account.html',
+  'favicon.ico',
   'favicon.png',
   'manifest.webmanifest',
   'sw.js',
@@ -25,7 +26,6 @@ const dirsToCopy = [
   'css',
   'js',
   'icons',
-  'admin',
 ];
 
 for (const file of filesToCopy) {
@@ -42,4 +42,10 @@ for (const dir of dirsToCopy) {
   }
 }
 
-console.log('✅ Prepared mobile web assets in ./dist for Capacitor Android/iOS build.');
+// Copy only compiled admin/dist (never admin/node_modules or admin/src)
+const adminDistSrc = path.join(root, 'admin', 'dist');
+if (fs.existsSync(adminDistSrc)) {
+  fs.cpSync(adminDistSrc, path.join(dist, 'admin'), { recursive: true });
+}
+
+console.log('✅ Prepared lightweight mobile web assets in ./dist for Capacitor Android/iOS build.');

@@ -6,7 +6,18 @@ export default defineConfig({
   base: '/admin/',
   plugins: [react(), tailwindcss()],
   server: {
-    port: 5173,
+    port: 8082,
+    host: '0.0.0.0',
+    proxy: {
+      '/api': {
+        target: 'http://127.0.0.1:8080',
+        changeOrigin: true,
+      },
+    },
+  },
+  preview: {
+    port: 8082,
+    host: '0.0.0.0',
     proxy: {
       '/api': {
         target: 'http://127.0.0.1:8080',

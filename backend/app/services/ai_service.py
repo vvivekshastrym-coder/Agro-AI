@@ -812,6 +812,111 @@ def get_contextual_gpt_reply(messages: list, context_data: dict, language: str =
         else:
             return f"Hello {farmer_name}, regarding your {diag.get('crop', crop)} diagnosed with **{diag.get('disease')}**:\n\n🌿 **Organic Treatment:** {org}\n💊 **Chemical Treatment:** {chem}\n⏰ **Best Spray Window:** Early morning before 9:00 AM when the leaf foliage is dry.\n\n💡 *Tip: Ensure uniform spray on both upper and lower leaf surfaces for maximum effectiveness.*"
 
+    if any(w in user_query for w in ["yellow spot", "patton", "peele", "blight", "ಹಳದಿ ಚುಕ್ಕೆ", "पीले धब्बे"]):
+        if language == "hi":
+            return (
+                "🍅 **टमाटर की पत्तियों पर पीले धब्बे (अर्ली ब्लाइट / पोषण कमी):**\n"
+                "1. **जैविक उपचार:** नीम तेल (10,000 ppm) 3-4 मिली प्रति लीटर पानी में मिलाकर छिड़काव करें और निचली संक्रमित पत्तियों को हटा दें।\n"
+                "2. **रासायनिक उपचार:** मैंकोजेब 75% WP @ 2.5 ग्राम/लीटर या 1% बोर्डो मिश्रण का सुबह (6:30–9:00 AM) छिड़काव करें।\n"
+                "3. **पोषण:** यदि पत्तियों की नसों के बीच पीलापन है, तो मैग्नीशियम सल्फेट @ 5 ग्राम/लीटर का पर्णीय छिड़काव करें।"
+            )
+        elif language == "kn":
+            return (
+                "🍅 **ಟೊಮೆಟೊ ಎಲೆಗಳ ಮೇಲೆ ಹಳದಿ ಚುಕ್ಕೆಗಳು (ಅರ್ಲಿ ಬ್ಲೈಟ್ / ಪೋಷಕಾಂಶ ಕೊರತೆ):**\n"
+                "1. **ಸಾವಯವ ಪರಿಹಾರ:** ಬೇವಿನ ಎಣ್ಣೆ (10,000 ppm) 3-4 ಮಿ.ಲೀ ಪ್ರತಿ ಲೀಟರ್ ನೀರಿಗೆ ಬೆರೆಸಿ ಸಿಂಪಡಿಸಿ ಮತ್ತು ಕೆಳಗಿನ ರೋಗಪೀಡಿತ ಎಲೆಗಳನ್ನು ಕತ್ತರಿಸಿ.\n"
+                "2. **ರಾಸಾಯನಿಕ ಪರಿಹಾರ:** ಮ್ಯಾಂಕೋಜೆಬ್ 75% WP @ 2.5 ಗ್ರಾಂ/ಲೀಟರ್ ಅಥವಾ 1% ಬೋರ್ಡೊ ಮಿಶ್ರಣವನ್ನು ಮುಂಜಾನೆ (6:30–9:00 AM) ಸಿಂಪಡಿಸಿ.\n"
+                "3. **ಪೋಷಕಾಂಶ:** ಮೆಗ್ನೀಸಿಯಮ್ ಸಲ್ಫೇಟ್ @ 5 ಗ್ರಾಂ/ಲೀಟರ್ ಸಿಂಪಡಿಸುವುದರಿಂದ ಎಲೆಗಳ ಹಸಿರು ಬಣ್ಣ ಮರಳುತ್ತದೆ."
+            )
+        else:
+            return (
+                "🍅 **Yellow Spots on Tomato Leaves (Early Blight / Foliar Chlorosis):**\n"
+                "1. **Prune & Sanitize:** Remove lower infected leaves touching the soil to stop upward spore spread.\n"
+                "2. **Organic Spray:** Apply Neem Oil (10,000 ppm) @ 3–4 ml/L or *Trichoderma viride* @ 5 g/L.\n"
+                "3. **Fungicide Control:** Foliar spray of **Mancozeb 75% WP @ 2.5 g/L** or **1% Bordeaux mixture** during early morning (6:30 – 9:00 AM).\n"
+                "4. **Micronutrient Boost:** If interveinal yellowing persists, spray Magnesium Sulphate ($MgSO_4$) @ 5 g/L."
+            )
+
+    if any(w in user_query for w in ["wheat", "gehu", "ಗೋಧಿ", "गेहूं"]) and any(w in user_query for w in ["time", "plant", "sow", "season", "ಸಮಯ", "बोने"]):
+        if language == "hi":
+            return (
+                "🌾 **गेहूं की बुवाई का सर्वोत्तम समय (रबी सीजन):**\n"
+                "- **समय पर बुवाई:** 1 नवंबर से 25 नवंबर के बीच (अंकुरण के लिए आदर्श तापमान 20°C–25°C)।\n"
+                "- **बीज दर:** 40–45 किग्रा प्रति एकड़ (प्रमाणित बीज)।\n"
+                "- **बीज उपचार:** बुवाई से पहले कार्बोक्सिन 37.5% + थायरम 37.5% (2 ग्राम/किग्रा बीज) से उपचारित करें।\n"
+                "- **पहली सिंचाई (CRI अवस्था):** बुवाई के 21 दिन बाद अवश्य करें।"
+            )
+        elif language == "kn":
+            return (
+                "🌾 **ಗೋಧಿ ಬಿತ್ತನೆಗೆ ಸೂಕ್ತ ಸಮಯ (ಹಿಂಗಾರು ಹಂಗಾಮು):**\n"
+                "- **ಸೂಕ್ತ ಸಮಯ:** ನವೆಂಬರ್ 1 ರಿಂದ ನವೆಂಬರ್ 25 ರೊಳಗೆ ಬಿತ್ತನೆ ಮಾಡುವುದು ಅತ್ಯುತ್ತಮ (ಮೊಳಕೆಯೊಡೆಯಲು 20°C–25°C ಉಷ್ಣಾಂಶ ಸೂಕ್ತ).\n"
+                "- **ಬೀಜದ ಪ್ರಮಾಣ:** ಪ್ರತಿ ಎಕರೆಗೆ 40–45 ಕೆ.ಜಿ ದೃಢೀಕೃತ ಬೀಜ.\n"
+                "- **ಬೀಜೋಪಚಾರ:** ಪ್ರತಿ ಕೆ.ಜಿ ಬೀಜಕ್ಕೆ 2 ಗ್ರಾಂ ಕಾರ್ಬಾಕ್ಸಿನ್ + ಥೈರಾಮ್ ಅಥವಾ ಟ್ರೈಕೋಡರ್ಮಾದಿಂದ ಬೀಜೋಪಚಾರ ಮಾಡಿ.\n"
+                "- **ಮೊದಲ ನೀರಾವರಿ:** ಬಿತ್ತಿದ 21 ದಿನಗಳ ನಂತರ (ಕಿರೀಟ ಬೇರು ಹಂತ) ತಪ್ಪದೇ ನೀರು ಹಾಯಿಸಿ."
+            )
+        else:
+            return (
+                "🌾 **Best Time to Plant Wheat (Rabi Season):**\n"
+                "- **Optimal Sowing Window:** **November 1st to November 25th** when day-night average temperatures are around 20°C–25°C.\n"
+                "- **Seed Rate:** 40–45 kg per acre for timely irrigated sowing.\n"
+                "- **Seed Treatment:** Treat seeds with Carboxin 37.5% + Thiram 37.5% @ 2g/kg seed before sowing.\n"
+                "- **Critical Irrigation:** Ensure first irrigation at the **Crown Root Initiation (CRI) stage (21 days after sowing)**."
+            )
+
+    if any(w in user_query for w in ["pm-kisan", "pm kisan", "pmkisan", "scheme", "yojana", "ಯೋಜನೆ", "योजना"]):
+        if language == "hi":
+            return (
+                "🏛️ **PM-KISAN सम्मान निधि योजना में आवेदन प्रक्रिया:**\n"
+                "- **लाभ:** पात्र किसान परिवारों को ₹6,000 प्रति वर्ष (₹2,000 की 3 किस्तों में सीधे बैंक खाते में)।\n"
+                "- **आवश्यक दस्तावेज:** आधार कार्ड, भूमि रिकॉर्ड (खसरा/खतौनी/RTC), और आधार-लिंक्ड बैंक खाता।\n"
+                "- **आवेदन कैसे करें:** आधिकारिक पोर्टल **pmkisan.gov.in** पर 'New Farmer Registration' चुनें या नजदीकी CSC (कॉमन सर्विस सेंटर) पर जाएं और अपना e-KYC पूरा करें।"
+            )
+        elif language == "kn":
+            return (
+                "🏛️ **PM-KISAN ಸಮ್ಮಾನ್ ನಿಧಿ ಯೋಜನೆಗೆ ಅರ್ಜಿ ಸಲ್ಲಿಸುವ ವಿಧಾನ:**\n"
+                "- **ಸೌಲಭ್ಯ:** ಅರ್ಹ ರೈತ ಕುಟುಂಬಗಳಿಗೆ ವಾರ್ಷಿಕ ₹6,000 (ಮೂರು ಕಂತುಗಳಲ್ಲಿ ತಲಾ ₹2,000 ನೇರ ಬ್ಯಾಂಕ್ ಖಾತೆಗೆ).\n"
+                "- **ಬೇಕಾಗುವ ದಾಖಲೆಗಳು:** ಆಧಾರ್ ಕಾರ್ಡ್, ಜಮೀನಿನ ಪಹಣಿ (RTC / FRUITS ID), ಮತ್ತು ಆಧಾರ್ ಜೋಡಣೆಯಾದ ಬ್ಯಾಂಕ್ ಖಾತೆ.\n"
+                "- **ಅರ್ಜಿ ಸಲ್ಲಿಕೆ:** **pmkisan.gov.in** ವೆಬ್‌ಸೈಟ್‌ನಲ್ಲಿ 'New Farmer Registration' ಮೂಲಕ ಅಥವಾ ನಿಮ್ಮ ಹತ್ತಿರದ ರೈತ ಸಂಪರ್ಕ ಕೇಂದ್ರ / ಗ್ರಾಮ ಒನ್ ಕೇಂದ್ರದಲ್ಲಿ ನೋಂದಾಯಿಸಿ."
+            )
+        else:
+            return (
+                "🏛️ **How to Apply for the PM-KISAN Scheme:**\n"
+                "- **Benefit:** ₹6,000 per year transferred in 3 equal installments of ₹2,000 via Direct Benefit Transfer (DBT).\n"
+                "- **Required Documents:** Aadhaar Card, Landholding papers (RTC / Pahani / Khatauni), and an Aadhaar-seeded active bank account.\n"
+                "- **Steps to Apply:**\n"
+                "  1. Visit **pmkisan.gov.in** and click **'New Farmer Registration'** under Farmers Corner.\n"
+                "  2. Enter your Aadhaar number, mobile number, and select your state.\n"
+                "  3. Fill in land details and complete **OTP-based e-KYC** (or visit your nearest CSC / Raitha Samparka Kendra)."
+            )
+
+    if any(w in user_query for w in ["sugarcane", "ganna", "ಕಬ್ಬು", "गन्ना"]) and any(w in user_query for w in ["urea", "dose", "fertilizer", "ಯೂರಿಯಾ", "यूरिया"]):
+        if language == "hi":
+            return (
+                "🎋 **गन्ने की फसल के लिए प्रति एकड़ यूरिया खुराक:**\n"
+                "- **कुल यूरिया आवश्यकता:** लगभग **220 से 250 किग्रा नीम-लेपित यूरिया प्रति एकड़** (पूरे फसल चक्र में)।\n"
+                "- **विभाजित खुराक (3 चरणों में):**\n"
+                "  1. **पहली खुराक (रोपाई के 30-45 दिन बाद):** 75 किग्रा यूरिया/एकड़ (कल्ले निकलते समय)।\n"
+                "  2. **दूसरी खुराक (60-75 दिन बाद):** 75 किग्रा यूरिया/एकड़।\n"
+                "  3. **तीसरी खुराक (90-110 दिन बाद - मिट्टी चढ़ाते समय):** 75-90 किग्रा यूरिया/एकड़ सिंचाई के बाद।"
+            )
+        elif language == "kn":
+            return (
+                "🎋 **ಕಬ್ಬಿನ ಬೆಳೆಗೆ ಪ್ರತಿ ಎಕರೆಗೆ ಯೂರಿಯಾ ಪ್ರಮಾಣ:**\n"
+                "- **ಒಟ್ಟು ಯೂರಿಯಾ ಶಿಫಾರಸು:** ಪ್ರತಿ ಎಕರೆಗೆ ಸುಮಾರು **220 ರಿಂದ 250 ಕೆ.ಜಿ ಬೇವಿನ ಲೇಪಿತ ಯೂರಿಯಾ** (ಮೂರು ಕಂತುಗಳಲ್ಲಿ).\n"
+                "- **ಕಂತುಗಳ ವಿವರ:**\n"
+                "  1. **ಮೊದಲ ಕಂತು (ನಾಟಿ ಮಾಡಿದ 30-45 ದಿನಕ್ಕೆ):** 75 ಕೆ.ಜಿ ಯೂರಿಯಾ/ಎಕರೆ (ಮರಿ ಒಡೆಯುವ ಹಂತ).\n"
+                "  2. **ಎರಡನೇ ಕಂತು (60-75 ದಿನಕ್ಕೆ):** 75 ಕೆ.ಜಿ ಯೂರಿಯಾ/ಎಕರೆ.\n"
+                "  3. **ಮೂರನೇ ಕಂತು (90-110 ದಿನಕ್ಕೆ - ಮಣ್ಣು ಏರಿಸುವಾಗ):** 75–90 ಕೆ.ಜಿ ಯೂರಿಯಾ/ಎಕರೆ (ನೀರಾವರಿ ನಂತರ ಕೊಡಿ)."
+            )
+        else:
+            return (
+                "🎋 **Urea Dose per Acre for Sugarcane:**\n"
+                "- **Total Recommended Dose:** **220 to 250 kg Neem-Coated Urea per acre** applied in 3 split top-dressings:\n"
+                "  1. **1st Dose (30–45 days after planting - Tillering stage):** 75 kg Urea/acre.\n"
+                "  2. **2nd Dose (60–75 days after planting - Grand growth start):** 75 kg Urea/acre.\n"
+                "  3. **3rd Dose (90–110 days after planting - Earthing-up stage):** 75–90 kg Urea/acre.\n"
+                "- *Tip: Always apply Urea in moist soil near the root zone and follow with light irrigation to prevent volatilization loss.*"
+            )
+
     if any(w in user_query for w in ["fertilizer", "urea", "dap", "npk", "khad", "poshan", "nutrition", "ಗೊಬ್ಬರ", "ಯೂರಿಯಾ"]):
         if language == "hi":
             return f"फसल पोषण के लिए संतुलित NPK (नाइट्रोजन, फास्फोरस, पोटाश) अनुपात आवश्यक है। प्रति एकड़ बेसल डोज में 50 किग्रा DAP + 25 किग्रा MOP डालें और यूरिया को 2-3 विभाजित खुराकों में दें।"

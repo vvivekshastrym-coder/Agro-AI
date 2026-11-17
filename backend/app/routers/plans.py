@@ -18,7 +18,7 @@ router = APIRouter()
 
 
 @router.get("")
-async def get_published_plans(db: Session = Depends(get_db)):
+def get_published_plans(db: Session = Depends(get_db)):
     """
     GET /api/plans
     Returns all publicly available, published subscription plans and their published versions.
@@ -69,7 +69,7 @@ async def get_published_plans(db: Session = Depends(get_db)):
 
 
 @router.get("/me")
-async def get_my_subscription_status(
+def get_my_subscription_status(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):

@@ -100,11 +100,31 @@ async def create_guest_session(db: Session = Depends(get_db)):
     }
 
 
-import random
+import hmac
+import hashlib
+import secrets
 import re as _re
+from typing import Optional, Dict, Any
+from backend.app.services.sms_service import send_sms_otp, normalize_indian_phone
 
-# In-memory OTP store: phone -> {"code": str, "expires_at": float}
-_OTP_STORE: dict[str, dict] = {}
+def generate_otp() -> str:
+    """Generate a cryptographically secure 6-digit OTP."""
+    return str(secrets.randbelow(900000) + 100000)
+
+def _hash_otp(phone: str, code: str) -> str:
+    """Computes a cryptographically secure HMAC-SHA256 hash of phone + OTP."""
+    secret = (os.getenv("SERVER_SESSION_SECRET") or "agroai_production_otp_secret_key").encode()
+    return hmac.new(secret, f"{phone}:{code}".encode(), hashlib.sha256).hexdigest()
+
+# In-memory secure OTP store: phone -> {
+#     "otp_hash": str,
+#     "expires_at": float,    # 5 minutes validity
+#     "last_sent_at": float,  # for 60s cooldown
+#     "send_count": int,      # max 3 sends per 10m window
+#     "window_start": float,
+#     "attempts": int         # max 3 verification attempts
+# }
+_OTP_STORE: Dict[str, Dict[str, Any]] = {}
 
 
 class PhoneOtpSendRequest(BaseModel):
@@ -133,101 +153,149 @@ class GoogleSessionExchangeRequest(BaseModel):
 
 @router.post("/phone-otp/send")
 async def send_phone_otp(body: PhoneOtpSendRequest):
-    """Generates and dispatches a 6-digit OTP via Twilio SMS for mobile login."""
-    import httpx
-    from dotenv import load_dotenv
-    load_dotenv()
-
-    digits = _re.sub(r"\D", "", body.phone)
-    if len(digits) > 10 and digits.startswith("91"):
-        digits = digits[2:]
+    """
+    Generates a cryptographically secure 6-digit OTP and dispatches it via real SMS.
+    Enforces cooldown and window limits. Never returns or logs the OTP itself.
+    """
+    digits = normalize_indian_phone(body.phone)
     if len(digits) != 10:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail={"error": {"code": "INVALID_PHONE", "message": "Enter a valid 10-digit mobile number."}}
+            detail={"error": {"code": "INVALID_PHONE", "message": "Enter a valid 10-digit Indian mobile number."}}
         )
-    code = f"{random.randint(100000, 999999)}"
+
+    now = time.time()
+    record = _OTP_STORE.get(digits)
+
+    # 1. Cooldown enforcement: must wait 60s between OTP requests
+    if record:
+        time_since_last = now - record.get("last_sent_at", 0)
+        if time_since_last < 60:
+            remaining = int(60 - time_since_last)
+            raise HTTPException(
+                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                detail={"error": {"code": "RATE_LIMITED", "message": f"Please wait {remaining} seconds before requesting a new OTP."}}
+            )
+
+        # 2. Window rate limit: max 3 requests per 10-minute window
+        if (now - record.get("window_start", 0)) < 600:
+            if record.get("send_count", 0) >= 3:
+                raise HTTPException(
+                    status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                    detail={"error": {"code": "MAX_RESEND_EXCEEDED", "message": "Too many OTP requests. Please wait 10 minutes before requesting again."}}
+                )
+
+    # 3. Generate unpredictable 6-digit OTP
+    code = generate_otp()
+
+    # 4. Dispatch real SMS via configured provider (Twilio, MSG91, 2Factor, Fast2SMS)
+    sms_res = await send_sms_otp(digits, code)
+
+    if not sms_res.get("success"):
+        err_code = sms_res.get("code") or "SMS_DISPATCH_FAILED"
+        err_msg = sms_res.get("message") or "Failed to deliver SMS. Please check your mobile number or try again."
+        status_code = status.HTTP_503_SERVICE_UNAVAILABLE if err_code == "SMS_PROVIDER_NOT_CONFIGURED" else status.HTTP_502_BAD_GATEWAY
+        raise HTTPException(
+            status_code=status_code,
+            detail={
+                "error": {
+                    "code": err_code,
+                    "message": err_msg,
+                    "provider": sms_res.get("provider")
+                }
+            }
+        )
+
+    # 5. Store hashed OTP only after confirmed acceptance by the SMS provider
+    window_start = record.get("window_start", now) if record and (now - record.get("window_start", 0) < 600) else now
+    send_count = (record.get("send_count", 0) + 1) if record and (now - record.get("window_start", 0) < 600) else 1
+
     _OTP_STORE[digits] = {
-        "code": code,
-        "expires_at": time.time() + 600,  # 10 minutes
+        "otp_hash": _hash_otp(digits, code),
+        "expires_at": now + 300,  # 5 minutes validity
+        "last_sent_at": now,
+        "window_start": window_start,
+        "send_count": send_count,
+        "attempts": 0,
     }
 
-    twilio_sid = (os.getenv("TWILIO_ACCOUNT_SID") or "").strip()
-    twilio_token = (os.getenv("TWILIO_AUTH_TOKEN") or "").strip()
-    twilio_from = (os.getenv("TWILIO_PHONE_NUMBER") or "").strip()
-
-    sms_sent = False
-    delivery_channel = "local"
-    twilio_notice = None
-
-    if twilio_sid and twilio_token and twilio_from:
-        url = f"https://api.twilio.com/2010-04-01/Accounts/{twilio_sid}/Messages.json"
-        sms_body = f"Your Agro AI verification code is: {code}. Valid for 10 minutes. Do not share this OTP."
-        try:
-            async with httpx.AsyncClient(timeout=10.0) as client:
-                resp = await client.post(
-                    url,
-                    auth=(twilio_sid, twilio_token),
-                    data={
-                        "To": f"+91{digits}",
-                        "From": twilio_from,
-                        "Body": sms_body,
-                    },
-                )
-            if resp.status_code in (200, 201):
-                sms_sent = True
-                delivery_channel = "twilio_sms"
-            else:
-                err_data = resp.json() if "application/json" in resp.headers.get("content-type", "") else {}
-                twilio_notice = err_data.get("message") or f"Twilio status {resp.status_code}"
-        except Exception as exc:
-            twilio_notice = str(exc)
-
-    response_payload = {
+    masked = f"+91 ******{digits[-4:]}"
+    return {
         "status": "sent",
         "sent": True,
-        "sms_sent": sms_sent,
-        "delivery": delivery_channel,
-        "phone": digits,
-        "message": (
-            f"OTP sent via SMS to +91 {digits[:5]} {digits[5:]}"
-            if sms_sent
-            else f"OTP generated for +91 {digits[:5]} {digits[5:]}"
-        ),
+        "sms_sent": True,
+        "delivery": "sms",
+        "provider": sms_res.get("provider"),
+        "phone_masked": masked,
+        "message": f"OTP sent successfully to {masked}"
     }
-    is_prod = os.getenv("ENVIRONMENT", "development").strip().lower() == "production"
-    if not sms_sent or not is_prod:
-        response_payload["otp_code"] = code
-    if not sms_sent and twilio_notice:
-        response_payload["notice"] = twilio_notice
-    return response_payload
 
 
 @router.post("/phone-otp/verify")
 async def verify_phone_otp(body: PhoneOtpVerifyRequest, db: Session = Depends(get_db)):
-    """Verifies the 6-digit OTP and issues a cryptographically signed session token."""
-    digits = _re.sub(r"\D", "", body.phone)
-    if len(digits) > 10 and digits.startswith("91"):
-        digits = digits[2:]
-    record = _OTP_STORE.get(digits)
+    """
+    Verifies the 6-digit OTP against the secure server hash.
+    Enforces 5-minute expiry, single-use invalidation, and maximum 3 failed attempts.
+    """
+    digits = normalize_indian_phone(body.phone)
     code_clean = (body.otp or body.token or "").strip()
-    is_prod = os.getenv("ENVIRONMENT", "development").strip().lower() == "production"
 
-    valid = False
-    if record and time.time() <= record["expires_at"] and record["code"] == code_clean:
-        valid = True
-        _OTP_STORE.pop(digits, None)
-    elif not is_prod and code_clean == "123456":
-        valid = True
-
-    if not valid:
+    if len(digits) != 10:
         raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail={"error": {"code": "INVALID_OTP", "message": "Invalid or expired OTP code."}}
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={"error": {"code": "INVALID_PHONE", "message": "Invalid mobile number."}}
         )
 
-    user = db.query(User).filter(User.phone == digits).first()
+    if not code_clean or len(code_clean) != 6 or not code_clean.isdigit():
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={"error": {"code": "INVALID_CODE_FORMAT", "message": "Please enter a valid 6-digit verification code."}}
+        )
+
+    record = _OTP_STORE.get(digits)
+    if not record:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={"error": {"code": "NO_OTP_FOUND", "message": "No active verification code found. Please request a new OTP."}}
+        )
+
+    # Check 5-minute expiration
+    if time.time() > record.get("expires_at", 0):
+        _OTP_STORE.pop(digits, None)
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={"error": {"code": "EXPIRED_OTP", "message": "This verification code has expired. Please request a new code."}}
+        )
+
+    # Increment verification attempt counter
+    record["attempts"] = record.get("attempts", 0) + 1
+    if record["attempts"] > 3:
+        _OTP_STORE.pop(digits, None)
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail={"error": {"code": "TOO_MANY_ATTEMPTS", "message": "Too many failed attempts. This OTP has been cancelled for security. Please request a new code."}}
+        )
+
+    # Constant-time comparison of HMAC-SHA256 hashes
+    expected_hash = record.get("otp_hash", "")
+    submitted_hash = _hash_otp(digits, code_clean)
+
+    if not hmac.compare_digest(expected_hash, submitted_hash):
+        remaining = max(0, 3 - record["attempts"])
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail={"error": {"code": "INVALID_OTP", "message": f"Incorrect verification code. {remaining} attempt(s) remaining."}}
+        )
+
+    # Single-use: immediately delete from store upon successful verification
+    _OTP_STORE.pop(digits, None)
+
+    user = db.query(User).filter(User.phone == digits, User.id != "farmer_guest").first()
+    is_new_user = False
     if not user:
+        user = db.query(User).filter(User.id == f"farmer_{digits}").first()
+    if not user:
+        is_new_user = True
         user = User(
             id=f"farmer_{digits}",
             phone=digits,
@@ -243,8 +311,9 @@ async def verify_phone_otp(body: PhoneOtpVerifyRequest, db: Session = Depends(ge
             db.refresh(user)
         except Exception:
             db.rollback()
-            user = db.query(User).filter(User.phone == digits).first()
+            user = db.query(User).filter(User.id == f"farmer_{digits}").first()
     else:
+        user.phone = digits
         user.is_active = True
         user.is_verified = True
         db.commit()
@@ -256,6 +325,7 @@ async def verify_phone_otp(body: PhoneOtpVerifyRequest, db: Session = Depends(ge
         "exp": int(time.time()) + 86400 * 30,
         "phone": digits,
         "email": user.email,
+        "is_new_user": is_new_user,
         "user_metadata": {
             "name": user.full_name,
             "full_name": user.full_name,
@@ -263,8 +333,10 @@ async def verify_phone_otp(body: PhoneOtpVerifyRequest, db: Session = Depends(ge
     }
     signed_token = jwt.encode(payload, GUEST_SESSION_SECRET, algorithm="HS256")
     return {
+        "status": "verified",
         "access_token": signed_token,
         "token_type": "bearer",
+        "is_new_user": is_new_user,
         "user": _user_payload(user),
     }
 

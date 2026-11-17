@@ -18,10 +18,11 @@ _google_jwks_client: Optional[PyJWKClient] = None
 GUEST_SESSION_SECRET = os.getenv("SERVER_SESSION_SECRET", "agro_ai_internal_guest_secret_key_2026_xyz").strip()
 GOOGLE_CLIENT_ID = os.getenv(
     "GOOGLE_CLIENT_ID",
-    "390368260977-5qvu1738tqdf26fprobcdrg9jbvs2e3s.apps.googleusercontent.com",
+    "390368260977-650a3hjjiq8a4t1296jcuobdpjau3qp1.apps.googleusercontent.com",
 ).strip()
 ALLOWED_GOOGLE_CLIENT_IDS = list({
     GOOGLE_CLIENT_ID,
+    "390368260977-650a3hjjiq8a4t1296jcuobdpjau3qp1.apps.googleusercontent.com",
     "390368260977-5qvu1738tqdf26fprobcdrg9jbvs2e3s.apps.googleusercontent.com",
     "390368260977-87pg849eb5975glaikekhr9s4rlus4e2.apps.googleusercontent.com",
 })

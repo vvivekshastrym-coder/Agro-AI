@@ -7,12 +7,15 @@ Pilot Constraints & Rules:
 - Atomicity: Concurrent checkouts decrement inventory safely without overselling.
 - Zero fake data: Empty state if no farms serve an area; waitlist recorded truthfully.
 """
-from fastapi import APIRouter, Depends, HTTPException, status, Query, Request
+from fastapi import APIRouter, Depends, Header, HTTPException, status, Query, Request
 from sqlalchemy.orm import Session
-from sqlalchemy import func, or_
+from sqlalchemy import func, or_, update
+from sqlalchemy.exc import IntegrityError
 from pydantic import BaseModel, Field
 from typing import Optional, List, Dict, Any
 import datetime
+import hashlib
+import json
 import uuid
 import logging
 
@@ -21,7 +24,7 @@ from ..database.models import (
     User, UserRole, AdminUser, AdminUserRole,
     MartCategory, MartCatalogItem, MartServiceRegion,
     MartSellerProfile, MartListing, MartOrder,
-    MartOrderItem, MartOrderStatusHistory, MartWaitlist,
+    MartOrderItem, MartOrderStatusHistory, MartOrderIdempotency, MartWaitlist,
     MartHarvestOffer, MartHarvestDemand,
     MartProductReview, MartSavedItem, MartBulkBuyingGroup,
     PlatformFeature, PlatformFeatureHistory, AdminAuditLog
@@ -663,27 +666,95 @@ async def get_listing_detail(listing_id: str, db: Session = Depends(get_db)):
     }
 
 
+def _order_request_hash(req) -> str:
+    """Stable fingerprint of an order request, used to detect Idempotency-Key reuse."""
+    canon = json.dumps({
+        "items": sorted((i.listing_id, float(i.quantity)) for i in req.items),
+        "fulfilment_type": req.fulfilment_type,
+        "pincode": req.delivery_pincode,
+        "address": req.delivery_address,
+    }, sort_keys=True, default=str)
+    return hashlib.sha256(canon.encode("utf-8")).hexdigest()
+
+
+def _order_response(order: MartOrder, replay: bool = False) -> Dict[str, Any]:
+    body = {
+        "id": order.id,
+        "order_number": order.order_number,
+        "status": order.status,
+        "total_minor": order.total_minor,
+        "total_formatted": f"₹{order.total_minor / 100:.2f}",
+        "payment_method": order.payment_method,
+        "payment_instruction": "Please pay directly to the farmer via Cash or UPI when produce is received.",
+    }
+    if replay:
+        body["idempotent_replay"] = True
+    return body
+
+
+def _replay_or_conflict(db: Session, user_id: str, idem_key: str, req_hash: str):
+    """Return the stored order for (user, key), 409 if the key was used with another payload, else None."""
+    existing = db.query(MartOrderIdempotency).filter(
+        MartOrderIdempotency.user_id == user_id,
+        MartOrderIdempotency.idem_key == idem_key,
+    ).first()
+    if not existing:
+        return None
+    if existing.request_hash != req_hash:
+        raise HTTPException(status_code=409, detail={"error": {
+            "code": "IDEMPOTENCY_KEY_REUSED",
+            "message": "This Idempotency-Key was already used with a different order. Generate a new key for a new order."}})
+    order = db.query(MartOrder).filter(MartOrder.id == existing.order_id).first()
+    if not order:
+        return None
+    return _order_response(order, replay=True)
+
+
 @router.post("/orders")
-async def place_mart_order(
+def place_mart_order(
     req: OrderPlacementRequest,
     user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    idempotency_key: Optional[str] = Header(default=None, alias="Idempotency-Key"),
 ):
     """
     POST /api/mart/orders
-    Atomic checkout enforcing:
+    Checkout enforcing:
     1. One farm per order rule.
     2. Real-time price and stock re-verification.
-    3. Atomic inventory decrement.
-    4. Pay on Delivery / Pickup rule (zero platform-held funds).
+    3. Atomic inventory decrement: a single conditional ``UPDATE ... WHERE
+       stock_quantity >= :qty`` so concurrent buyers can never oversell, even
+       across multiple workers/processes (no read-modify-write in Python).
+    4. All-or-nothing: any failure rolls back every stock decrement.
+    5. Idempotency: a repeated request with the same ``Idempotency-Key`` returns
+       the original order instead of creating a duplicate or taking stock twice.
+    6. Pay on Delivery / Pickup rule (zero platform-held funds).
+
+    Declared as a sync ``def`` on purpose: FastAPI runs it in its threadpool, so
+    blocking database I/O does not stall the event loop for other requests.
     """
     if not req.items:
         raise HTTPException(status_code=400, detail={"error": {"code": "EMPTY_CART", "message": "Cart cannot be empty."}})
+    if req.fulfilment_type not in ("DELIVERY", "PICKUP"):
+        raise HTTPException(status_code=400, detail={"error": {"code": "INVALID_FULFILMENT", "message": "fulfilment_type must be DELIVERY or PICKUP."}})
 
-    # Fetch and lock listings
-    listing_ids = [item.listing_id for item in req.items]
-    listings = db.query(MartListing).filter(MartListing.id.in_(listing_ids)).all()
-    if len(listings) != len(listing_ids):
+    req_hash = _order_request_hash(req)
+    if idempotency_key is not None:
+        idempotency_key = idempotency_key.strip()
+        if not (8 <= len(idempotency_key) <= 128):
+            raise HTTPException(status_code=400, detail={"error": {"code": "INVALID_IDEMPOTENCY_KEY", "message": "Idempotency-Key must be 8-128 characters."}})
+        replay = _replay_or_conflict(db, user.id, idempotency_key, req_hash)
+        if replay:
+            return replay
+
+    # Merge repeated lines for the same listing so stock is checked against the real total.
+    wanted: Dict[str, float] = {}
+    for item_payload in req.items:
+        wanted[item_payload.listing_id] = wanted.get(item_payload.listing_id, 0.0) + item_payload.quantity
+
+    listings = db.query(MartListing).filter(MartListing.id.in_(list(wanted.keys()))).all()
+    by_id = {l.id: l for l in listings}
+    if len(by_id) != len(wanted):
         raise HTTPException(status_code=400, detail={"error": {"code": "INVALID_ITEMS", "message": "One or more items are no longer available."}})
 
     # 1. Enforce ONE FARM PER ORDER rule
@@ -694,105 +765,131 @@ async def place_mart_order(
             detail={"error": {"code": "MULTI_FARM_CART", "message": "Agro AI Mart pilot allows ordering from one farm per order. Please start a new cart for other farms."}}
         )
 
-    seller_id = list(seller_ids)[0]
+    seller_id = next(iter(seller_ids))
     seller = db.query(MartSellerProfile).filter(MartSellerProfile.id == seller_id).first()
     if not seller or seller.status != "APPROVED":
         raise HTTPException(status_code=400, detail={"error": {"code": "SELLER_UNAVAILABLE", "message": "This farm is currently not accepting orders."}})
 
-    # 2. Check stock and compute subtotal
-    subtotal_minor = 0
-    order_items_to_create = []
-
-    for item_payload in req.items:
-        listing = next(l for l in listings if l.id == item_payload.listing_id)
+    # 2. Validate every line before touching stock (cheap, no writes yet)
+    for lid, qty in wanted.items():
+        listing = by_id[lid]
         if listing.status != "APPROVED":
             raise HTTPException(status_code=400, detail={"error": {"code": "ITEM_UNAVAILABLE", "message": f"'{listing.title}' is not currently available."}})
+        if qty < (listing.min_order_qty or 0):
+            raise HTTPException(status_code=400, detail={"error": {"code": "BELOW_MIN_ORDER", "message": f"Minimum order for '{listing.title}' is {listing.min_order_qty} {listing.unit}."}})
 
-        if listing.stock_quantity < item_payload.quantity:
-            raise HTTPException(
-                status_code=400,
-                detail={"error": {"code": "INSUFFICIENT_STOCK", "message": f"Only {listing.stock_quantity} {listing.unit} of '{listing.title}' left in stock."}}
+    try:
+        subtotal_minor = 0
+        order_items_to_create = []
+
+        # 3. Atomic conditional decrement per listing. rowcount == 0 means the stock,
+        #    approval status or price changed after we read it -> abort everything.
+        for lid, qty in wanted.items():
+            listing = by_id[lid]
+            result = db.execute(
+                update(MartListing)
+                .where(
+                    MartListing.id == lid,
+                    MartListing.status == "APPROVED",
+                    MartListing.price_minor == listing.price_minor,
+                    MartListing.stock_quantity >= qty,
+                )
+                .values(stock_quantity=MartListing.stock_quantity - qty)
+                .execution_options(synchronize_session=False)
             )
+            if result.rowcount != 1:
+                db.rollback()  # reverts decrements already applied for earlier lines
+                fresh = db.query(MartListing).filter(MartListing.id == lid).first()
+                if fresh is None or fresh.status != "APPROVED":
+                    raise HTTPException(status_code=400, detail={"error": {"code": "ITEM_UNAVAILABLE", "message": f"'{listing.title}' is not currently available."}})
+                if fresh.price_minor != listing.price_minor:
+                    raise HTTPException(status_code=409, detail={"error": {"code": "PRICE_CHANGED", "message": f"The price of '{listing.title}' changed. Please review your cart and try again."}})
+                raise HTTPException(status_code=400, detail={"error": {"code": "INSUFFICIENT_STOCK", "message": f"Only {fresh.stock_quantity} {fresh.unit} of '{listing.title}' left in stock."}})
 
-        # Atomic decrement
-        listing.stock_quantity -= item_payload.quantity
-        line_total_minor = int(round(listing.price_minor * item_payload.quantity))
-        subtotal_minor += line_total_minor
+            line_total_minor = int(round(listing.price_minor * qty))
+            subtotal_minor += line_total_minor
+            order_items_to_create.append({
+                "listing_id": lid,
+                "item_title": listing.title,
+                "unit": listing.unit,
+                "unit_price_minor": listing.price_minor,
+                "quantity": qty,
+                "total_minor": line_total_minor,
+            })
 
-        order_items_to_create.append({
-            "listing_id": listing.id,
-            "item_title": listing.title,
-            "unit": listing.unit,
-            "unit_price_minor": listing.price_minor,
-            "quantity": item_payload.quantity,
-            "total_minor": line_total_minor
-        })
+        # Fixed pilot delivery fee (₹0: farmer settles directly with the customer)
+        delivery_fee_minor = 0
+        total_minor = subtotal_minor + delivery_fee_minor
 
-    # Fixed pilot delivery fee (e.g. ₹0 for pickup, or seller direct fee)
-    delivery_fee_minor = 0 if req.fulfilment_type == "PICKUP" else 0
-    total_minor = subtotal_minor + delivery_fee_minor
+        order_num = f"MART-{datetime.date.today().strftime('%Y%m%d')}-{str(uuid.uuid4())[:8].upper()}"
+        order = MartOrder(
+            id=str(uuid.uuid4()),
+            order_number=order_num,
+            customer_id=user.id,
+            seller_id=seller_id,
+            status="PLACED",
+            fulfilment_type=req.fulfilment_type,
+            delivery_address=req.delivery_address,
+            delivery_pincode=req.delivery_pincode,
+            subtotal_minor=subtotal_minor,
+            delivery_fee_minor=delivery_fee_minor,
+            total_minor=total_minor,
+            currency="INR",
+            payment_method="PAY_ON_DELIVERY",
+            payment_status="NOT_COLLECTED_BY_PLATFORM",
+            seller_payment_confirmed=False,
+        )
+        db.add(order)
+        db.flush()
 
-    # Generate unique readable order number
-    rand_suffix = str(uuid.uuid4())[:6].upper()
-    order_num = f"MART-{datetime.date.today().strftime('%Y%m%d')}-{rand_suffix}"
+        for oi in order_items_to_create:
+            db.add(MartOrderItem(
+                id=str(uuid.uuid4()),
+                order_id=order.id,
+                listing_id=oi["listing_id"],
+                item_title=oi["item_title"],
+                unit=oi["unit"],
+                unit_price_minor=oi["unit_price_minor"],
+                quantity=oi["quantity"],
+                total_minor=oi["total_minor"],
+            ))
 
-    order = MartOrder(
-        id=str(uuid.uuid4()),
-        order_number=order_num,
-        customer_id=user.id,
-        seller_id=seller_id,
-        status="PLACED",
-        fulfilment_type=req.fulfilment_type,
-        delivery_address=req.delivery_address,
-        delivery_pincode=req.delivery_pincode,
-        subtotal_minor=subtotal_minor,
-        delivery_fee_minor=delivery_fee_minor,
-        total_minor=total_minor,
-        currency="INR",
-        payment_method="PAY_ON_DELIVERY",
-        payment_status="NOT_COLLECTED_BY_PLATFORM",
-        seller_payment_confirmed=False
-    )
-    db.add(order)
-    db.flush()
-
-    for oi in order_items_to_create:
-        item_obj = MartOrderItem(
+        db.add(MartOrderStatusHistory(
             id=str(uuid.uuid4()),
             order_id=order.id,
-            listing_id=oi["listing_id"],
-            item_title=oi["item_title"],
-            unit=oi["unit"],
-            unit_price_minor=oi["unit_price_minor"],
-            quantity=oi["quantity"],
-            total_minor=oi["total_minor"]
-        )
-        db.add(item_obj)
+            from_status=None,
+            to_status="PLACED",
+            actor_id=user.id,
+            actor_role="customer",
+            notes=f"Order placed with direct payment to farmer upon {req.fulfilment_type.lower()}.",
+        ))
 
-    # Initial status history entry
-    hist = MartOrderStatusHistory(
-        id=str(uuid.uuid4()),
-        order_id=order.id,
-        from_status=None,
-        to_status="PLACED",
-        actor_id=user.id,
-        actor_role="customer",
-        notes=f"Order placed with direct payment to farmer upon {req.fulfilment_type.lower()}."
-    )
-    db.add(hist)
+        if idempotency_key:
+            db.add(MartOrderIdempotency(
+                id=str(uuid.uuid4()), user_id=user.id, idem_key=idempotency_key,
+                request_hash=req_hash, order_id=order.id,
+            ))
 
-    db.commit()
-    db.refresh(order)
+        db.commit()
+        db.refresh(order)
+        return _order_response(order)
 
-    return {
-        "id": order.id,
-        "order_number": order.order_number,
-        "status": order.status,
-        "total_minor": order.total_minor,
-        "total_formatted": f"₹{order.total_minor / 100:.2f}",
-        "payment_method": order.payment_method,
-        "payment_instruction": "Please pay directly to the farmer via Cash or UPI when produce is received."
-    }
+    except HTTPException:
+        raise
+    except IntegrityError:
+        # A concurrent request with the same Idempotency-Key committed first. Our whole
+        # transaction (including our stock decrements) is rolled back, so stock is taken once.
+        db.rollback()
+        if idempotency_key:
+            replay = _replay_or_conflict(db, user.id, idempotency_key, req_hash)
+            if replay:
+                return replay
+        logger.exception("Order commit conflict for user %s", user.id)
+        raise HTTPException(status_code=409, detail={"error": {"code": "ORDER_CONFLICT", "message": "Your order could not be completed because of a conflicting update. No stock was reserved. Please retry.", "retryable": True}})
+    except Exception:
+        db.rollback()
+        logger.exception("Order placement failed for user %s", user.id)
+        raise HTTPException(status_code=500, detail={"error": {"code": "ORDER_FAILED", "message": "We could not place your order. No payment was taken and no stock was reserved. Please retry.", "retryable": True}})
 
 
 @router.get("/orders/my")
@@ -1446,7 +1543,8 @@ async def create_seller_listing(
         status="SUBMITTED", # Requires staff approval before becoming public
         is_organic_claim=req.is_organic_claim,
         claim_reviewed=False,
-        photos=req.photos
+        photos=req.photos,
+        submitted_by=user.id
     )
     db.add(listing)
     db.commit()
@@ -1608,12 +1706,12 @@ admin_router = APIRouter()
 @admin_router.get("/applications")
 async def get_admin_seller_applications(
     status_filter: Optional[str] = "SUBMITTED",
-    admin: AdminUser = Depends(require_admin(AdminUserRole.super_admin, AdminUserRole.seller_reviewer)),
+    admin: AdminUser = Depends(require_admin(AdminUserRole.super_admin, AdminUserRole.admin, AdminUserRole.staff, AdminUserRole.seller_reviewer, module="mart", action="read")),
     db: Session = Depends(get_db)
 ):
     """Admin queue of farmer seller applications."""
     q = db.query(MartSellerProfile)
-    if status_filter:
+    if status_filter and status_filter != "ALL":
         q = q.filter(MartSellerProfile.status == status_filter)
     apps = q.order_by(MartSellerProfile.created_at.desc()).all()
     return [
@@ -1633,13 +1731,16 @@ async def get_admin_seller_applications(
             "phone_verified": a.phone_verified,
             "staff_call_completed": a.staff_call_completed,
             "declaration_cultivates_produce": a.declaration_cultivates_produce,
+            "review_notes": a.review_notes,
+            "reviewed_by": a.reviewed_by,
+            "reviewed_at": a.reviewed_at.isoformat() if a.reviewed_at else None,
             "created_at": a.created_at.isoformat() if a.created_at else None
         } for a in apps
     ]
 
 
 class SellerReviewDecision(BaseModel):
-    decision: str # APPROVED, REJECTED, INFO_REQUIRED
+    decision: str # APPROVED, REJECTED, INFO_REQUIRED, SUSPENDED
     staff_call_completed: bool = True
     review_notes: Optional[str] = None
 
@@ -1648,17 +1749,24 @@ class SellerReviewDecision(BaseModel):
 async def review_seller_application(
     app_id: str,
     req: SellerReviewDecision,
-    admin: AdminUser = Depends(require_admin(AdminUserRole.super_admin, AdminUserRole.seller_reviewer)),
+    admin: AdminUser = Depends(require_admin(AdminUserRole.super_admin, AdminUserRole.admin, AdminUserRole.seller_reviewer, module="mart", action="approve")),
     db: Session = Depends(get_db),
     request: Request = None
 ):
-    """Approves or rejects a farmer seller application with audit trail."""
+    """Approves, rejects, or requests corrections on a farmer seller application with audit trail. Prevents self-approval."""
     seller = db.query(MartSellerProfile).filter(MartSellerProfile.id == app_id).first()
     if not seller:
         raise HTTPException(status_code=404, detail={"error": {"code": "APPLICATION_NOT_FOUND", "message": "Seller application not found."}})
 
-    if req.decision not in ("APPROVED", "REJECTED", "INFO_REQUIRED"):
-        raise HTTPException(status_code=400, detail={"error": {"code": "INVALID_DECISION", "message": "Decision must be APPROVED, REJECTED, or INFO_REQUIRED."}})
+    if req.decision not in ("APPROVED", "REJECTED", "INFO_REQUIRED", "SUSPENDED"):
+        raise HTTPException(status_code=400, detail={"error": {"code": "INVALID_DECISION", "message": "Decision must be APPROVED, REJECTED, INFO_REQUIRED, or SUSPENDED."}})
+
+    if admin.role != AdminUserRole.super_admin and seller.user_id == admin.user_id:
+        log_admin_action(db, admin, "SELF_APPROVAL_BLOCKED", "mart_seller_profiles", seller.id, {"farm_name": seller.farm_name}, request)
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail={"error": {"code": "SELF_APPROVAL_FORBIDDEN", "message": "You cannot self-approve your own seller application."}}
+        )
 
     old_status = seller.status
     seller.status = req.decision
@@ -1670,7 +1778,7 @@ async def review_seller_application(
 
     log_admin_action(
         db, admin, "REVIEW_MART_SELLER", "mart_seller_profiles", seller.id,
-        {"from": old_status, "to": req.decision, "farm_name": seller.farm_name},
+        {"from": old_status, "to": req.decision, "farm_name": seller.farm_name, "notes": req.review_notes},
         request
     )
 
@@ -1679,21 +1787,34 @@ async def review_seller_application(
 
 @admin_router.get("/listings/review-queue")
 async def get_admin_listings_queue(
-    admin: AdminUser = Depends(require_admin(AdminUserRole.super_admin, AdminUserRole.listing_reviewer)),
+    status_filter: Optional[str] = None,
+    admin: AdminUser = Depends(require_admin(AdminUserRole.super_admin, AdminUserRole.admin, AdminUserRole.staff, AdminUserRole.listing_reviewer, module="mart", action="read")),
     db: Session = Depends(get_db)
 ):
-    """Queue of fresh produce listings awaiting staff verification."""
-    listings = db.query(MartListing).filter(MartListing.status.in_(["SUBMITTED", "UNDER_REVIEW"])).order_by(MartListing.created_at.desc()).all()
+    """Queue of fresh produce listings awaiting staff verification or all listings if status_filter='ALL'."""
+    q = db.query(MartListing)
+    if status_filter == "ALL":
+        pass
+    elif status_filter:
+        q = q.filter(MartListing.status == status_filter)
+    else:
+        q = q.filter(MartListing.status.in_(["SUBMITTED", "UNDER_REVIEW", "INFO_REQUIRED"]))
+    listings = q.order_by(MartListing.created_at.desc()).all()
     return [
         {
             "id": l.id,
             "title": l.title,
             "description": l.description,
+            "price_minor": l.price_minor,
             "price_formatted": f"₹{l.price_minor / 100:.2f}",
             "unit": l.unit,
             "stock_quantity": l.stock_quantity,
             "harvest_date": l.harvest_date,
             "status": l.status,
+            "rejection_reason": l.rejection_reason,
+            "review_notes": getattr(l, "review_notes", None),
+            "reviewed_by": getattr(l, "reviewed_by", None),
+            "reviewed_at": l.reviewed_at.isoformat() if getattr(l, "reviewed_at", None) else None,
             "is_organic_claim": l.is_organic_claim,
             "photos": l.photos or [],
             "farm_name": l.seller.farm_name if l.seller else "",
@@ -1705,7 +1826,7 @@ async def get_admin_listings_queue(
 
 
 class ListingReviewDecision(BaseModel):
-    decision: str # APPROVED, REJECTED, INFO_REQUIRED
+    decision: str # APPROVED, REJECTED, INFO_REQUIRED, PAUSED, SUSPENDED
     rejection_reason: Optional[str] = None
     confirm_organic_evidence: bool = False
 
@@ -1714,29 +1835,40 @@ class ListingReviewDecision(BaseModel):
 async def review_listing(
     listing_id: str,
     req: ListingReviewDecision,
-    admin: AdminUser = Depends(require_admin(AdminUserRole.super_admin, AdminUserRole.listing_reviewer)),
+    admin: AdminUser = Depends(require_admin(AdminUserRole.super_admin, AdminUserRole.admin, AdminUserRole.listing_reviewer, module="mart", action="approve")),
     db: Session = Depends(get_db),
     request: Request = None
 ):
-    """Approves or rejects a produce listing before it can appear to consumers."""
+    """Approves, rejects, or requests corrections on a produce listing before it can appear to consumers. Prevents self-approval."""
     l = db.query(MartListing).filter(MartListing.id == listing_id).first()
     if not l:
         raise HTTPException(status_code=404, detail={"error": {"code": "LISTING_NOT_FOUND", "message": "Listing not found."}})
 
+    seller_uid = l.seller.user_id if l.seller else None
+    if admin.role != AdminUserRole.super_admin and (getattr(l, "submitted_by", None) == admin.user_id or seller_uid == admin.user_id):
+        log_admin_action(db, admin, "SELF_APPROVAL_BLOCKED", "mart_listings", l.id, {"title": l.title}, request)
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail={"error": {"code": "SELF_APPROVAL_FORBIDDEN", "message": "Staff and Admins cannot self-approve their own product submissions."}}
+        )
+
     old_status = l.status
     l.status = req.decision
+    l.reviewed_by = admin.user_id
+    l.reviewed_at = datetime.datetime.now(datetime.timezone.utc)
+    l.review_notes = req.rejection_reason
     if req.decision == "APPROVED":
         l.rejection_reason = None
         if l.is_organic_claim and req.confirm_organic_evidence:
             l.claim_reviewed = True
-    elif req.decision == "REJECTED":
+    elif req.decision in ("REJECTED", "INFO_REQUIRED", "SUSPENDED"):
         l.rejection_reason = req.rejection_reason or "Produce quality or verification standard not met."
 
     db.commit()
 
     log_admin_action(
         db, admin, "REVIEW_MART_LISTING", "mart_listings", l.id,
-        {"from": old_status, "to": req.decision, "title": l.title},
+        {"from": old_status, "to": req.decision, "title": l.title, "notes": req.rejection_reason},
         request
     )
 
