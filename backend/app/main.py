@@ -28,12 +28,12 @@ _deployment_environment = (
     os.getenv("ENVIRONMENT") or os.getenv("APP_ENV") or os.getenv("NODE_ENV") or ""
 ).strip().lower()
 if _deployment_environment not in {"production", "prod", "staging", "stage"} or os.getenv("ALLOW_SCHEMA_SYNC", "").strip().lower() in {"1", "true", "yes"}:
-    Base.metadata.create_all(bind=engine)
     try:
+        Base.metadata.create_all(bind=engine)
         from .database.schema_sync import sync_missing_columns
         sync_missing_columns(engine, Base.metadata)
-    except Exception as _e:  # never block local startup on schema-sync issues
-        logger.error("Local schema sync failed: %s", _e)
+    except Exception as _e:  # never block startup on transient DB/schema-sync issues
+        logger.error("Schema sync failed: %s", _e)
 else:
     logger.info("Automatic schema mutation is disabled for %s; apply reviewed migrations before startup.", _deployment_environment)
 

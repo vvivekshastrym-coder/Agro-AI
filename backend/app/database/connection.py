@@ -10,8 +10,8 @@ load_dotenv(os.path.join(os.path.dirname(__file__), '..', '..', '..', '.env'))
 
 RAW_DATABASE_URL = (
     os.getenv('DATABASE_URL')
-    or os.getenv('POSTGRES_URL_NON_POOLING')
     or os.getenv('POSTGRES_URL')
+    or os.getenv('POSTGRES_URL_NON_POOLING')
     or ''
 )
 root_db = '/tmp/kisanai.db' if os.getenv('VERCEL') else os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', '..', 'kisanai.db'))
