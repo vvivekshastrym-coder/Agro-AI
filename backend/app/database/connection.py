@@ -67,15 +67,23 @@ if DATABASE_URL.startswith('sqlite'):
         except Exception:
             pass
 else:
-    engine = create_engine(
-        DATABASE_URL,
-        connect_args=_engine_connect_args,
-        pool_pre_ping=True,
-        pool_size=5,
-        max_overflow=10,
-        pool_recycle=1800,
-        pool_timeout=8
-    )
+    if os.getenv('VERCEL'):
+        from sqlalchemy.pool import NullPool
+        engine = create_engine(
+            DATABASE_URL,
+            connect_args=_engine_connect_args,
+            poolclass=NullPool,
+        )
+    else:
+        engine = create_engine(
+            DATABASE_URL,
+            connect_args=_engine_connect_args,
+            pool_pre_ping=True,
+            pool_size=5,
+            max_overflow=10,
+            pool_recycle=1800,
+            pool_timeout=8
+        )
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()

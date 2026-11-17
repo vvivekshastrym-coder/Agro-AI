@@ -27,7 +27,7 @@ logger = logging.getLogger(__name__)
 _deployment_environment = (
     os.getenv("ENVIRONMENT") or os.getenv("APP_ENV") or os.getenv("NODE_ENV") or ""
 ).strip().lower()
-if _deployment_environment not in {"production", "prod", "staging", "stage"} or os.getenv("ALLOW_SCHEMA_SYNC", "").strip().lower() in {"1", "true", "yes"}:
+if not os.getenv("VERCEL") and (_deployment_environment not in {"production", "prod", "staging", "stage"} or os.getenv("ALLOW_SCHEMA_SYNC", "").strip().lower() in {"1", "true", "yes"}):
     try:
         Base.metadata.create_all(bind=engine)
         from .database.schema_sync import sync_missing_columns
