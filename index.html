@@ -69,6 +69,7 @@
 <!-- Razorpay Checkout SDK -->
 <script src="js/engine/feature-access.js"></script>
 <script src="js/engine/privacy-consent.js"></script>
+<script src="js/engine/schemes-land.js"></script>
 <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
 <script>
   // Capacitor Android Native Bridge: route relative /api/* requests to configured backend host
@@ -1068,10 +1069,13 @@
     <section class="view" data-view="market" style="display:none;">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;margin:6px 0 12px;">
         <div>
-          <h2 class="display" style="font-size:22px;margin:0;" id="marketTitle">Mandi Market</h2>
-          <div class="muted" style="font-size:12px;margin-top:2px;" id="marketSubtitle">Master APMC Directory &amp; Daily Price Intelligence</div>
+          <h2 class="display" style="font-size:22px;margin:0;" id="marketTitle">Mandi Market Intelligence</h2>
+          <div class="muted" style="font-size:12px;margin-top:2px;" id="marketSubtitle">Compare agricultural prices across verified Indian mandis · <a href="https://www.data.gov.in/catalog/current-daily-price-various-commodities-various-markets-mandi" target="_blank" style="color:var(--forest);">AGMARKNET / data.gov.in</a></div>
         </div>
-        <button class="btn btn-outline" style="padding:5px 12px;font-size:12px;white-space:nowrap;" onclick="initMandiMarketView(true)">🔄 Refresh</button>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;">
+          <button class="btn btn-outline" style="padding:5px 10px;font-size:12px;white-space:nowrap;" onclick="exportMandiCsv()">⬇ CSV</button>
+          <button class="btn btn-outline" style="padding:5px 12px;font-size:12px;white-space:nowrap;" onclick="initMandiMarketView(true)">🔄 Refresh</button>
+        </div>
       </div>
 
       <!-- State & District Filters -->
@@ -1264,10 +1268,66 @@
       <button class="backlink" onclick="go('home')" id="schemesBackBtn">← Back</button>
       <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;">
         <div>
-          <h2 class="display" style="font-size:22px;margin:0 0 4px;" id="schemesHeaderTitle">Government Schemes &amp; Subsidies</h2>
-          <p class="muted" style="margin:0;font-size:13px;" id="schemesHeaderSub">Live eligibility matching against real Central &amp; State agricultural welfare schemes.</p>
+          <h2 class="display" style="font-size:22px;margin:0 0 4px;" id="schemesHeaderTitle">Government Schemes &amp; My Land</h2>
+          <p class="muted" style="margin:0;font-size:13px;" id="schemesHeaderSub">Discover Central &amp; Karnataka schemes, manage land parcels, FRUITS ID, and track applications.</p>
         </div>
       </div>
+
+      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px;">
+        <button type="button" class="btn btn-primary scheme-tab-btn" data-tab="eligible" style="padding:7px 12px;font-size:12px;" onclick="AgroSchemesLand && AgroSchemesLand.switchTab('eligible')">Eligible for You</button>
+        <button type="button" class="btn btn-outline scheme-tab-btn" data-tab="myland" style="padding:7px 12px;font-size:12px;" onclick="AgroSchemesLand && AgroSchemesLand.switchTab('myland')">My Land &amp; FRUITS</button>
+        <button type="button" class="btn btn-outline scheme-tab-btn" data-tab="apps" style="padding:7px 12px;font-size:12px;" onclick="AgroSchemesLand && AgroSchemesLand.switchTab('apps')">My Applications</button>
+        <button type="button" class="btn btn-outline scheme-tab-btn" data-tab="portals" style="padding:7px 12px;font-size:12px;" onclick="AgroSchemesLand && AgroSchemesLand.switchTab('portals')">Official Portals</button>
+      </div>
+
+      <div class="scheme-tab-pane" data-pane="myland" style="display:none;">
+        <div class="card" style="margin-bottom:12px;background:#FFFDF6;font-size:12.5px;">
+          <strong>Important:</strong> Editing your Agro AI land profile does <strong>not</strong> alter official Karnataka Bhoomi RTC/Pahani or FRUITS records. Visit <a href="https://fruits.karnataka.gov.in/" target="_blank" rel="noopener">FRUITS</a> or <a href="https://landrecords.karnataka.gov.in/" target="_blank" rel="noopener">Bhoomi</a> for official updates.
+        </div>
+        <div id="myLandParcelsList" style="margin-bottom:12px;"></div>
+        <form class="card" onsubmit="AgroSchemesLand && AgroSchemesLand.saveParcel(event)">
+          <h3 class="display" style="margin:0 0 10px;font-size:16px;">Add Land Parcel</h3>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px;">
+            <input class="field-input" id="landFruitsId" placeholder="FRUITS Farmer ID (optional)">
+            <input class="field-input" id="landState" value="Karnataka" placeholder="State">
+            <input class="field-input" id="landDistrict" placeholder="District (e.g. Mandya)" required>
+            <input class="field-input" id="landTaluk" placeholder="Taluk (e.g. Maddur)">
+            <input class="field-input" id="landVillage" placeholder="Village">
+            <input class="field-input" id="landSurveyNo" placeholder="Survey / Sub-Survey No.">
+            <input class="field-input" id="landTotalAcres" type="number" step="0.1" placeholder="Total Acres (e.g. 2.0)">
+            <input class="field-input" id="landCrop" placeholder="Current Crop (e.g. Paddy)">
+            <select class="field-input" id="landOwnership"><option value="owner">Owner</option><option value="joint">Joint Owner</option><option value="tenant">Tenant / Sharecropper</option></select>
+            <select class="field-input" id="landIrrigation"><option value="borewell">Borewell</option><option value="open_well">Open Well</option><option value="canal">Canal</option><option value="rainfed">Rainfed</option></select>
+          </div>
+          <button type="submit" class="btn btn-primary btn-block">Save Land Parcel</button>
+        </form>
+      </div>
+
+      <div class="scheme-tab-pane" data-pane="apps" style="display:none;">
+        <div id="myApplicationsList" style="margin-bottom:12px;"></div>
+        <form class="card" onsubmit="AgroSchemesLand && AgroSchemesLand.saveApplication(event)">
+          <h3 class="display" style="margin:0 0 10px;font-size:16px;">Track New Application</h3>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px;">
+            <input class="field-input" id="appSchemeTitle" placeholder="Scheme Name (e.g. PM-KISAN)" required>
+            <input class="field-input" id="appRefNo" placeholder="Application Ref (optional)">
+            <select class="field-input" id="appStatusSel">
+              <option value="preparing_documents">Preparing documents</option>
+              <option value="ready_to_apply">Ready to apply</option>
+              <option value="submitted">Submitted (farmer updated)</option>
+              <option value="under_review">Under review (farmer updated)</option>
+              <option value="approved">Approved (farmer updated)</option>
+            </select>
+            <input class="field-input" id="appPortalUrl" placeholder="Official Portal URL">
+          </div>
+          <button type="submit" class="btn btn-primary btn-block">Save Application</button>
+        </form>
+      </div>
+
+      <div class="scheme-tab-pane" data-pane="portals" style="display:none;">
+        <div id="officialPortalsList"></div>
+      </div>
+
+      <div class="scheme-tab-pane" data-pane="eligible">
 
       <!-- Farmer Profile Match Criteria Card -->
       <div class="card" style="border:1.5px solid var(--forest);background:#F9FAF9;padding:14px;margin-bottom:14px;border-radius:12px;">
@@ -1354,6 +1414,7 @@
       <div id="schemesListContainer" style="display:flex;flex-direction:column;gap:14px;">
         <div class="muted" style="text-align:center;padding:24px;">Analyzing your profile against government databases…</div>
       </div>
+      </div><!-- /.scheme-tab-pane eligible -->
     </section>
 
     <!-- ============ DRONE SERVICES ============ -->
@@ -5679,6 +5740,10 @@ async function initMandiMarketView(forceRefresh = false) {
 }
 
 async function loadMandiStates() {
+  window.exportMandiCsv = function () {
+    const u = `/api/market/export.csv?state=${encodeURIComponent(mandiCurrentState || '')}&district=${encodeURIComponent(mandiCurrentDistrict || '')}&commodity=${encodeURIComponent(mandiCurrentCommodity || '')}`;
+    window.open(u, '_blank');
+  };
   const sel = document.getElementById('stateSel');
   if (!sel) return;
   try {

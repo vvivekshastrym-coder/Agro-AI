@@ -11,7 +11,7 @@ import uuid
 import logging
 
 from ..database.connection import get_db, SessionLocal
-from ..database.models import User, GovernmentScheme
+from ..database.models import User, GovernmentScheme, LandParcel, LandDocument, SchemeApplication
 from ..auth.deps import get_current_user, get_optional_current_user
 
 logger = logging.getLogger(__name__)
@@ -694,6 +694,278 @@ async def check_custom_eligibility(
         "eligible_count": eligible_count,
         "schemes": evaluated
     }
+
+
+# ── OFFICIAL PORTALS, MY LAND, FRUITS, DOCUMENTS & APPLICATIONS ──────────
+
+OFFICIAL_GOVERNMENT_PORTALS = [
+    {"id": "myscheme", "name": "myScheme (National Discovery Portal)", "scope": "Central", "url": "https://www.myscheme.gov.in/", "purpose": "Search & discover eligible Central and State schemes."},
+    {"id": "pmkisan", "name": "PM-KISAN Portal", "scope": "Central", "url": "https://pmkisan.gov.in/", "purpose": "Farmer registration, e-KYC, and installment status."},
+    {"id": "pmfby", "name": "PMFBY Crop Insurance", "scope": "Central", "url": "https://pmfby.gov.in/", "purpose": "Crop insurance enrollment, premium calculator, and claim status."},
+    {"id": "soilhealth", "name": "Soil Health Card Portal", "scope": "Central", "url": "https://soilhealth.dac.gov.in/", "purpose": "Soil testing labs and fertilizer recommendations."},
+    {"id": "fruits", "name": "Karnataka FRUITS (Farmer Registration & Unified Beneficiary System)", "scope": "Karnataka", "url": "https://fruits.karnataka.gov.in/", "purpose": "Obtain FRUITS Farmer ID (FID) linking land & departmental benefits. Public API not open; register/verify directly on the portal or Raita Samparka Kendra."},
+    {"id": "raitamitra", "name": "Karnataka Raitha Mitra (Dept. of Agriculture)", "scope": "Karnataka", "url": "https://raitamitra.karnataka.gov.in/", "purpose": "Krishi Bhagya, farm mechanization, seed & input subsidies."},
+    {"id": "samrakshane", "name": "Karnataka Samrakshane Crop Insurance", "scope": "Karnataka", "url": "https://samrakshane.karnataka.gov.in/", "purpose": "Karnataka Kharif/Rabi crop insurance enrollment & status."},
+    {"id": "bhoomi", "name": "Karnataka Bhoomi Land Records (RTC / Pahani)", "scope": "Karnataka", "url": "https://landrecords.karnataka.gov.in/", "purpose": "View official RTC / Pahani & mutation status. Editing Agro AI's private land profile does NOT alter official Bhoomi records."},
+]
+
+
+@router.get("/directory")
+async def get_official_government_directory():
+    return {
+        "portals": OFFICIAL_GOVERNMENT_PORTALS,
+        "official_record_notice": "Editing your Agro AI My Land profile updates only your private Agro AI workspace. Official Karnataka Bhoomi RTC/Pahani and FRUITS Farmer ID records can only be updated through authorized government portals or Taluk/Nadakacheri/Raita Samparka Kendra centres.",
+        "fruits_integration_status": "guided_portal_only",
+    }
+
+
+class LandParcelInput(BaseModel):
+    farmer_name: Optional[str] = Field(None, max_length=120)
+    fruits_id: Optional[str] = Field(None, max_length=64)
+    state: str = Field("Karnataka", max_length=60)
+    district: str = Field(..., min_length=1, max_length=80)
+    taluk: Optional[str] = Field(None, max_length=80)
+    hobli: Optional[str] = Field(None, max_length=80)
+    village: Optional[str] = Field(None, max_length=100)
+    survey_number: Optional[str] = Field(None, max_length=50)
+    sub_survey_number: Optional[str] = Field(None, max_length=30)
+    rtc_reference: Optional[str] = Field(None, max_length=80)
+    total_acres: float = Field(0.0, ge=0.0, le=5000.0)
+    cultivable_acres: float = Field(0.0, ge=0.0, le=5000.0)
+    ownership_type: str = Field("owner", pattern=r"^(owner|joint|tenant)$")
+    irrigation_source: str = Field("rainfed", pattern=r"^(borewell|open_well|canal|rainfed)$")
+    soil_type: Optional[str] = Field(None, max_length=50)
+    soil_health_card_no: Optional[str] = Field(None, max_length=64)
+    current_crop: Optional[str] = Field(None, max_length=80)
+    crop_season: Optional[str] = Field("Kharif", max_length=30)
+    sowing_date: Optional[str] = Field(None, max_length=20)
+
+
+def _parcel_dict(p: LandParcel) -> dict:
+    return {
+        "id": p.id,
+        "farmer_name": p.farmer_name,
+        "fruits_id": p.fruits_id,
+        "state": p.state,
+        "district": p.district,
+        "taluk": p.taluk,
+        "hobli": p.hobli,
+        "village": p.village,
+        "survey_number": p.survey_number,
+        "sub_survey_number": p.sub_survey_number,
+        "rtc_reference": p.rtc_reference,
+        "total_acres": p.total_acres,
+        "cultivable_acres": p.cultivable_acres,
+        "ownership_type": p.ownership_type,
+        "irrigation_source": p.irrigation_source,
+        "soil_type": p.soil_type,
+        "soil_health_card_no": p.soil_health_card_no,
+        "current_crop": p.current_crop,
+        "crop_season": p.crop_season,
+        "sowing_date": p.sowing_date,
+        "record_scope": "agro_ai_private_profile",
+    }
+
+
+@router.get("/land")
+async def list_my_land_parcels(user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    rows = db.query(LandParcel).filter(LandParcel.user_id == user.id).order_by(LandParcel.created_at.desc()).all()
+    return {
+        "parcels": [_parcel_dict(r) for r in rows],
+        "record_scope_notice": "Private Agro AI land records (not official Bhoomi RTC / FRUITS records).",
+    }
+
+
+@router.post("/land", status_code=201)
+async def create_land_parcel(body: LandParcelInput, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    p = LandParcel(id=str(uuid.uuid4()), user_id=user.id, **body.model_dump())
+    db.add(p)
+    db.commit()
+    db.refresh(p)
+    return _parcel_dict(p)
+
+
+@router.patch("/land/{parcel_id}")
+async def update_land_parcel(parcel_id: str, body: LandParcelInput, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    p = db.query(LandParcel).filter(LandParcel.id == parcel_id).first()
+    if not p:
+        raise HTTPException(status_code=404, detail={"error": {"code": "PARCEL_NOT_FOUND", "message": "Land parcel not found."}})
+    if p.user_id != user.id:
+        raise HTTPException(status_code=403, detail={"error": {"code": "FORBIDDEN", "message": "Not authorized to edit this land parcel."}})
+    for k, v in body.model_dump().items():
+        setattr(p, k, v)
+    db.commit()
+    db.refresh(p)
+    return _parcel_dict(p)
+
+
+@router.delete("/land/{parcel_id}")
+async def delete_land_parcel(parcel_id: str, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    p = db.query(LandParcel).filter(LandParcel.id == parcel_id).first()
+    if not p:
+        raise HTTPException(status_code=404, detail={"error": {"code": "PARCEL_NOT_FOUND", "message": "Land parcel not found."}})
+    if p.user_id != user.id:
+        raise HTTPException(status_code=403, detail={"error": {"code": "FORBIDDEN", "message": "Not authorized to delete this land parcel."}})
+    db.delete(p)
+    db.commit()
+    return {"deleted": True, "id": parcel_id}
+
+
+class LandDocumentInput(BaseModel):
+    parcel_id: Optional[str] = None
+    doc_type: str = Field(..., pattern=r"^(rtc_pahani|fruits_id|soil_health_card|ownership_record|crop_registration)$")
+    title: str = Field(..., min_length=2, max_length=150)
+    notes: Optional[str] = Field(None, max_length=500)
+
+
+@router.get("/documents")
+async def list_land_documents(user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    docs = db.query(LandDocument).filter(LandDocument.user_id == user.id).order_by(LandDocument.created_at.desc()).all()
+    return {
+        "documents": [
+            {
+                "id": d.id,
+                "parcel_id": d.parcel_id,
+                "doc_type": d.doc_type,
+                "title": d.title,
+                "verification_status": d.verification_status,
+                "notes": d.notes,
+                "created_at": d.created_at.isoformat() if d.created_at else None,
+            }
+            for d in docs
+        ]
+    }
+
+
+@router.post("/documents", status_code=201)
+async def add_land_document(body: LandDocumentInput, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    # Never auto-mark farmer-uploaded document as officially verified
+    doc = LandDocument(
+        id=str(uuid.uuid4()),
+        user_id=user.id,
+        parcel_id=body.parcel_id,
+        doc_type=body.doc_type,
+        title=body.title,
+        verification_status="uploaded",
+        notes=body.notes,
+    )
+    db.add(doc)
+    db.commit()
+    db.refresh(doc)
+    return {
+        "id": doc.id,
+        "parcel_id": doc.parcel_id,
+        "doc_type": doc.doc_type,
+        "title": doc.title,
+        "verification_status": doc.verification_status,
+        "notes": doc.notes,
+    }
+
+
+class SchemeApplicationInput(BaseModel):
+    parcel_id: Optional[str] = None
+    scheme_slug: str = Field(..., min_length=1, max_length=100)
+    scheme_title: str = Field(..., min_length=1, max_length=200)
+    application_ref: Optional[str] = Field(None, max_length=100)
+    department: Optional[str] = Field(None, max_length=150)
+    applied_amount: Optional[str] = Field(None, max_length=80)
+    status: str = Field("preparing_documents", pattern=r"^(not_applied|preparing_documents|ready_to_apply|submitted|under_review|approved|rejected|benefit_disbursed)$")
+    next_action: Optional[str] = Field(None, max_length=255)
+    follow_up_date: Optional[str] = Field(None, max_length=20)
+    official_portal_url: Optional[str] = Field(None, max_length=300)
+
+
+@router.get("/applications")
+async def list_scheme_applications(user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    apps = db.query(SchemeApplication).filter(SchemeApplication.user_id == user.id).order_by(SchemeApplication.created_at.desc()).all()
+    return {
+        "applications": [
+            {
+                "id": a.id,
+                "parcel_id": a.parcel_id,
+                "scheme_slug": a.scheme_slug,
+                "scheme_title": a.scheme_title,
+                "application_ref": a.application_ref,
+                "department": a.department,
+                "applied_amount": a.applied_amount,
+                "status": a.status,
+                "status_source": a.status_source,
+                "next_action": a.next_action,
+                "follow_up_date": a.follow_up_date,
+                "official_portal_url": a.official_portal_url,
+            }
+            for a in apps
+        ]
+    }
+
+
+@router.post("/applications", status_code=201)
+async def create_scheme_application(body: SchemeApplicationInput, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    app_row = SchemeApplication(
+        id=str(uuid.uuid4()),
+        user_id=user.id,
+        status_source="farmer_updated",  # Never fabricate official government status
+        **body.model_dump(),
+    )
+    db.add(app_row)
+    db.commit()
+    db.refresh(app_row)
+    return {
+        "id": app_row.id,
+        "scheme_slug": app_row.scheme_slug,
+        "scheme_title": app_row.scheme_title,
+        "status": app_row.status,
+        "status_source": app_row.status_source,
+        "official_portal_url": app_row.official_portal_url,
+    }
+
+
+@router.patch("/applications/{app_id}")
+async def update_scheme_application(app_id: str, body: SchemeApplicationInput, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    app_row = db.query(SchemeApplication).filter(SchemeApplication.id == app_id).first()
+    if not app_row:
+        raise HTTPException(status_code=404, detail={"error": {"code": "APPLICATION_NOT_FOUND", "message": "Application not found."}})
+    if app_row.user_id != user.id:
+        raise HTTPException(status_code=403, detail={"error": {"code": "FORBIDDEN", "message": "Not authorized."}})
+    for k, v in body.model_dump().items():
+        setattr(app_row, k, v)
+    app_row.status_source = "farmer_updated"
+    db.commit()
+    db.refresh(app_row)
+    return {"id": app_row.id, "status": app_row.status, "status_source": app_row.status_source}
+
+
+@router.get("/updates")
+async def get_scheme_updates(user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    """Returns genuine profile-completeness alerts and official portal guidance (no invented deadlines)."""
+    parcels = db.query(LandParcel).filter(LandParcel.user_id == user.id).all()
+    alerts = []
+    if not parcels:
+        alerts.append({
+            "type": "missing_profile",
+            "title": "Add your My Land parcel to unlock personalized scheme matching",
+            "action": "Open My Land & FRUITS tab",
+            "verified": True,
+        })
+    else:
+        for p in parcels:
+            if p.state.lower() == "karnataka" and not p.fruits_id:
+                alerts.append({
+                    "type": "fruits_id_missing",
+                    "title": f"FRUITS Farmer ID missing for {p.district} parcel",
+                    "action": "Register or look up your FRUITS ID at https://fruits.karnataka.gov.in/",
+                    "official_url": "https://fruits.karnataka.gov.in/",
+                    "verified": True,
+                })
+            if not p.soil_health_card_no:
+                alerts.append({
+                    "type": "soil_health_card",
+                    "title": f"Soil Health Card reference missing for {p.district} parcel",
+                    "action": "Check Soil Health Card portal: https://soilhealth.dac.gov.in/",
+                    "official_url": "https://soilhealth.dac.gov.in/",
+                    "verified": True,
+                })
+    return {"alerts": alerts, "source": "Agro AI Profile & Official Portal Directory"}
 
 
 @router.get("/{slug}")

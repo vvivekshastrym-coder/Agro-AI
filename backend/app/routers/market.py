@@ -28,6 +28,7 @@ _MANDI_CACHE_TTL = 1800  # 30 minutes
 GENUINE_APMC_MARKETS = [
     # Karnataka (All major districts & APMCs)
     ("Yeshwanthpur APMC", "Bengaluru Urban", "Karnataka", "Principal Yard"),
+    ("KR Market (City Market), Bengaluru", "Bengaluru Urban", "Karnataka", "Principal Yard"),
     ("Binny Mill Sub-Yard", "Bengaluru Urban", "Karnataka", "Sub Yard"),
     ("Doddaballapur APMC", "Bengaluru Rural", "Karnataka", "Principal Yard"),
     ("Hoskote APMC", "Bengaluru Rural", "Karnataka", "Principal Yard"),
@@ -39,6 +40,7 @@ GENUINE_APMC_MARKETS = [
     ("Chintamani APMC", "Chikkaballapur", "Karnataka", "Principal Yard"),
     ("Mandya APMC", "Mandya", "Karnataka", "Principal Yard"),
     ("Maddur APMC", "Mandya", "Karnataka", "Principal Yard"),
+    ("Nagamangala APMC", "Mandya", "Karnataka", "Sub Yard"),
     ("Pandavapura APMC", "Mandya", "Karnataka", "Sub Yard"),
     ("Mysuru APMC (Bandipalya)", "Mysuru", "Karnataka", "Principal Yard"),
     ("Nanjangud APMC", "Mysuru", "Karnataka", "Sub Yard"),
@@ -194,9 +196,12 @@ def _ensure_master_mandi_directory(db: Session):
 
 
 def _ensure_reference_mandi_prices(db: Session):
-    """Ensures verified APMC mandi reference observations exist for core crops and states."""
+    """Populates baseline records ONLY in automated test runs; never in production."""
     global _REFERENCE_CHECKED
     if _REFERENCE_CHECKED:
+        return
+    if os.getenv("ENVIRONMENT", "development").strip().lower() != "test":
+        _REFERENCE_CHECKED = True
         return
     if db.query(MarketPrice).count() >= 35:
         _REFERENCE_CHECKED = True
@@ -289,7 +294,7 @@ async def fetch_agmarknet_live(state: Optional[str], commodity: Optional[str], d
         params["filters[commodity]"] = commodity
 
     try:
-        async with httpx.AsyncClient(timeout=3.0) as client:
+        async with httpx.AsyncClient(timeout=12.0) as client:
             resp = await client.get(url, params=params)
             if resp.status_code == 200:
                 payload = resp.json()
@@ -302,6 +307,7 @@ async def fetch_agmarknet_live(state: Optional[str], commodity: Optional[str], d
                         mkt = r.get("market") or r.get("market_name") or "APMC Mandi"
                         dist = r.get("district") or ""
                         var = r.get("variety") or "Standard"
+                        grade = r.get("grade") or ""
                         arrival_str = r.get("arrival_date") or ""
                         try:
                             p_date = datetime.strptime(arrival_str, "%d/%m/%Y").date() if arrival_str else date.today()
@@ -321,11 +327,12 @@ async def fetch_agmarknet_live(state: Optional[str], commodity: Optional[str], d
                         except Exception:
                             max_p = modal_p
 
-                        # Cache into DB if valid
+                        # Cache into DB if valid (deduplicated on state+commodity+variety+market+date)
                         if modal_p > 0:
                             existing = db.query(MarketPrice).filter(
                                 MarketPrice.state == st,
                                 MarketPrice.commodity == comm,
+                                MarketPrice.variety == var,
                                 MarketPrice.market_name == mkt,
                                 MarketPrice.price_date == p_date
                             ).first()
@@ -342,7 +349,7 @@ async def fetch_agmarknet_live(state: Optional[str], commodity: Optional[str], d
                                     modal_price=modal_p,
                                     unit="quintal",
                                     price_date=p_date,
-                                    data_source="data.gov.in / Agmarknet API"
+                                    data_source="AGMARKNET / data.gov.in (9ef84268-d588-465a-a308-a864a43d0070)"
                                 )
                                 db.add(new_rec)
                                 try:
@@ -354,6 +361,7 @@ async def fetch_agmarknet_live(state: Optional[str], commodity: Optional[str], d
                             "id": r.get("id") or str(uuid.uuid4()),
                             "commodity": comm,
                             "variety": var,
+                            "grade": grade,
                             "market_name": mkt,
                             "district": dist,
                             "state": st,
@@ -363,9 +371,10 @@ async def fetch_agmarknet_live(state: Optional[str], commodity: Optional[str], d
                             "unit": "quintal",
                             "price_date": p_date.strftime("%Y-%m-%d"),
                             "metadata": {
-                                "source": "data.gov.in / Agmarknet Official Live API",
+                                "source": "AGMARKNET / data.gov.in",
+                                "source_url": "https://www.data.gov.in/catalog/current-daily-price-various-commodities-various-markets-mandi",
                                 "last_updated": datetime.utcnow().isoformat() + "Z",
-                                "data_type": "LIVE AGMARKNET FEED"
+                                "data_type": "AGMARKNET DAILY OBSERVATION"
                             }
                         })
                     return parsed
@@ -667,3 +676,96 @@ async def get_mandi_prices(
     }
     _MANDI_CACHE[cache_key] = (result, now_ts + _MANDI_CACHE_TTL)
     return result
+
+
+@router.get("/compare")
+async def compare_nearby_mandis(
+    commodity: str = Query(..., min_length=1),
+    state: str = Query("Karnataka"),
+    district: Optional[str] = Query(None),
+    db: Session = Depends(get_db),
+):
+    """Compare verified modal/min/max prices across mandis for the same commodity with explicit observation dates."""
+    _ensure_reference_mandi_prices(db)
+    base_comm = commodity.split("(")[0].strip()
+    q = db.query(MarketPrice).filter(
+        MarketPrice.state.ilike(f"%{state.strip()}%"),
+        MarketPrice.commodity.ilike(f"%{base_comm}%"),
+    )
+    if district and district.strip():
+        q = q.filter(MarketPrice.district.ilike(f"%{district.strip()}%"))
+
+    rows = q.order_by(MarketPrice.price_date.desc(), MarketPrice.modal_price.desc()).limit(50).all()
+    if not rows:
+        return {
+            "available": False,
+            "commodity": commodity,
+            "state": state,
+            "source": "AGMARKNET / data.gov.in",
+            "message": "No verified mandi price records are currently available for this selection.",
+            "records": [],
+        }
+
+    records = [
+        {
+            "commodity": r.commodity,
+            "variety": r.variety or "Standard",
+            "market_name": r.market_name,
+            "district": r.district,
+            "state": r.state,
+            "min_price": r.min_price,
+            "modal_price": r.modal_price,
+            "max_price": r.max_price,
+            "unit": r.unit or "quintal",
+            "price_date": r.price_date.strftime("%Y-%m-%d") if r.price_date else None,
+            "source": r.data_source or "AGMARKNET / data.gov.in",
+        }
+        for r in rows
+    ]
+    return {
+        "available": True,
+        "commodity": commodity,
+        "state": state,
+        "source": "AGMARKNET / data.gov.in",
+        "source_url": "https://www.data.gov.in/catalog/current-daily-price-various-commodities-various-markets-mandi",
+        "latest_observation_date": max((x["price_date"] for x in records if x["price_date"]), default=None),
+        "records": records,
+    }
+
+
+@router.get("/export.csv")
+async def export_mandi_csv(
+    state: Optional[str] = Query(None),
+    district: Optional[str] = Query(None),
+    commodity: Optional[str] = Query(None),
+    db: Session = Depends(get_db),
+):
+    """Exports currently filtered verified mandi observations as CSV."""
+    import csv
+    import io
+    from fastapi.responses import Response
+
+    q = db.query(MarketPrice)
+    if state and state.strip():
+        q = q.filter(MarketPrice.state.ilike(f"%{state.strip()}%"))
+    if district and district.strip():
+        q = q.filter(MarketPrice.district.ilike(f"%{district.strip()}%"))
+    if commodity and commodity.strip():
+        q = q.filter(MarketPrice.commodity.ilike(f"%{commodity.split('(')[0].strip()}%"))
+
+    rows = q.order_by(MarketPrice.price_date.desc()).limit(250).all()
+    buf = io.StringIO()
+    w = csv.writer(buf)
+    w.writerow(["Commodity", "Variety", "Mandi", "District", "State", "Min Price", "Modal Price", "Max Price", "Unit", "Observation Date", "Source"])
+    for r in rows:
+        w.writerow([
+            r.commodity, r.variety or "Standard", r.market_name, r.district, r.state,
+            r.min_price, r.modal_price, r.max_price, r.unit or "quintal",
+            r.price_date.strftime("%Y-%m-%d") if r.price_date else "",
+            r.data_source or "AGMARKNET / data.gov.in",
+        ])
+    return Response(
+        content=buf.getvalue(),
+        media_type="text/csv",
+        headers={"Content-Disposition": "attachment; filename=agro_ai_mandi_prices.csv"},
+    )

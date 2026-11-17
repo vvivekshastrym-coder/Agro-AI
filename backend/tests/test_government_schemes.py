@@ -94,3 +94,47 @@ def test_custom_profile_check_eligibility():
     data = res.json()
     assert data["farmer_profile"]["scale"] == "Medium Farmer (> 5.0 ac)"
     assert data["eligible_count"] >= 6
+
+
+def test_my_land_fruits_documents_applications_and_directory():
+    import datetime, uuid, jwt
+    from app.auth.deps import GUEST_SESSION_SECRET
+
+    def _hdr(sub):
+        tok = jwt.encode(
+            {"sub": sub, "aud": "authenticated", "iss": "agro-ai-local", "exp": int(datetime.datetime.now(datetime.timezone.utc).timestamp()) + 3600},
+            GUEST_SESSION_SECRET, algorithm="HS256",
+        )
+        return {"Authorization": f"Bearer {tok}"}
+
+    u1, u2 = _hdr(str(uuid.uuid4())), _hdr(str(uuid.uuid4()))
+
+    # Official directory (FRUITS, Bhoomi, myScheme, PM-KISAN, PMFBY, Raitha Mitra, Samrakshane, Soil Health Card)
+    d_res = client.get("/api/schemes/directory")
+    assert d_res.status_code == 200
+    urls = " ".join(p["url"] for p in d_res.json()["portals"])
+    assert "fruits.karnataka.gov.in" in urls
+    assert "landrecords.karnataka.gov.in" in urls
+
+    # Multi-parcel My Land CRUD + IDOR isolation
+    p1 = client.post("/api/schemes/land", json={"district": "Mandya", "taluk": "Maddur", "total_acres": 2.0, "current_crop": "Paddy", "irrigation_source": "borewell", "fruits_id": "FID-KA-123"}, headers=u1)
+    assert p1.status_code == 201
+    pid = p1.json()["id"]
+    assert p1.json()["record_scope"] == "agro_ai_private_profile"
+
+    p2 = client.post("/api/schemes/land", json={"district": "Mysuru", "total_acres": 1.5, "current_crop": "Ragi"}, headers=u1)
+    assert p2.status_code == 201
+    assert len(client.get("/api/schemes/land", headers=u1).json()["parcels"]) == 2
+    assert client.patch(f"/api/schemes/land/{pid}", json={"district": "Mandya", "total_acres": 2.5}, headers=u2).status_code == 403
+    assert client.delete(f"/api/schemes/land/{pid}", headers=u2).status_code == 403
+
+    # Document metadata never auto-marked verified_official
+    doc = client.post("/api/schemes/documents", json={"parcel_id": pid, "doc_type": "rtc_pahani", "title": "Mandya RTC"}, headers=u1)
+    assert doc.status_code == 201
+    assert doc.json()["verification_status"] == "uploaded"
+
+    # Application tracker always farmer_updated
+    app_r = client.post("/api/schemes/applications", json={"scheme_slug": "pm-kisan", "scheme_title": "PM-KISAN", "status": "preparing_documents"}, headers=u1)
+    assert app_r.status_code == 201
+    assert app_r.json()["status_source"] == "farmer_updated"
+    assert client.get("/api/schemes/updates", headers=u1).status_code == 200

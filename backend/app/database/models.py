@@ -1292,3 +1292,67 @@ class PrivacyAuditLog(Base):
     details = Column(JSON, default=dict)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
+
+class LandParcel(Base):
+    """Farmer's private multi-parcel land & crop record inside Agro AI (distinct from official Bhoomi/FRUITS)."""
+    __tablename__ = 'land_parcels'
+
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    user_id = Column(String, ForeignKey('users.id', ondelete='CASCADE'), nullable=False, index=True)
+    farmer_name = Column(String(120), nullable=True)
+    fruits_id = Column(String(64), nullable=True)
+    state = Column(String(60), default='Karnataka', nullable=False)
+    district = Column(String(80), nullable=False)
+    taluk = Column(String(80), nullable=True)
+    hobli = Column(String(80), nullable=True)
+    village = Column(String(100), nullable=True)
+    survey_number = Column(String(50), nullable=True)
+    sub_survey_number = Column(String(30), nullable=True)
+    rtc_reference = Column(String(80), nullable=True)
+    total_acres = Column(Float, default=0.0, nullable=False)
+    cultivable_acres = Column(Float, default=0.0, nullable=False)
+    ownership_type = Column(String(30), default='owner', nullable=False)  # owner | joint | tenant
+    irrigation_source = Column(String(40), default='rainfed', nullable=False)  # borewell | open_well | canal | rainfed
+    soil_type = Column(String(50), nullable=True)
+    soil_health_card_no = Column(String(64), nullable=True)
+    current_crop = Column(String(80), nullable=True)
+    crop_season = Column(String(30), default='Kharif', nullable=True)
+    sowing_date = Column(String(20), nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+
+
+class LandDocument(Base):
+    """Farmer-uploaded land/scheme document metadata (never labelled officially verified without authorized check)."""
+    __tablename__ = 'land_documents'
+
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    user_id = Column(String, ForeignKey('users.id', ondelete='CASCADE'), nullable=False, index=True)
+    parcel_id = Column(String, ForeignKey('land_parcels.id', ondelete='SET NULL'), nullable=True)
+    doc_type = Column(String(50), nullable=False)  # rtc_pahani | fruits_id | soil_health_card | ownership_record | crop_registration
+    title = Column(String(150), nullable=False)
+    verification_status = Column(String(40), default='uploaded', nullable=False)  # uploaded | awaiting_verification | verified_official | rejected
+    notes = Column(Text, nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+
+class SchemeApplication(Base):
+    """Farmer's application tracker (explicitly records farmer_updated status unless authorized API connected)."""
+    __tablename__ = 'scheme_applications'
+
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    user_id = Column(String, ForeignKey('users.id', ondelete='CASCADE'), nullable=False, index=True)
+    parcel_id = Column(String, ForeignKey('land_parcels.id', ondelete='SET NULL'), nullable=True)
+    scheme_slug = Column(String(100), nullable=False, index=True)
+    scheme_title = Column(String(200), nullable=False)
+    application_ref = Column(String(100), nullable=True)
+    department = Column(String(150), nullable=True)
+    applied_amount = Column(String(80), nullable=True)
+    status = Column(String(40), default='preparing_documents', nullable=False)
+    status_source = Column(String(40), default='farmer_updated', nullable=False)
+    next_action = Column(String(255), nullable=True)
+    follow_up_date = Column(String(20), nullable=True)
+    official_portal_url = Column(String(300), nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+

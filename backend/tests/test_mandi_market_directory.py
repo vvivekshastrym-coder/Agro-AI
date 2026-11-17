@@ -91,3 +91,20 @@ def test_separate_market_and_price_availability():
     assert data2["available"] is False
     assert data2["message"] == "No current price data available for this market."
     assert data2["records"] == []
+
+
+def test_karnataka_priority_markets_and_compare_and_csv():
+    for q in ["Mandya", "Mysuru", "Maddur", "Nagamangala", "Pandavapura", "KR Market"]:
+        r = client.get(f"/api/market/markets?state=Karnataka&q={q}")
+        assert r.status_code == 200
+        assert r.json()["total"] >= 1, f"Missing Karnataka priority market: {q}"
+
+    cmp_res = client.get("/api/market/compare?commodity=Tomato&state=Karnataka")
+    assert cmp_res.status_code == 200
+    assert cmp_res.json()["available"] is True
+    assert cmp_res.json()["latest_observation_date"] is not None
+
+    csv_res = client.get("/api/market/export.csv?state=Karnataka&commodity=Tomato")
+    assert csv_res.status_code == 200
+    assert "text/csv" in csv_res.headers.get("content-type", "")
+    assert "Commodity,Variety,Mandi,District" in csv_res.text
