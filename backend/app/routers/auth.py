@@ -31,6 +31,10 @@ def _user_payload(u: User) -> dict:
         "preferred_language": u.preferred_language,
         "role": u.role.value if u.role else None,
         "avatar_url": u.avatar_url,
+        "age_category": getattr(u, "age_category", None),
+        "account_status": getattr(u, "account_status", "active"),
+        "country_code": getattr(u, "country_code", "IN"),
+        "consent_version": getattr(u, "consent_version", None),
     }
 
 
@@ -474,4 +478,284 @@ async def request_web_account_deletion(
 @router.post("/google")
 async def retired_auth_endpoints():
     raise HTTPException(status_code=status.HTTP_410_GONE, detail=_RETIRED)
+
+
+# ── AGE VERIFICATION & VERIFIABLE PARENTAL CONSENT ────────────────────────
+import datetime as _dt
+from ..database.models import ParentalConsent, PrivacyAuditLog
+from ..auth.privacy import (
+    CONSENT_VERSION,
+    classify_age,
+    hash_consent_code,
+    verify_consent_code,
+)
+
+
+class AgeVerifyRequest(BaseModel):
+    date_of_birth: str = Field(..., description="YYYY-MM-DD")
+    country_code: str = Field("IN", min_length=2, max_length=2)
+
+
+class ParentalConsentRequestInput(BaseModel):
+    parent_contact: str = Field(..., min_length=5, max_length=255)
+    verification_method: str = Field("parent_otp_challenge", pattern=r"^(parent_otp_challenge|parent_verified_email)$")
+
+
+class ParentalConsentVerifyInput(BaseModel):
+    consent_id: str
+    verification_code: str = Field(..., min_length=6, max_length=12)
+    decision: str = Field(..., pattern=r"^(approved|rejected)$")
+    parent_confirmed_adult: bool = True
+
+
+class ParentalConsentWithdrawInput(BaseModel):
+    consent_id: str
+    parent_contact: Optional[str] = None
+    reason: Optional[str] = None
+
+
+@router.post("/age-verify")
+async def verify_user_age(
+    body: AgeVerifyRequest,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Server-side age calculation and India-first + international threshold routing."""
+    try:
+        info = classify_age(body.date_of_birth, body.country_code)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail={"error": {"code": "INVALID_DOB", "message": str(exc)}})
+
+    now = _dt.datetime.now(_dt.timezone.utc)
+    user.date_of_birth = info["date_of_birth"]
+    user.country_code = info["country_code"]
+    user.age_category = info["age_category"]
+    user.consent_version = CONSENT_VERSION
+    user.consent_timestamp = now
+
+    if info["requires_parental_consent"]:
+        user.account_status = "pending_parental_consent"
+    else:
+        user.account_status = "active"
+        user.is_active = True
+
+    db.add(
+        PrivacyAuditLog(
+            id=str(uuid.uuid4()),
+            actor_user_id=user.id,
+            target_user_id=user.id,
+            event_type="AGE_VERIFIED",
+            details={
+                "country_code": info["country_code"],
+                "age_category": info["age_category"],
+                "requires_parental_consent": info["requires_parental_consent"],
+                "consent_version": CONSENT_VERSION,
+            },
+        )
+    )
+    db.commit()
+    db.refresh(user)
+
+    return {
+        "age_category": info["age_category"],
+        "country_code": info["country_code"],
+        "requires_parental_consent": info["requires_parental_consent"],
+        "experience_mode": info["experience_mode"],
+        "account_status": user.account_status,
+        "legal_basis": info["legal_basis"],
+        "user": _user_payload(user),
+    }
+
+
+@router.post("/parental-consent/request")
+async def request_parental_consent(
+    body: ParentalConsentRequestInput,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Creates a verifiable parental consent challenge (no Aadhaar or ID docs collected)."""
+    contact = body.parent_contact.strip()
+    if "@" not in contact and not _re.sub(r"[^0-9+]", "", contact):
+        raise HTTPException(status_code=422, detail={"error": {"code": "INVALID_PARENT_CONTACT", "message": "Enter a valid parent email or phone number."}})
+
+    consent_id = str(uuid.uuid4())
+    code = generate_otp()
+    now = _dt.datetime.now(_dt.timezone.utc)
+    expires = now + _dt.timedelta(minutes=30)
+
+    purpose = (
+        "Agro AI processes only minimal farm advisory inputs (crop queries and essential session data) "
+        "for minor accounts. No behavioural profiling, session replay, or advertising tracking is used."
+    )
+
+    rec = ParentalConsent(
+        id=consent_id,
+        child_user_id=user.id,
+        parent_contact=contact,
+        consent_version=CONSENT_VERSION,
+        status="pending",
+        verification_method=body.verification_method,
+        verification_code_hash=hash_consent_code(consent_id, code),
+        purpose_summary=purpose,
+        expires_at=expires,
+    )
+    user.account_status = "pending_parental_consent"
+    db.add(rec)
+    db.add(
+        PrivacyAuditLog(
+            id=str(uuid.uuid4()),
+            actor_user_id=user.id,
+            target_user_id=user.id,
+            event_type="PARENTAL_CONSENT_REQUESTED",
+            details={"consent_id": consent_id, "method": body.verification_method, "consent_version": CONSENT_VERSION},
+        )
+    )
+    db.commit()
+
+    # Best-effort SMS if phone number; never expose plaintext code in production
+    is_dev_or_test = os.getenv("ENVIRONMENT", "development").strip().lower() in ("test", "development")
+    if "@" not in contact:
+        try:
+            send_sms_otp(contact, code)
+        except Exception:
+            pass
+
+    resp = {
+        "consent_id": consent_id,
+        "status": "pending",
+        "consent_version": CONSENT_VERSION,
+        "purpose_summary": purpose,
+        "expires_at": expires.isoformat(),
+    }
+    if is_dev_or_test:
+        resp["dev_verification_code"] = code
+    return resp
+
+
+@router.post("/parental-consent/verify")
+async def verify_parental_consent(
+    body: ParentalConsentVerifyInput,
+    db: Session = Depends(get_db),
+):
+    """Independent parent/guardian verification to approve or reject a minor/child account."""
+    if not body.parent_confirmed_adult:
+        raise HTTPException(status_code=422, detail={"error": {"code": "ADULT_CONFIRMATION_REQUIRED", "message": "Parent/guardian must confirm adult legal authority."}})
+
+    rec = db.query(ParentalConsent).filter(ParentalConsent.id == body.consent_id).first()
+    if not rec:
+        raise HTTPException(status_code=404, detail={"error": {"code": "CONSENT_NOT_FOUND", "message": "Consent request not found."}})
+
+    now = _dt.datetime.now(_dt.timezone.utc)
+    exp = rec.expires_at.replace(tzinfo=_dt.timezone.utc) if rec.expires_at.tzinfo is None else rec.expires_at
+    if exp < now:
+        raise HTTPException(status_code=400, detail={"error": {"code": "CONSENT_EXPIRED", "message": "Verification challenge expired. Request a new one."}})
+
+    if not verify_consent_code(rec.id, body.verification_code, rec.verification_code_hash):
+        raise HTTPException(status_code=401, detail={"error": {"code": "INVALID_VERIFICATION_CODE", "message": "Invalid parent verification code."}})
+
+    child = db.query(User).filter(User.id == rec.child_user_id).first()
+    if not child:
+        raise HTTPException(status_code=404, detail={"error": {"code": "USER_NOT_FOUND", "message": "Child account not found."}})
+
+    rec.status = body.decision
+    rec.responded_at = now
+
+    if body.decision == "approved":
+        child.account_status = "active"
+        child.is_active = True
+        child.consent_version = rec.consent_version
+        child.consent_timestamp = now
+        event = "PARENTAL_CONSENT_APPROVED"
+    else:
+        child.account_status = "suspended"
+        child.is_active = False
+        event = "PARENTAL_CONSENT_REJECTED"
+
+    db.add(
+        PrivacyAuditLog(
+            id=str(uuid.uuid4()),
+            actor_user_id=rec.parent_user_id or rec.parent_contact,
+            target_user_id=child.id,
+            event_type=event,
+            details={"consent_id": rec.id, "decision": body.decision, "consent_version": rec.consent_version},
+        )
+    )
+    db.commit()
+
+    return {
+        "consent_id": rec.id,
+        "status": rec.status,
+        "child_account_status": child.account_status,
+        "responded_at": rec.responded_at.isoformat(),
+    }
+
+
+@router.post("/parental-consent/withdraw")
+async def withdraw_parental_consent(
+    body: ParentalConsentWithdrawInput,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Allows parent/guardian (or the minor account holder on their behalf) to withdraw parental consent."""
+    rec = db.query(ParentalConsent).filter(ParentalConsent.id == body.consent_id).first()
+    if not rec:
+        raise HTTPException(status_code=404, detail={"error": {"code": "CONSENT_NOT_FOUND", "message": "Consent record not found."}})
+
+    if rec.child_user_id != user.id and rec.parent_user_id != user.id:
+        if not body.parent_contact or body.parent_contact.strip().lower() != rec.parent_contact.strip().lower():
+            raise HTTPException(status_code=403, detail={"error": {"code": "FORBIDDEN", "message": "Not authorized to withdraw this consent."}})
+
+    now = _dt.datetime.now(_dt.timezone.utc)
+    rec.status = "withdrawn"
+    rec.withdrawn_at = now
+
+    child = db.query(User).filter(User.id == rec.child_user_id).first()
+    if child:
+        child.account_status = "suspended"
+
+    db.add(
+        PrivacyAuditLog(
+            id=str(uuid.uuid4()),
+            actor_user_id=user.id,
+            target_user_id=rec.child_user_id,
+            event_type="PARENTAL_CONSENT_WITHDRAWN",
+            details={"consent_id": rec.id, "reason": body.reason or "Parent withdrew consent"},
+        )
+    )
+    db.commit()
+
+    return {
+        "consent_id": rec.id,
+        "status": "withdrawn",
+        "child_account_status": child.account_status if child else "suspended",
+        "withdrawn_at": now.isoformat(),
+    }
+
+
+@router.get("/parental-consent/status")
+async def get_parental_consent_status(
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    rec = (
+        db.query(ParentalConsent)
+        .filter(ParentalConsent.child_user_id == user.id)
+        .order_by(ParentalConsent.requested_at.desc())
+        .first()
+    )
+    return {
+        "age_category": getattr(user, "age_category", None),
+        "account_status": getattr(user, "account_status", "active"),
+        "country_code": getattr(user, "country_code", "IN"),
+        "consent": {
+            "consent_id": rec.id,
+            "status": rec.status,
+            "consent_version": rec.consent_version,
+            "verification_method": rec.verification_method,
+            "requested_at": rec.requested_at.isoformat() if rec.requested_at else None,
+            "responded_at": rec.responded_at.isoformat() if rec.responded_at else None,
+            "withdrawn_at": rec.withdrawn_at.isoformat() if rec.withdrawn_at else None,
+        } if rec else None,
+    }
+
 

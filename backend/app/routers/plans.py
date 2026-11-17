@@ -148,3 +148,61 @@ def get_my_subscription_status(
         "period_start": period_start.isoformat(),
         "usages": usage_map
     }
+
+
+from pydantic import BaseModel as _BaseModel
+import uuid as _uuid
+from ..database.models import PrivacyAuditLog
+
+
+class CancelSubscriptionRequest(_BaseModel):
+    immediate: bool = False
+    reason: Optional[str] = None
+
+
+@router.post("/cancel")
+def cancel_my_subscription(
+    body: CancelSubscriptionRequest = CancelSubscriptionRequest(),
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """
+    POST /api/plans/cancel
+    One-click subscription cancellation (as easy as subscribing).
+    """
+    sub = db.query(UserSubscription).filter(
+        UserSubscription.user_id == user.id,
+        UserSubscription.status == "active"
+    ).first()
+    if not sub:
+        raise HTTPException(status_code=404, detail={"error": {"code": "NO_ACTIVE_SUBSCRIPTION", "message": "No active paid subscription found."}})
+
+    now = datetime.datetime.now(datetime.timezone.utc)
+    if body.immediate:
+        sub.status = "cancelled"
+        sub.cancel_at_period_end = True
+    else:
+        sub.cancel_at_period_end = True
+        sub.status = "cancelled"
+
+    db.add(
+        PrivacyAuditLog(
+            id=str(_uuid.uuid4()),
+            actor_user_id=user.id,
+            target_user_id=user.id,
+            event_type="SUBSCRIPTION_CANCELLED",
+            details={"subscription_id": sub.id, "immediate": bool(body.immediate), "reason": body.reason or "User cancelled"},
+        )
+    )
+    db.commit()
+    db.refresh(sub)
+
+    return {
+        "success": True,
+        "subscription_id": sub.id,
+        "status": sub.status,
+        "cancel_at_period_end": bool(sub.cancel_at_period_end),
+        "current_period_end": sub.current_period_end.isoformat() if sub.current_period_end else None,
+        "cancelled_at": now.isoformat(),
+        "message": "Your subscription has been cancelled. You will not be charged again."
+    }

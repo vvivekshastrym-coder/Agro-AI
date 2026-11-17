@@ -1,0 +1,23 @@
+User-agent: *
+Allow: /
+Allow: /diagnose
+Allow: /agrogpt
+Allow: /weather
+Allow: /mandi
+Allow: /plans
+Allow: /about
+Allow: /contact
+Allow: /guides
+Allow: /privacy
+Allow: /terms
+Allow: /cookies
+
+Disallow: /admin
+Disallow: /admin/
+Disallow: /admin-console
+Disallow: /api/
+Disallow: /delete-account
+Disallow: /docs
+Disallow: /redoc
+
+Sitemap: https://agroai.live/sitemap.xml

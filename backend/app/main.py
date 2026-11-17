@@ -16,7 +16,7 @@ DEFAULT_BASE_URL = "http://192.168.31.86:8080"
 BASE_URL = TUNNEL_URL if USE_TUNNEL and TUNNEL_URL else DEFAULT_BASE_URL
 
 from .database.connection import engine, Base
-from .routers import auth, agri, weather, market, satellite, diagnosis, agro_gpt, logistics, marketplace, drone, admin, plans, payments, schemes, mart
+from .routers import auth, agri, weather, market, satellite, diagnosis, agro_gpt, logistics, marketplace, drone, admin, plans, payments, schemes, mart, privacy
 from .routers.logistics import trip_manager
 from .auth import feature_access
 
@@ -158,6 +158,7 @@ app.include_router(payments.router,    prefix='/api/payments',    tags=['Payment
 app.include_router(schemes.router,     prefix='/api/schemes',     tags=['Government Schemes'])
 app.include_router(mart.router,        prefix='/api/mart',        tags=['Agro AI Mart'])
 app.include_router(mart.admin_router,  prefix='/api/admin/mart',  tags=['Agro AI Mart Admin'])
+app.include_router(privacy.router,     prefix='/api/privacy',     tags=['Privacy & Consent'])
 
 @app.get('/docs', include_in_schema=False)
 async def redirect_docs():
@@ -362,6 +363,71 @@ async def serve_privacy_policy():
     if os.path.isfile(privacy_file):
         return FileResponse(privacy_file)
     raise HTTPException(status_code=404, detail="Privacy policy not found")
+
+
+@app.get("/terms", include_in_schema=False)
+async def serve_terms_conditions():
+    terms_file = os.path.join(project_root, "terms.html")
+    if os.path.isfile(terms_file):
+        return FileResponse(terms_file)
+    raise HTTPException(status_code=404, detail="Terms & Conditions not found")
+
+
+@app.get("/cookies", include_in_schema=False)
+async def serve_cookie_policy():
+    cookies_file = os.path.join(project_root, "cookies.html")
+    if os.path.isfile(cookies_file):
+        return FileResponse(cookies_file)
+    raise HTTPException(status_code=404, detail="Cookie policy not found")
+
+
+@app.get("/robots.txt", include_in_schema=False)
+async def serve_robots_txt():
+    robots_file = os.path.join(project_root, "robots.txt")
+    if os.path.isfile(robots_file):
+        return FileResponse(robots_file, media_type="text/plain")
+    raise HTTPException(status_code=404, detail="robots.txt not found")
+
+
+@app.get("/sitemap.xml", include_in_schema=False)
+async def serve_dynamic_sitemap():
+    """Dynamically generates canonical XML sitemap from actual public, indexable routes."""
+    from fastapi.responses import Response as _Response
+    from . import seo_pages
+    return _Response(content=seo_pages.build_sitemap_xml(project_root), media_type="application/xml")
+
+
+@app.get("/diagnose", include_in_schema=False)
+@app.get("/agrogpt", include_in_schema=False)
+@app.get("/weather", include_in_schema=False)
+@app.get("/mandi", include_in_schema=False)
+@app.get("/plans", include_in_schema=False)
+@app.get("/about", include_in_schema=False)
+@app.get("/contact", include_in_schema=False)
+async def serve_spa_seo_route(request: Request):
+    from fastapi.responses import HTMLResponse
+    from . import seo_pages
+    html_body = seo_pages.render_spa_seo_html(request.url.path, project_root)
+    if html_body:
+        return HTMLResponse(content=html_body)
+    raise HTTPException(status_code=404, detail="Page not found")
+
+
+@app.get("/guides", include_in_schema=False)
+async def serve_guides_index():
+    from fastapi.responses import HTMLResponse
+    from . import seo_pages
+    return HTMLResponse(content=seo_pages.render_guides_index_html())
+
+
+@app.get("/guides/{slug}", include_in_schema=False)
+async def serve_guide_article(slug: str):
+    from fastapi.responses import HTMLResponse
+    from . import seo_pages
+    html_body = seo_pages.render_guide_article_html(f"/guides/{slug}")
+    if html_body:
+        return HTMLResponse(content=html_body)
+    raise HTTPException(status_code=404, detail="Guide not found")
 
 
 @app.get("/delete-account", include_in_schema=False)

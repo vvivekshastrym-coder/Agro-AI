@@ -3,6 +3,14 @@
   "name": "agro-ai",
   "cleanUrls": true,
   "trailingSlash": false,
+  "redirects": [
+    {
+      "source": "/(.*)",
+      "has": [{ "type": "host", "value": "www.agroai.live" }],
+      "destination": "https://agroai.live/$1",
+      "permanent": true
+    }
+  ],
   "headers": [
     {
       "source": "/icons/(.*)",

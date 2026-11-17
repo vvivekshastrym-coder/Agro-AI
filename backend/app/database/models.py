@@ -52,6 +52,12 @@ class User(Base):
     is_test = Column(Boolean, default=False, nullable=False)
     avatar_url = Column(String(500), nullable=True)
     fcm_token = Column(String(500), nullable=True)
+    date_of_birth = Column(String(10), nullable=True)
+    country_code = Column(String(2), default='IN')
+    age_category = Column(String(20), nullable=True)  # child_under_9 | minor_9_17 | adult
+    account_status = Column(String(32), default='active')  # pending_age_verification | pending_parental_consent | active | suspended
+    consent_version = Column(String(20), nullable=True)
+    consent_timestamp = Column(DateTime(timezone=True), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
 
@@ -1240,3 +1246,49 @@ class ExcelImportJob(Base):
     published_record_ids = Column(JSON, default=list)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+
+
+class ParentalConsent(Base):
+    """Verifiable parental/guardian consent records for child (<9) and minor (9-17) accounts."""
+    __tablename__ = 'parental_consents'
+
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    child_user_id = Column(String, ForeignKey('users.id', ondelete='CASCADE'), nullable=False, index=True)
+    parent_contact = Column(String(255), nullable=False)
+    parent_user_id = Column(String, nullable=True)
+    consent_version = Column(String(20), nullable=False)
+    status = Column(String(20), default='pending', nullable=False, index=True)  # pending | approved | rejected | withdrawn
+    verification_method = Column(String(40), default='parent_otp_challenge', nullable=False)
+    verification_code_hash = Column(String(128), nullable=False)
+    purpose_summary = Column(Text, nullable=False)
+    requested_at = Column(DateTime(timezone=True), server_default=func.now())
+    responded_at = Column(DateTime(timezone=True), nullable=True)
+    withdrawn_at = Column(DateTime(timezone=True), nullable=True)
+    expires_at = Column(DateTime(timezone=True), nullable=False)
+
+
+class PrivacyConsentRecord(Base):
+    """Granular cookie & privacy consent preferences (Essential locked on; Analytics/Marketing opt-in)."""
+    __tablename__ = 'privacy_consent_records'
+
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    user_id = Column(String, ForeignKey('users.id', ondelete='CASCADE'), nullable=True, index=True)
+    subject_key = Column(String(128), nullable=False, index=True)
+    essential = Column(Boolean, default=True, nullable=False)
+    analytics = Column(Boolean, default=False, nullable=False)
+    marketing = Column(Boolean, default=False, nullable=False)
+    consent_version = Column(String(20), nullable=False)
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+
+class PrivacyAuditLog(Base):
+    """Append-only privacy & consent audit trail (stores no raw IP addresses)."""
+    __tablename__ = 'privacy_audit_logs'
+
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    actor_user_id = Column(String, nullable=True, index=True)
+    target_user_id = Column(String, nullable=True, index=True)
+    event_type = Column(String(64), nullable=False, index=True)
+    details = Column(JSON, default=dict)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+

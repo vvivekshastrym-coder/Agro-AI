@@ -217,7 +217,8 @@ def has_permission(admin: AdminUser, module: str, action: str) -> bool:
 def _log_unauthorized_attempt(db: Session, user: Optional[User], role_str: str, reason: str, request: Optional[Request] = None):
     """Records failed or unauthorized administrative access attempts in AdminAuditLog."""
     try:
-        ip = request.client.host if request and request.client else None
+        from ..auth.privacy import redact_ip
+        ip = redact_ip(request.client.host if request and request.client else None)
         ua = request.headers.get("user-agent") if request else None
         path = request.url.path if request else "unknown"
         entry = AdminAuditLog(
@@ -357,7 +358,8 @@ def _sanitize_audit_payload(payload: Any) -> Any:
 
 def log_admin_action(db: Session, actor: AdminUser, action: str, target_entity: str, target_id: str, details: dict = None, request: Request = None):
     """Writes an immutable server-side audit log entry with automatic secret redaction."""
-    ip = request.client.host if request and request.client else None
+    from ..auth.privacy import redact_ip
+    ip = redact_ip(request.client.host if request and request.client else None)
     ua = request.headers.get("user-agent") if request else None
     safe_details = _sanitize_audit_payload(details or {})
     if isinstance(safe_details, dict):
@@ -1444,7 +1446,7 @@ async def get_audit_logs(
             "target_entity": l.target_entity,
             "target_id": l.target_id,
             "details": l.details,
-            "ip_address": l.ip_address,
+            "ip_redacted": bool(l.ip_address),
             "created_at": l.created_at.isoformat() if l.created_at else None
         } for l in logs
     ]

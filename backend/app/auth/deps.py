@@ -5,7 +5,7 @@ import secrets
 from typing import Optional
 
 import jwt
-from fastapi import Depends, Header, HTTPException, status
+from fastapi import Depends, Header, HTTPException, Request, status
 from jwt import PyJWKClient
 from sqlalchemy.orm import Session
 
@@ -152,6 +152,7 @@ def verify_supabase_token(token: str) -> dict:
 
 
 async def get_current_user(
+    request: Request,
     authorization: Optional[str] = Header(None),
     db: Session = Depends(get_db),
 ) -> User:
@@ -189,6 +190,18 @@ async def get_current_user(
             status_code=status.HTTP_403_FORBIDDEN,
             detail={"error": {"code": "ACCOUNT_DISABLED", "message": "This account is disabled."}},
         )
+    acct_status = getattr(user, "account_status", "active") or "active"
+    path = (request.url.path or "").lower()
+    if acct_status in ("pending_parental_consent", "pending_age_verification", "suspended"):
+        if not (path.startswith("/api/auth/") or path.startswith("/api/privacy/")):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail={"error": {
+                    "code": "PARENTAL_CONSENT_REQUIRED",
+                    "message": "Account requires age verification or verifiable parental consent before accessing this feature.",
+                    "account_status": acct_status,
+                }},
+            )
     return user
 
 

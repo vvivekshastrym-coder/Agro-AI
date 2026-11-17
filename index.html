@@ -7,6 +7,25 @@
 
 <!-- SEO & PWA Meta -->
 <meta name="description" content="Agro AI — The AI operating system for your farm: weather, mandi prices, crop diagnosis and Agro GPT in your language.">
+<link rel="canonical" href="https://agroai.live/">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Agro AI">
+<meta property="og:locale" content="en_IN">
+<meta property="og:title" content="Agro AI — Agro GPT & Smart Farming Platform">
+<meta property="og:description" content="Agro AI — The AI operating system for your farm: weather forecasts, APMC mandi prices, crop disease diagnosis and Agro GPT in your language.">
+<meta property="og:url" content="https://agroai.live/">
+<meta property="og:image" content="https://agroai.live/icons/icon-512x512.png">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "WebApplication",
+  "name": "Agro AI",
+  "url": "https://agroai.live/",
+  "applicationCategory": "BusinessApplication",
+  "operatingSystem": "Web, Android",
+  "description": "Agricultural intelligence platform providing weather forecasts, APMC mandi prices, crop diagnosis, and Agro GPT assistance."
+}
+</script>
 <meta name="theme-color" content="#1F4D2B">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" type="image/x-icon" href="favicon.ico">
@@ -37,10 +56,8 @@
   })();
 </script>
 
-<!-- Fonts -->
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<!-- Fonts (self-hosted locally; zero external Google Fonts requests) -->
+<link rel="stylesheet" href="css/fonts.css">
 
 <!-- Google Identity Services -->
 <script src="https://accounts.google.com/gsi/client" async defer></script>
@@ -51,6 +68,7 @@
 <script type="module" src="js/engine/firebase.js"></script>
 <!-- Razorpay Checkout SDK -->
 <script src="js/engine/feature-access.js"></script>
+<script src="js/engine/privacy-consent.js"></script>
 <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
 <script>
   // Capacitor Android Native Bridge: route relative /api/* requests to configured backend host
@@ -631,6 +649,7 @@
   </div>
 
   <main id="main">
+    <nav id="seoBreadcrumb" aria-label="Breadcrumb" style="display:none;padding:6px 18px 0;font-size:12.5px;color:var(--ink-soft);"></nav>
 
     <!-- ============ AUTH: WELCOME ============ -->
     <section class="auth-view active" data-view="auth-welcome">
@@ -1159,6 +1178,15 @@
         </div>
       </div>
 
+      <div class="card" style="margin-bottom:14px;">
+        <div style="font-weight:700;font-size:14px;color:var(--forest);margin-bottom:6px;">Privacy, Age &amp; Consent Controls</div>
+        <p class="muted" style="font-size:12px;margin:0 0 10px;">Manage cookie preferences, age/parental consent, or review <a href="/privacy" target="_blank">Privacy</a>, <a href="/terms" target="_blank">Terms</a>, and <a href="/cookies" target="_blank">Cookie Policy</a>.</p>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          <button type="button" class="btn btn-outline" style="padding:8px 12px;font-size:12px;" onclick="AgroPrivacy && AgroPrivacy.openPrivacySettingsModal()">Cookie Preferences</button>
+          <button type="button" class="btn btn-outline" style="padding:8px 12px;font-size:12px;" onclick="AgroPrivacy && AgroPrivacy.openAgeVerificationModal()">Age &amp; Parental Consent</button>
+        </div>
+      </div>
+
       <button class="btn btn-block" style="background:#F1EDE1;color:var(--ink);" id="acctSignOutBtn" onclick="signOut()">Sign out</button>
       <p class="fine-print" id="acctFinePrint">Your farm data is encrypted in transit and at rest, and is never sold to third parties. Location data is only used to power the features you open.</p>
     </section>
@@ -1177,7 +1205,10 @@
           <div style="font-weight:700;font-size:15px;" id="plansCurrentPlanName">Loading plan status…</div>
           <span style="font-size:11px;font-weight:600;padding:2px 8px;border-radius:12px;background:#E8F5E9;color:var(--forest);" id="plansCurrentStatus">ACTIVE</span>
         </div>
-        <div class="muted" style="font-size:12px;margin-bottom:12px;" id="plansCurrentPeriod">Billing cycle: current month</div>
+        <div class="muted" style="font-size:12px;margin-bottom:12px;" id="plansCurrentPeriod">Billing cycle: current month · Transparent pricing (incl. 18% GST where applicable)</div>
+        <div style="margin-bottom:12px;">
+          <button type="button" class="btn btn-outline" style="padding:7px 14px;font-size:12px;border-color:var(--danger);color:var(--danger);" onclick="AgroPrivacy && AgroPrivacy.cancelSubscription()">Cancel / Unsubscribe</button>
+        </div>
         <div style="display:flex;flex-direction:column;gap:10px;">
           <div>
             <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px;">
@@ -1639,6 +1670,30 @@
         <div class="card" style="text-align:center;padding:24px;"><div class="muted">Checking seller profile status...</div></div>
       </div>
     </section>
+    <!-- ============ ABOUT AGRO AI ============ -->
+    <section class="view" data-view="about" style="display:none;">
+      <button class="backlink" onclick="go('home')">← Back</button>
+      <div class="card">
+        <h1 class="display" style="margin:0 0 8px;font-size:24px;color:var(--forest);">About Agro AI</h1>
+        <p class="muted" style="line-height:1.6;">Agro AI is an agricultural intelligence platform built for Indian farmers. We combine crop leaf disease analysis, Agro GPT multilingual assistance, live local weather advisories, and APMC mandi market price intelligence in one accessible workspace.</p>
+        <p class="muted" style="line-height:1.6;">Explore our <a href="/guides">Farmer Knowledge &amp; Crop Guides</a>, or review our <a href="/privacy">Privacy Policy</a> and <a href="/terms">Terms</a>.</p>
+      </div>
+    </section>
+
+    <!-- ============ CONTACT & SUPPORT ============ -->
+    <section class="view" data-view="contact" style="display:none;">
+      <button class="backlink" onclick="go('home')">← Back</button>
+      <div class="card">
+        <h1 class="display" style="margin:0 0 8px;font-size:24px;color:var(--forest);">Contact &amp; Farmer Support</h1>
+        <p class="muted" style="line-height:1.6;">Need help with Agro AI, subscription billing, parental consent, or data privacy requests?</p>
+        <ul style="line-height:1.8;padding-left:20px;">
+          <li><strong>Email &amp; Grievance Officer:</strong> <a href="mailto:vvivekshastrym@gmail.com">vvivekshastrym@gmail.com</a></li>
+          <li><strong>Website:</strong> <a href="https://agroai.live">https://agroai.live</a></li>
+          <li><strong>Account Deletion Portal:</strong> <a href="/delete-account">/delete-account</a></li>
+        </ul>
+      </div>
+    </section>
+
     <!-- App-only upgrade screen (shown on web for mobile-only features) -->
     <section class="view" data-view="app-only" style="display:none;">
       <div class="card" id="appOnlyBody" style="max-width:520px;margin:20px auto;"></div>
@@ -2697,6 +2752,34 @@ function go(view){
   document.querySelectorAll('.nav-item').forEach(n => {
     n.classList.toggle('active', n.dataset.nav === view);
   });
+
+  // 3b. Sync SEO URL, canonical & breadcrumb for public indexable routes
+  const seoRoutes = {
+    home:     { path: '/',         title: 'Agro AI — Agro GPT & Smart Farming Platform', label: 'Home' },
+    diagnose: { path: '/diagnose', title: 'Crop Disease Diagnosis — Agro AI',            label: 'Diagnose' },
+    kisangpt: { path: '/agrogpt',  title: 'Agro GPT Multilingual Assistant — Agro AI',   label: 'Agro GPT' },
+    weather:  { path: '/weather',  title: 'Farm Weather Intelligence — Agro AI',         label: 'Weather' },
+    market:   { path: '/mandi',    title: 'Mandi Market Prices — Agro AI',               label: 'Mandi Prices' },
+    plans:    { path: '/plans',    title: 'Subscription Plans & Pricing — Agro AI',      label: 'Plans' },
+    about:    { path: '/about',    title: 'About Agro AI — Smart Farming Platform',      label: 'About' },
+    contact:  { path: '/contact',  title: 'Contact & Farmer Support — Agro AI',          label: 'Contact' },
+  };
+  const seo = seoRoutes[view];
+  const bc = document.getElementById('seoBreadcrumb');
+  if (seo) {
+    document.title = seo.title;
+    const can = document.querySelector('link[rel="canonical"]');
+    if (can) can.setAttribute('href', 'https://agroai.live' + seo.path);
+    if (window.location.protocol !== 'capacitor:' && window.location.pathname !== seo.path) {
+      try { history.replaceState({ view }, seo.title, seo.path); } catch (e) {}
+    }
+    if (bc) {
+      bc.style.display = (seo.path === '/') ? 'none' : 'block';
+      bc.innerHTML = '<a href="/" onclick="go(\'home\');return false;" style="color:var(--forest);text-decoration:none;font-weight:600;">Home</a> › <span>' + seo.label + '</span>';
+    }
+  } else if (bc) {
+    bc.style.display = 'none';
+  }
 
   // 4. Trigger contextual data loaders
   if(view === 'more') renderMoreList();
@@ -8728,6 +8811,29 @@ async function updateSellerOrderStatus(orderId, newStatus) {
 }
 
 
+// Direct URL / refresh routing for public SEO routes
+(function initSeoRoute() {
+  const pathMap = {
+    '/diagnose': 'diagnose',
+    '/agrogpt':  'kisangpt',
+    '/weather':  'weather',
+    '/mandi':    'market',
+    '/plans':    'plans',
+    '/about':    'about',
+    '/contact':  'contact',
+  };
+  const target = pathMap[(window.location.pathname || '/').replace(/\/+$/, '') || '/'];
+  if (!target) return;
+  const activate = () => {
+    document.body.classList.remove('authing');
+    go(target);
+  };
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', activate);
+  } else {
+    setTimeout(activate, 50);
+  }
+})();
 </script>
 </body>
 </html>

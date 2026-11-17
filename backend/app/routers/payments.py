@@ -520,3 +520,64 @@ async def record_payment_failure(
 
     return {"status": order.status, "order_id": order.id}
 
+
+@router.get("/history")
+async def get_payment_history(
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Returns caller's own subscription payment history (least-privilege, user-scoped)."""
+    orders = (
+        db.query(PaymentOrder)
+        .filter(PaymentOrder.user_id == user.id)
+        .order_by(PaymentOrder.created_at.desc())
+        .limit(50)
+        .all()
+    )
+    return {
+        "orders": [
+            {
+                "order_id": o.id,
+                "plan_version_id": o.plan_version_id,
+                "amount_minor": o.amount_minor,
+                "amount_formatted": f"₹{o.amount_minor / 100:.2f}",
+                "currency": o.currency,
+                "status": o.status,
+                "provider_order_id": o.provider_order_id,
+                "provider_payment_id": (o.notes or {}).get("provider_payment_id"),
+                "created_at": o.created_at.isoformat() if o.created_at else None,
+            }
+            for o in orders
+        ]
+    }
+
+
+@router.get("/invoices/{order_id}")
+async def get_payment_invoice(
+    order_id: str,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Returns itemized tax/GST invoice for caller's own order."""
+    order = db.query(PaymentOrder).filter(PaymentOrder.id == order_id).first()
+    if not order:
+        raise HTTPException(status_code=404, detail={"error": {"code": "ORDER_NOT_FOUND", "message": "Order not found."}})
+    if order.user_id != user.id:
+        raise HTTPException(status_code=403, detail={"error": {"code": "FORBIDDEN", "message": "Not authorized to view this invoice."}})
+
+    total_minor = int(order.amount_minor or 0)
+    base_minor = round(total_minor / 1.18) if total_minor > 0 else 0
+    gst_minor = total_minor - base_minor
+    return {
+        "invoice_number": f"AGRO-INV-{order.id[:8].upper()}",
+        "order_id": order.id,
+        "status": order.status,
+        "currency": order.currency,
+        "base_amount_minor": base_minor,
+        "gst_18_percent_minor": gst_minor,
+        "total_amount_minor": total_minor,
+        "total_formatted": f"₹{total_minor / 100:.2f}",
+        "provider_payment_id": (order.notes or {}).get("provider_payment_id"),
+        "issued_at": order.created_at.isoformat() if order.created_at else None,
+    }
+
