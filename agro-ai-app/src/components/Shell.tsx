@@ -1,4 +1,4 @@
-import { NavLink, useNavigate } from "react-router-dom";
+import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import { useApp } from "../lib/AppContext";
 import { signOut } from "../lib/useAuth";
 
@@ -68,6 +68,62 @@ export function TopBar() {
   );
 }
 
+const DESKTOP_LINKS = [
+  { to: "/", label: "Home", end: true },
+  { to: "/diagnose", label: "Diagnose" },
+  { to: "/agro-gpt", label: "Kisan GPT" },
+  { to: "/weather", label: "Weather" },
+  { to: "/market", label: "Mandi Market" },
+  { to: "/pest-radar", label: "Pest Radar" },
+  { to: "/more", label: "More" }
+];
+
+export function Sidebar() {
+  return (
+    <aside className="sticky top-0 hidden h-screen flex-col bg-forest-deep p-4 text-white lg:flex">
+      <NavLink to="/" className="px-3 pb-7 pt-2 font-display text-xl font-bold">🌾 Agro AI</NavLink>
+      <nav aria-label="Main navigation" className="flex flex-col gap-1">
+        {DESKTOP_LINKS.map((item) => (
+          <NavLink
+            key={item.to}
+            to={item.to}
+            end={item.end}
+            aria-label={item.label}
+            className={({ isActive }) => `min-h-11 rounded-xl px-4 py-3 text-sm font-semibold transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-saffron ${isActive ? "bg-white text-forest" : "text-[#CFE3D1] hover:bg-white/10"}`}
+          >
+            {item.label}
+          </NavLink>
+        ))}
+      </nav>
+      <NavLink to="/profile" className={({ isActive }) => `mt-auto min-h-11 rounded-xl px-4 py-3 text-sm font-semibold hover:bg-white/10 ${isActive ? "bg-white text-forest" : "text-[#CFE3D1]"}`}>
+        Account and security
+      </NavLink>
+    </aside>
+  );
+}
+
+export function DesktopHeader() {
+  const { language, setLanguage, profile } = useApp();
+  const location = useLocation();
+  const navigate = useNavigate();
+  const title = DESKTOP_LINKS.find((item) => item.to === location.pathname)?.label ?? "Account and security";
+
+  return (
+    <header className="hidden items-center justify-between border-b border-line bg-cream/95 px-8 py-4 backdrop-blur lg:flex">
+      <h1 className="font-display text-xl font-bold text-forest">{title}</h1>
+      <div className="flex items-center gap-4">
+        <label className="sr-only" htmlFor="desktop-language">Language</label>
+        <select id="desktop-language" value={language} onChange={(event) => setLanguage(event.target.value)} className="min-h-11 rounded-full border border-line bg-white px-3 text-sm text-forest focus-visible:outline focus-visible:outline-2 focus-visible:outline-forest">
+          {LANGS.map((item) => <option key={item.code} value={item.code}>{item.label}</option>)}
+        </select>
+        <button onClick={() => navigate("/profile")} className="min-h-11 rounded-full border border-line bg-white px-4 text-sm font-semibold text-forest hover:bg-leaf-pale focus-visible:outline focus-visible:outline-2 focus-visible:outline-forest">
+          {profile?.full_name || "Account"}
+        </button>
+      </div>
+    </header>
+  );
+}
+
 const TABS = [
   { to: "/", label: "Home", icon: "🏠", end: true },
   { to: "/diagnose", label: "Diagnose", icon: "🍃" },
@@ -78,14 +134,14 @@ const TABS = [
 
 export function BottomNav() {
   return (
-    <nav className="sticky bottom-0 left-0 right-0 bg-white border-t border-line flex justify-around pt-2 pb-[calc(0.6rem+env(safe-area-inset-bottom))] z-20 shadow-md">
+    <nav aria-label="Main navigation" className="bg-white border-t border-line flex justify-around pt-2 pb-[calc(0.6rem+env(safe-area-inset-bottom))] z-20 shadow-md">
       {TABS.map((t) => (
         <NavLink
           key={t.to}
           to={t.to}
           end={t.end}
           className={({ isActive }) =>
-            `flex flex-col items-center gap-0.5 text-[10.5px] font-semibold ${
+            `min-h-11 min-w-11 flex flex-col items-center justify-center gap-0.5 text-[10.5px] font-semibold focus-visible:outline focus-visible:outline-2 focus-visible:outline-forest ${
               isActive ? "text-forest" : "text-ink-soft"
             }`
           }

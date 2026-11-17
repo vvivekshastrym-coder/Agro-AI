@@ -378,10 +378,16 @@ export default function Onboarding() {
   }
 
   return (
-    <div className="min-h-screen bg-cream flex flex-col">
+    <div className="min-h-screen bg-cream flex flex-col lg:grid lg:grid-cols-[380px_minmax(0,1fr)]">
+      <aside className="hidden flex-col justify-center bg-gradient-to-br from-forest to-forest-deep p-10 text-white lg:flex xl:p-14">
+        <div className="font-display text-2xl font-bold">🌾 Agro AI</div>
+        <h2 className="mt-10 font-display text-3xl font-bold leading-tight">The AI team every farmer deserves.</h2>
+        <p className="mt-4 text-sm leading-relaxed text-white/80">Set up your farm once to get guidance tailored to your crops and location.</p>
+      </aside>
+      <section className="min-w-0">
       {/* Sticky Header with Progress Bar */}
       <header className="sticky top-0 bg-white/95 backdrop-blur border-b border-forest/10 px-4 py-3 z-20">
-        <div className="flex items-center justify-between max-w-md mx-auto">
+        <div className="flex items-center justify-between max-w-md mx-auto lg:max-w-[720px]">
           <div className="flex items-center gap-2">
             <span className="w-7 h-7 rounded-full bg-forest text-sand font-bold text-xs flex items-center justify-center">
               {step < 5 ? step : "✓"}
@@ -403,7 +409,7 @@ export default function Onboarding() {
         </div>
 
         {/* Progress Line */}
-        <div className="w-full bg-forest/10 h-1.5 rounded-full mt-2.5 overflow-hidden max-w-md mx-auto">
+        <div className="w-full bg-forest/10 h-1.5 rounded-full mt-2.5 overflow-hidden max-w-md mx-auto lg:max-w-[720px]">
           <div
             className="bg-forest h-full transition-all duration-300"
             style={{ width: `${Math.min(100, (step / 4) * 100)}%` }}
@@ -419,7 +425,7 @@ export default function Onboarding() {
       )}
 
       {/* Main Content Area */}
-      <main className="flex-1 max-w-md w-full mx-auto p-4 pb-28">
+      <main className="flex-1 max-w-md w-full mx-auto p-4 pb-28 lg:max-w-[720px] lg:py-8">
         {errorMessage && (
           <div className="mb-4 p-3 rounded-xl bg-red-50 border border-red-200 text-xs text-red-800">
             {errorMessage}
@@ -1047,8 +1053,8 @@ export default function Onboarding() {
       </main>
 
       {/* Sticky Bottom Actions */}
-      <footer className="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur border-t border-forest/10 p-4 z-20">
-        <div className="max-w-md mx-auto flex items-center gap-3">
+      <footer className="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur border-t border-forest/10 p-4 z-20 lg:left-[380px]">
+        <div className="max-w-md mx-auto flex items-center gap-3 lg:max-w-[720px]">
           {step > 1 && (
             <button
               type="button"
@@ -1082,6 +1088,7 @@ export default function Onboarding() {
           )}
         </div>
       </footer>
+      </section>
     </div>
   );
 }

@@ -50,6 +50,7 @@
 <!-- Firebase Module -->
 <script type="module" src="js/engine/firebase.js"></script>
 <!-- Razorpay Checkout SDK -->
+<script src="js/engine/feature-access.js"></script>
 <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
 <script>
   // Capacitor Android Native Bridge: route relative /api/* requests to configured backend host
@@ -64,6 +65,9 @@
     window.fetch = async function (input, init) {
       let url = typeof input === 'string' ? input : (input && input.url ? input.url : '');
       if (typeof url === 'string' && url.startsWith('/api/')) {
+        const hdrs = new Headers((init && init.headers) || (input && input.headers) || {});
+        hdrs.set('X-Agro-Client', 'app');
+        init = Object.assign({}, init || {}, { headers: hdrs });
         const primaryHost = (localStorage.getItem('AGROAI_BACKEND_URL') || 'http://192.168.31.86:8080').replace(/\/+$/, '');
         const fallbackHost = 'http://10.0.2.2:8080';
         try {
@@ -213,7 +217,7 @@
 
   /* ---- Bottom nav ---- */
   .bottom-nav{
-    position:absolute; left:0; right:0; bottom:0; z-index:40;
+    position:fixed; left:0; right:0; bottom:0; z-index:40;
     background:var(--white); border-top:1px solid var(--line);
     display:flex; padding:8px 6px calc(8px + env(safe-area-inset-bottom));
     max-width:428px; margin:0 auto;
@@ -225,6 +229,59 @@
   }
   .nav-item .icon{ font-size:19px; }
   .nav-item.active{ color:var(--forest); }
+  .nav-item:focus-visible, .lang-btn:focus-visible, .btn:focus-visible{ outline:3px solid var(--saffron); outline-offset:2px; }
+
+  /* ---- Responsive: tablet (single wider column) ---- */
+  @media (min-width:768px){
+    body{ background:var(--cream); }
+    .app-shell{ max-width:none; box-shadow:none; }
+    .view{ max-width:720px; margin:0 auto; width:100%; }
+    .bottom-nav{ max-width:none; }
+  }
+
+  /* ---- Responsive: desktop web layout (>=1024px): left sidebar, wide content ---- */
+  @media (min-width:1024px){
+    .app-shell{ margin-left:260px; }
+    body.authing .app-shell{ margin-left:0; }
+    .topbar{ padding:16px 36px; border-bottom:1px solid var(--line); background:rgba(255,248,236,0.92); backdrop-filter:blur(6px); }
+    .view{ max-width:1180px; padding:20px 36px 40px; }
+    main{ padding-bottom:24px; }
+    .bottom-nav{
+      position:fixed; top:0; bottom:0; left:0; right:auto; width:260px;
+      flex-direction:column; justify-content:flex-start; gap:4px;
+      padding:84px 16px 24px; background:var(--forest-dark, #163a20);
+      border-top:none; border-right:1px solid rgba(255,255,255,0.08);
+    }
+    .bottom-nav::before{
+      content:"Agro AI"; position:absolute; top:26px; left:28px;
+      font-family:'Fraunces',Georgia,serif; font-size:22px; font-weight:700; color:#fff;
+    }
+    .nav-item{
+      flex:0 0 auto; flex-direction:row; justify-content:flex-start; gap:12px;
+      padding:12px 16px; min-height:44px; border-radius:16px; font-size:14.5px; color:#CFE3D1; text-align:left;
+      transition:background-color .15s ease;
+    }
+    .nav-item:hover{ background:rgba(255,255,255,0.10); }
+    .nav-item.active{ background:var(--forest); color:#fff; }
+    .nav-item .icon{ font-size:20px; }
+    .grid2{ grid-template-columns:repeat(4,1fr); gap:16px; }
+    .chat-scroll{ max-height:calc(100vh - 280px); }
+
+    /* Two-panel sign-in on desktop: brand panel left, form card right */
+    body.authing .app-shell::before{
+      content:"The AI team every farmer deserves.\A\A  \2022  Crop diagnosis from a photo\A  \2022  Live weather and mandi prices\A  \2022  Agro GPT in your language";
+      white-space:pre-line; position:fixed; top:0; bottom:0; left:0; width:46%;
+      display:flex; flex-direction:column; justify-content:center; padding:0 64px;
+      background:linear-gradient(135deg, var(--forest), var(--forest-dark, #163a20));
+      color:#fff; font-family:'Fraunces',Georgia,serif; font-size:19px; line-height:1.7; z-index:1;
+    }
+    body.authing .app-shell::before{ font-size:22px; }
+    body.authing main{ margin-left:46%; display:flex; align-items:center; justify-content:center; position:relative; z-index:2; }
+    body.authing .auth-view.active{
+      width:100%; max-width:460px; min-height:0; margin:40px auto; padding:36px 32px;
+      background:#fff; border:1px solid var(--line); border-radius:28px; box-shadow:var(--shadow-soft);
+    }
+  }
 
   /* ---- Language pill bar ---- */
   .pillbar{ display:flex; gap:8px; overflow-x:auto; padding:2px 0 12px; scrollbar-width:none; }
@@ -1582,6 +1639,11 @@
         <div class="card" style="text-align:center;padding:24px;"><div class="muted">Checking seller profile status...</div></div>
       </div>
     </section>
+    <!-- App-only upgrade screen (shown on web for mobile-only features) -->
+    <section class="view" data-view="app-only" style="display:none;">
+      <div class="card" id="appOnlyBody" style="max-width:520px;margin:20px auto;"></div>
+    </section>
+
   </main>
 
   <!-- Bottom Nav -->
@@ -2614,6 +2676,11 @@ function hideSplash(){
 
 /* ================= NAVIGATION ================= */
 function go(view){
+  // Web users get an app-download screen for mobile-only features (backend enforces too)
+  if (window.AgroFeatureAccess && AgroFeatureAccess.needsApp(view)) {
+    AgroFeatureAccess.showAppUpgrade(view);
+    view = 'app-only';
+  }
   // 1. Unconditionally hide all auth views and remove active
   document.querySelectorAll('.auth-view').forEach(v => {
     v.classList.remove('active');
@@ -3306,7 +3373,7 @@ window.fetch = async function(input, init){
           tok = gData.access_token;
           if(session){
             session.token = tok;
-            session.userId = session.userId || gData.user?.farmer_id || 'farmer_guest';
+            session.userId = session.userId || gData.user?.farmer_id;
             localStorage.setItem('agroAiSession', JSON.stringify(session));
           }
         }
@@ -3327,22 +3394,23 @@ window.fetch = async function(input, init){
     try {
       let newTok = null;
       if(session && session.signedIn && !session.isGuest && (session.google || session.phone || session.userId)){
-        const gRes = await _origFetch(_resolveBackendUrl('/api/auth/google-session'), {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            email: session.google?.email || null,
-            name: session.google?.name || farmerProfile?.name || 'Farmer',
-            sub: session.userId || null,
-            role: session.role || 'farmer'
-          })
-        });
-        if(gRes.ok){
-          const gData = await gRes.json();
-          newTok = gData.access_token;
+        let verifiedBearer = session.token;
+        if(window.supabaseClient){
+          const { data } = await window.supabaseClient.auth.getSession();
+          verifiedBearer = data?.session?.access_token || verifiedBearer;
+        }
+        if(verifiedBearer){
+          const gRes = await _origFetch(_resolveBackendUrl('/api/auth/google-session'), {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + verifiedBearer }
+          });
+          if(gRes.ok){
+            const gData = await gRes.json();
+            newTok = gData.access_token;
+          }
         }
       }
-      if(!newTok){
+      if(!newTok && (!session || !session.signedIn || session.isGuest)){
         const guestRes = await _origFetch(_resolveBackendUrl('/api/auth/guest-session'), { method: 'POST' });
         if(guestRes.ok){
           const guestData = await guestRes.json();
@@ -3537,7 +3605,7 @@ async function completeLogin(supaSession){
   try {
     const syncRes = await _origFetch(_resolveBackendUrl('/api/auth/google-session'), {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + supaSession.access_token },
       body: JSON.stringify({
         id_token: supaSession.access_token || null,
         email: u.email || null,

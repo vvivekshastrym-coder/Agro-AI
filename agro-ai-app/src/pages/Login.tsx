@@ -190,7 +190,20 @@ export default function Login() {
   }
 
   return (
-    <div className="min-h-screen bg-cream flex flex-col justify-between max-w-[430px] mx-auto px-5 py-6 font-sans">
+    <div className="min-h-screen w-full min-w-0 overflow-x-clip bg-cream lg:grid lg:grid-cols-[1.05fr_1fr]">
+      <aside className="hidden flex-col justify-center bg-gradient-to-br from-forest to-forest-deep p-12 text-white xl:p-16 lg:flex">
+        <div className="mx-auto w-full max-w-xl">
+          <div className="mb-10 flex items-center gap-3 text-2xl font-bold"><span className="text-4xl">🌾</span> Agro AI</div>
+          <h1 className="font-display text-4xl font-bold leading-tight xl:text-5xl">The AI team every farmer deserves.</h1>
+          <p className="mt-5 max-w-lg text-lg text-white/80">Practical guidance for every season, in the language you speak.</p>
+          <ul className="mt-10 space-y-4 text-base text-white/90">
+            <li>✓ Crop health guidance from a leaf photo</li>
+            <li>✓ Local weather and farming advisories</li>
+            <li>✓ Market insights for your crops</li>
+          </ul>
+        </div>
+      </aside>
+      <section className="flex min-h-screen w-full min-w-0 flex-col justify-between px-5 py-6 font-sans lg:px-10 xl:px-16">
       {/* Top Header with Language Selector */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
@@ -200,7 +213,7 @@ export default function Login() {
           <span className="font-display text-lg font-bold text-forest">Agro AI</span>
         </div>
 
-        <div className="flex gap-1 overflow-x-auto no-scrollbar">
+        <div className="flex min-w-0 flex-1 justify-end gap-1 overflow-x-auto no-scrollbar lg:flex-none">
           {SUPPORTED_LANGUAGES.map((l: { code: string; label: string; native: string }) => (
             <button
               key={l.code}
@@ -216,7 +229,7 @@ export default function Login() {
       </div>
 
       {/* Main Content Area */}
-      <div className="my-auto py-8">
+      <div className="my-auto w-full min-w-0 py-8 lg:mx-auto lg:max-w-[440px] lg:rounded-[28px] lg:border lg:border-line lg:bg-white lg:p-10 lg:shadow-soft">
         {mode === "phone" && (
           <div>
             {/* Logo and Tagline */}
@@ -418,6 +431,7 @@ export default function Login() {
           </a>
         </p>
       </div>
+      </section>
     </div>
   );
 }

@@ -6,6 +6,7 @@
 - Phase 7: Tamper-evident admin audit logs & data requests
 """
 import os, sys, tempfile, time, datetime, uuid
+import hashlib, hmac, json
 import pytest
 import jwt
 from cryptography.hazmat.primitives.asymmetric import ec
@@ -22,6 +23,7 @@ from app.database.models import (
     PlanEntitlement, UserSubscription, SubscriptionUsage, PaymentOrder,
     PaymentTransaction, PaymentWebhookEvent, AdminAuditLog, DataRequest
 )
+from app.routers import payments as payment_router
 
 _KEY = ec.generate_private_key(ec.SECP256R1())
 
@@ -110,10 +112,22 @@ def test_plan_lifecycle_and_publishing():
     assert matching_plan["versions"][0]["price_minor"] == 49900
 
 
-def test_payment_order_and_subscription_activation():
+def test_payment_order_and_subscription_activation(monkeypatch):
     """Checkout correctly charges server-side price and activates user subscription."""
-    admin_auth = auth("farmer_rajesh")
     buyer_auth = auth("farmer_suresh")
+    payment_secret = "test-only-razorpay-secret"
+    provider_order_id = f"order_{uuid.uuid4().hex}"
+    monkeypatch.setattr(payment_router, "get_razorpay_key_id", lambda: "rzp_test_isolated")
+    monkeypatch.setattr(payment_router, "get_razorpay_key_secret", lambda: payment_secret)
+
+    async def fake_create_provider_order(amount_minor, currency, receipt):
+        return {"id": provider_order_id, "amount": amount_minor, "currency": currency, "receipt": receipt, "status": "created"}
+
+    async def fake_get_provider_payment(payment_id):
+        return {"id": payment_id, "order_id": provider_order_id, "amount": order_data["amount_minor"], "currency": order_data["currency"], "status": "captured"}
+
+    monkeypatch.setattr(payment_router, "create_razorpay_order", fake_create_provider_order)
+    monkeypatch.setattr(payment_router, "get_razorpay_payment", fake_get_provider_payment)
 
     # Fetch published plans
     plans = client.get("/api/plans").json()
@@ -129,14 +143,16 @@ def test_payment_order_and_subscription_activation():
     assert order_res.status_code == 200
     order_data = order_res.json()
     assert order_data["amount_minor"] == expected_price
+    assert order_data["provider_order_id"] == provider_order_id
     order_id = order_data["order_id"]
 
     # Verify payment
     tx_id = f"pay_{uuid.uuid4().hex[:8]}"
+    signature = hmac.new(payment_secret.encode(), f"{provider_order_id}|{tx_id}".encode(), hashlib.sha256).hexdigest()
     verify_res = client.post("/api/payments/verify-payment", headers=buyer_auth, json={
         "order_id": order_id,
         "provider_payment_id": tx_id,
-        "provider_signature": "valid_sandbox_sig"
+        "provider_signature": signature
     })
     assert verify_res.status_code == 200
     assert verify_res.json()["success"] is True
@@ -182,12 +198,12 @@ def test_entitlement_usage_quota_enforcement():
     assert res.json()["detail"]["error"]["feature"] == "diagnose_leaf"
 
 
-def test_webhook_idempotency():
+def test_webhook_idempotency(monkeypatch):
     """Duplicate provider event IDs are safely ignored without duplicate processing."""
     event_id = f"evt_{uuid.uuid4().hex[:12]}"
     payload = {
         "event_id": event_id,
-        "event": "order.paid",
+        "event": "subscription.activated",
         "payload": {
             "payment": {
                 "entity": {
@@ -199,15 +215,32 @@ def test_webhook_idempotency():
         }
     }
 
+    webhook_secret = "test-only-webhook-secret"
+    body = json.dumps(payload, separators=(",", ":")).encode()
+    signature = hmac.new(webhook_secret.encode(), body, hashlib.sha256).hexdigest()
+    headers = {"x-razorpay-signature": signature, "x-razorpay-event-id": event_id}
+    monkeypatch.setattr(payment_router, "get_razorpay_webhook_secret", lambda: webhook_secret)
+
     # First delivery
-    res1 = client.post("/api/payments/webhook", json=payload)
+    res1 = client.post("/api/payments/webhook", content=body, headers={**headers, "content-type": "application/json"})
     assert res1.status_code == 200
     assert res1.json()["status"] == "processed"
 
     # Second duplicate delivery
-    res2 = client.post("/api/payments/webhook", json=payload)
+    res2 = client.post("/api/payments/webhook", content=body, headers={**headers, "content-type": "application/json"})
     assert res2.status_code == 200
     assert res2.json()["status"] == "already_processed"
+
+
+def test_webhook_rejects_unsigned_event(monkeypatch):
+    monkeypatch.setattr(payment_router, "get_razorpay_webhook_secret", lambda: "test-secret")
+    response = client.post(
+        "/api/payments/webhook",
+        content=b'{"event":"order.paid"}',
+        headers={"content-type": "application/json", "x-razorpay-event-id": "evt_unsigned_test"},
+    )
+    assert response.status_code == 400
+    assert response.json()["detail"]["error"]["code"] == "WEBHOOK_SIGNATURE_REQUIRED"
 
 
 def test_admin_audit_logs_recorded():

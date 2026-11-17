@@ -48,7 +48,7 @@ export default function AgroGPT() {
   }
 
   return (
-    <div className="p-4 flex flex-col gap-4">
+    <div className="mx-auto flex max-w-[760px] flex-col gap-4 p-4 lg:py-8">
       <div>
         <div className="text-xs text-ink-soft">/agro-gpt</div>
         <h2 className="text-xl font-semibold text-forest">Agro GPT</h2>

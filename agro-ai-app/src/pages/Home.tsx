@@ -17,10 +17,10 @@ export default function Home() {
   const isProfileIncomplete = !profile || profile.onboarding_status !== "complete";
 
   return (
-    <div className="flex flex-col gap-4 p-4">
+    <div className="flex flex-col gap-4 p-4 lg:grid lg:grid-cols-4 lg:gap-6 lg:p-8">
       {/* Onboarding Incomplete Alert Banner */}
       {isProfileIncomplete && (
-        <div className="p-3.5 rounded-2xl bg-amber-50 border border-amber-200 flex items-center justify-between shadow-sm animate-fade-in">
+        <div className="p-3.5 rounded-2xl bg-amber-50 border border-amber-200 flex items-center justify-between shadow-sm animate-fade-in lg:col-span-4">
           <div>
             <p className="text-xs font-bold text-amber-900">
               🌱 Complete your Farmer Profile ({completion.percentage}%)
@@ -39,7 +39,7 @@ export default function Home() {
       )}
 
       {/* Hero Card */}
-      <div className="bg-gradient-to-br from-forest to-forest-deep text-white rounded-3xl p-5 shadow-sm">
+      <div className="bg-gradient-to-br from-forest to-forest-deep text-white rounded-3xl p-5 shadow-sm lg:col-span-4 lg:p-8">
         <div className="text-xs text-[#B9CBB4] mb-1">
           {profile?.full_name ? `Namaste, ${profile.full_name} 🙏` : "Namaste 🙏"} · {profile?.village || location}
         </div>
@@ -81,11 +81,11 @@ export default function Home() {
       </div>
 
       {/* Quick Actions */}
-      <div>
+      <div className="lg:col-span-4">
         <div className="text-xs font-bold text-ink-soft mb-2 uppercase tracking-wider">
           Quick actions
         </div>
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
           {SHORTCUTS.map((s) => (
             <div
               key={s.to}
@@ -101,7 +101,7 @@ export default function Home() {
       </div>
 
       {/* Location Setting Card */}
-      <div className="bg-white rounded-2xl p-4 shadow-soft border border-line">
+      <div className="bg-white rounded-2xl p-4 shadow-soft border border-line lg:col-span-2">
         <div className="flex items-center justify-between mb-1">
           <h3 className="text-xs font-bold text-forest uppercase tracking-wider">
             Your Farm Location

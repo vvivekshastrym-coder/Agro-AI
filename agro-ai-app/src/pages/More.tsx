@@ -25,7 +25,7 @@ export default function More() {
   const completion = calculateProfileCompletion(profile, farms);
 
   return (
-    <div className="p-4 flex flex-col gap-4">
+    <div className="p-4 flex flex-col gap-4 lg:p-8">
       <div>
         <div className="text-xs text-ink-soft">More</div>
         <h2 className="text-xl font-semibold text-forest">All Agro AI services</h2>
@@ -57,7 +57,7 @@ export default function More() {
         <span className="text-lg font-bold">→</span>
       </div>
 
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-3 xl:grid-cols-4">
         {ITEMS.map((it) => (
           <div
             key={it.label}

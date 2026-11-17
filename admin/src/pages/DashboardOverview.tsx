@@ -50,6 +50,7 @@ export const DashboardOverview: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [secondsAgo, setSecondsAgo] = useState<number>(0);
   const pollTimerRef = useRef<any>(null);
+  const webhookConfigured = metrics?.system_status?.payment_webhook === 'Configured';
 
   const fetchMetrics = async (isBackground = false) => {
     if (!isBackground) setLoading(true);
@@ -236,8 +237,8 @@ export const DashboardOverview: React.FC = () => {
             </div>
             <div className="p-3 rounded-xl bg-[#F8F9FA] border border-[#E9ECEF]">
               <span className="text-[#6C757D] font-medium block">Payment Webhook Listener</span>
-              <span className="font-semibold text-emerald-700 flex items-center gap-1.5 mt-1">
-                <span className="w-2 h-2 rounded-full bg-emerald-500"></span> {metrics?.system_status?.payment_webhook || '/api/payments/webhook Active'}
+              <span className={`font-semibold flex items-center gap-1.5 mt-1 ${webhookConfigured ? 'text-emerald-700' : 'text-amber-700'}`}>
+                <span className={`w-2 h-2 rounded-full ${webhookConfigured ? 'bg-emerald-500' : 'bg-amber-500'}`}></span> {metrics?.system_status?.payment_webhook || 'Status unavailable'}
               </span>
             </div>
             <div className="p-3 rounded-xl bg-[#F8F9FA] border border-[#E9ECEF]">

@@ -14,6 +14,7 @@ from app.database.models import (
     User, AdminUser, AdminUserRole, SubscriptionPlan, SubscriptionPlanVersion,
     BroadcastItem, BroadcastType, BroadcastStatus, PaymentOrder
 )
+from app.routers import payments as payment_router
 
 _KEY = ec.generate_private_key(ec.SECP256R1())
 
@@ -35,7 +36,12 @@ def token(sub, key=_KEY, alg="ES256", aud="authenticated", exp_delta=3600, **ext
 def auth(sub):
     return {"Authorization": f"Bearer {token(sub)}"}
 
-def test_coupon_discount_applied_on_checkout():
+def test_coupon_discount_applied_on_checkout(monkeypatch):
+    async def fake_create_provider_order(amount_minor, currency, receipt):
+        return {"id": f"order_{uuid.uuid4().hex}", "amount": amount_minor, "currency": currency, "receipt": receipt, "status": "created"}
+
+    monkeypatch.setattr(payment_router, "get_razorpay_key_id", lambda: "rzp_test_isolated")
+    monkeypatch.setattr(payment_router, "create_razorpay_order", fake_create_provider_order)
     db = SessionLocal()
     # 1. Setup Super Admin
     admin_sub = "test_sa_admin"

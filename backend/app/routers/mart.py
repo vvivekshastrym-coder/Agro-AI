@@ -20,6 +20,7 @@ import uuid
 import logging
 
 from ..database.connection import get_db
+from ..demo_data import demo_data_enabled
 from ..database.models import (
     User, UserRole, AdminUser, AdminUserRole,
     MartCategory, MartCatalogItem, MartServiceRegion,
@@ -141,6 +142,8 @@ class HarvestDemandCreateRequest(BaseModel):
 
 def seed_default_mart_catalog_if_empty(db: Session):
     """Populates authoritative produce categories, catalog items, and initial pilot farm listings."""
+    if not demo_data_enabled():
+        return
     cat_count = db.query(MartCategory).count()
     today_str = datetime.date.today().isoformat()
 

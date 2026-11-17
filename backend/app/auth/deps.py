@@ -1,6 +1,7 @@
 """Authentication dependencies: verify Supabase access tokens on the trusted backend."""
 import logging
 import os
+import secrets
 from typing import Optional
 
 import jwt
@@ -15,17 +16,19 @@ logger = logging.getLogger(__name__)
 
 _jwks_client: Optional[PyJWKClient] = None
 _google_jwks_client: Optional[PyJWKClient] = None
-GUEST_SESSION_SECRET = os.getenv("SERVER_SESSION_SECRET", "agro_ai_internal_guest_secret_key_2026_xyz").strip()
-GOOGLE_CLIENT_ID = os.getenv(
-    "GOOGLE_CLIENT_ID",
-    "390368260977-650a3hjjiq8a4t1296jcuobdpjau3qp1.apps.googleusercontent.com",
-).strip()
-ALLOWED_GOOGLE_CLIENT_IDS = list({
-    GOOGLE_CLIENT_ID,
-    "390368260977-650a3hjjiq8a4t1296jcuobdpjau3qp1.apps.googleusercontent.com",
-    "390368260977-5qvu1738tqdf26fprobcdrg9jbvs2e3s.apps.googleusercontent.com",
-    "390368260977-87pg849eb5975glaikekhr9s4rlus4e2.apps.googleusercontent.com",
-})
+_configured_session_secret = os.getenv("SERVER_SESSION_SECRET", "").strip()
+_deployment_environment = (os.getenv("ENVIRONMENT") or os.getenv("APP_ENV") or os.getenv("NODE_ENV") or "").lower()
+if not _configured_session_secret and _deployment_environment in {"production", "prod"}:
+    raise RuntimeError("SERVER_SESSION_SECRET must be configured in production.")
+if _configured_session_secret and len(_configured_session_secret) < 32 and _deployment_environment in {"production", "prod"}:
+    raise RuntimeError("SERVER_SESSION_SECRET must contain at least 32 characters in production.")
+# Never use a public/default signing key. Development keys are process-local.
+GUEST_SESSION_SECRET = _configured_session_secret or secrets.token_urlsafe(48)
+ALLOWED_GOOGLE_CLIENT_IDS = {
+    client_id.strip()
+    for client_id in os.getenv("GOOGLE_CLIENT_IDS", os.getenv("GOOGLE_CLIENT_ID", "")).split(",")
+    if client_id.strip()
+}
 
 
 def _unauthorized(code: str, message: str) -> HTTPException:
@@ -82,14 +85,12 @@ def verify_supabase_token(token: str) -> dict:
                 algorithms=[alg],
                 options={
                     "require": ["exp", "sub", "aud", "iss"],
-                    "verify_aud": False,
-                    "verify_iat": False,
-                    "verify_nbf": False,
+                    "verify_aud": False,  # validated against the explicit allowlist below
                 },
             )
             aud_val = claims.get("aud", "")
             aud_str = aud_val[0] if isinstance(aud_val, list) and aud_val else str(aud_val)
-            if aud_str not in ALLOWED_GOOGLE_CLIENT_IDS and not aud_str.endswith(".apps.googleusercontent.com"):
+            if not ALLOWED_GOOGLE_CLIENT_IDS or aud_str not in ALLOWED_GOOGLE_CLIENT_IDS:
                 raise _unauthorized("INVALID_TOKEN", "Invalid Google token audience.")
             claims["user_metadata"] = {
                 "full_name": claims.get("name"),
@@ -110,8 +111,6 @@ def verify_supabase_token(token: str) -> dict:
                 audience="authenticated",
                 options={
                     "require": ["exp", "sub", "iss"],
-                    "verify_iat": False,
-                    "verify_nbf": False,
                 },
             )
             return claims
@@ -133,8 +132,6 @@ def verify_supabase_token(token: str) -> dict:
             audience="authenticated",
             options={
                 "require": ["exp", "sub"],
-                "verify_iat": False,
-                "verify_nbf": False,
             },
         )
     except HTTPException:

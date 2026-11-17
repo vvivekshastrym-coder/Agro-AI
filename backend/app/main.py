@@ -18,17 +18,24 @@ BASE_URL = TUNNEL_URL if USE_TUNNEL and TUNNEL_URL else DEFAULT_BASE_URL
 from .database.connection import engine, Base
 from .routers import auth, agri, weather, market, satellite, diagnosis, agro_gpt, logistics, marketplace, drone, admin, plans, payments, schemes, mart
 from .routers.logistics import trip_manager
+from .auth import feature_access
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # ─── DB Table Creation ────────────────────────────────────────
-Base.metadata.create_all(bind=engine)
-try:
-    from .database.schema_sync import sync_missing_columns
-    sync_missing_columns(engine, Base.metadata)
-except Exception as _e:  # never block startup on sync problems
-    logger.error("Schema sync failed: %s", _e)
+_deployment_environment = (
+    os.getenv("ENVIRONMENT") or os.getenv("APP_ENV") or os.getenv("NODE_ENV") or ""
+).strip().lower()
+if _deployment_environment not in {"production", "prod", "staging", "stage"}:
+    Base.metadata.create_all(bind=engine)
+    try:
+        from .database.schema_sync import sync_missing_columns
+        sync_missing_columns(engine, Base.metadata)
+    except Exception as _e:  # never block local startup on schema-sync issues
+        logger.error("Local schema sync failed: %s", _e)
+else:
+    logger.info("Automatic schema mutation is disabled for %s; apply reviewed migrations before startup.", _deployment_environment)
 
 # ─── Rate Limiter ─────────────────────────────────────────────
 limiter = Limiter(key_func=get_remote_address)
@@ -99,6 +106,25 @@ async def add_security_headers(request: Request, call_next):
     if raw_path in ('/', '/index.html', '/sw.js', '/privacy', '/delete-account') or raw_path.endswith(('.html', '.js')):
         response.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
     return response
+
+@app.middleware('http')
+async def enforce_app_only_features(request: Request, call_next):
+    # Operational/GPS APIs are mobile-app only (see auth/feature_access.py).
+    if (
+        request.method != "OPTIONS"
+        and feature_access.enforcement_enabled()
+        and feature_access.is_app_only_path(request.url.path)
+        and feature_access.client_platform(request.headers) != "app"
+    ):
+        return JSONResponse(
+            status_code=403,
+            content={"detail": {"error": {
+                "code": "APP_REQUIRED",
+                "message": "This feature is available in the Agro AI mobile app.",
+                "retryable": False,
+            }}},
+        )
+    return await call_next(request)
 
 @app.middleware('http')
 async def add_process_time_header(request: Request, call_next):

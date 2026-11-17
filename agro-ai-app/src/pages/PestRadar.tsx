@@ -86,8 +86,8 @@ export default function PestRadar() {
     riskLevel === "High" ? "bg-red-100 text-red-700" : riskLevel === "Medium" ? "bg-saffron-pale text-[#8A4E0F]" : "bg-leaf-pale text-forest";
 
   return (
-    <div className="p-4 flex flex-col gap-4">
-      <div>
+    <div className="p-4 flex flex-col gap-4 lg:grid lg:grid-cols-2 lg:items-start lg:gap-6 lg:p-8">
+      <div className="lg:col-span-2">
         <div className="text-xs text-ink-soft">/pest-radar</div>
         <h2 className="text-xl font-semibold text-forest">Pest Radar</h2>
         {profile?.village && (
@@ -97,8 +97,8 @@ export default function PestRadar() {
         )}
       </div>
 
-      <div className="bg-white rounded-3xl p-4 shadow-soft border border-line">
-        <div className="flex gap-2">
+      <div className="bg-white rounded-3xl p-4 shadow-soft border border-line lg:grid lg:grid-cols-2 lg:gap-6 lg:p-6">
+        <div className="flex gap-2 lg:col-span-2">
           <input
             value={village}
             onChange={(e) => setVillage(e.target.value)}
@@ -114,9 +114,9 @@ export default function PestRadar() {
           </button>
         </div>
 
-        {error && <div className="mt-3 text-sm text-red-700">{error}</div>}
+        {error && <div className="mt-3 text-sm text-red-700 lg:col-span-2">{error}</div>}
 
-        <div className="mt-4 flex items-center justify-between">
+        <div className="mt-4 flex items-center justify-between lg:col-span-2">
           <span className={`inline-block rounded-full px-3.5 py-1.5 text-xs font-bold ${riskClass}`}>
             {riskLevel} risk · {reports.length} report{reports.length === 1 ? "" : "s"} in 14 days
           </span>
@@ -151,7 +151,7 @@ export default function PestRadar() {
           </form>
         )}
 
-        <div className="mt-4 flex flex-col gap-2">
+        <div className="mt-4 flex flex-col gap-2 lg:mt-0">
           {reports.length === 0 && !loading && (
             <p className="text-sm text-ink-soft italic">No verified reports for this village yet — be the first to report.</p>
           )}

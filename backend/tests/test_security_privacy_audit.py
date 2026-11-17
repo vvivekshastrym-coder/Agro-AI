@@ -160,8 +160,8 @@ def test_priv001_web_account_deletion_request_endpoint():
     assert "request_id" in data
 
 
-def test_sec003_production_payment_verification_requires_secret(monkeypatch):
-    """Verify verify_payment refuses to mark order paid in production if RAZORPAY_KEY_SECRET is unset."""
+def test_sec003_payment_verification_fails_closed_without_provider_credentials(monkeypatch):
+    """Payment verification refuses to mark an order paid in every environment without provider credentials."""
     db = SessionLocal()
     uid = str(uuid.uuid4())
     order_id = str(uuid.uuid4())
@@ -186,7 +186,8 @@ def test_sec003_production_payment_verification_requires_secret(monkeypatch):
     token = _make_user_token(uid, email)
     headers = {"Authorization": f"Bearer {token}"}
 
-    monkeypatch.setenv("ENVIRONMENT", "production")
+    monkeypatch.setenv("ENVIRONMENT", "development")
+    monkeypatch.delenv("RAZORPAY_KEY_ID", raising=False)
     monkeypatch.delenv("RAZORPAY_KEY_SECRET", raising=False)
 
     res = client.post(
@@ -194,8 +195,8 @@ def test_sec003_production_payment_verification_requires_secret(monkeypatch):
         headers=headers,
         json={
             "order_id": order_id,
-            "provider_payment_id": "pay_fake_123",
-            "provider_signature": "forged_signature",
+            "provider_payment_id": "pay_fake123",
+            "provider_signature": "0" * 64,
         },
     )
     assert res.status_code == 503

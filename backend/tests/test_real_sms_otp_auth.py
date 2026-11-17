@@ -3,8 +3,8 @@ import time
 import os
 from unittest.mock import patch, AsyncMock
 from fastapi.testclient import TestClient
-from backend.app.main import app
-from backend.app.routers.auth import _OTP_STORE, _hash_otp
+from app.main import app
+from app.routers.auth import _OTP_STORE, _hash_otp
 
 client = TestClient(app)
 
@@ -41,7 +41,7 @@ def test_otp_send_success_with_provider_mock():
         "message_id": "SM12345",
         "status": "delivered"
     })
-    with patch("backend.app.routers.auth.send_sms_otp", mock_send):
+    with patch("app.routers.auth.send_sms_otp", mock_send):
         resp = client.post("/api/auth/phone-otp/send", json={"phone": "+919876543210", "role": "farmer"})
         assert resp.status_code == 200
         data = resp.json()
@@ -118,7 +118,7 @@ def test_otp_expired_code():
 def test_otp_rate_limiting_cooldown():
     """User cannot request OTP twice in under 60 seconds."""
     mock_send = AsyncMock(return_value={"success": True, "provider": "msg91"})
-    with patch("backend.app.routers.auth.send_sms_otp", mock_send):
+    with patch("app.routers.auth.send_sms_otp", mock_send):
         r1 = client.post("/api/auth/phone-otp/send", json={"phone": "9876543210"})
         assert r1.status_code == 200
 

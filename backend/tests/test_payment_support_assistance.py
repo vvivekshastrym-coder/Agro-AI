@@ -2,7 +2,7 @@
 - Live Payment Order updates
 - Farmer issue reporting (UPI money debited but not activated)
 - Staff payment assistance suite:
-  1. Staff manual activation with notes & UTR reference
+  1. Unverified staff activation is rejected and audited
   2. Staff internal support notes log
   3. Staff refund resolution
   4. Audit logging of all staff payment actions
@@ -19,6 +19,7 @@ from app.database.models import (
     SubscriptionPlanVersion, PaymentOrder, PaymentTransaction, UserSubscription
 )
 from app.routers.admin import create_admin_jwt
+from app.routers import payments as payment_router
 
 client = TestClient(app)
 
@@ -32,7 +33,7 @@ def db_session():
         db.close()
 
 
-def test_payment_support_assistance_flow(db_session):
+def test_payment_support_assistance_flow(db_session, monkeypatch):
     sa_user_id = str(uuid.uuid4())
     farmer_id = str(uuid.uuid4())
     plan_id = str(uuid.uuid4())
@@ -92,6 +93,12 @@ def test_payment_support_assistance_flow(db_session):
         db_session.add(ver)
         db_session.commit()
 
+        async def fake_create_provider_order(amount_minor, currency, receipt):
+            return {"id": f"order_{uuid.uuid4().hex}", "amount": amount_minor, "currency": currency, "receipt": receipt, "status": "created"}
+
+        monkeypatch.setattr(payment_router, "get_razorpay_key_id", lambda: "rzp_test_isolated")
+        monkeypatch.setattr(payment_router, "create_razorpay_order", fake_create_provider_order)
+
         sa_token = create_admin_jwt(sa_user.id, sa_user.email, sa_user.full_name, "super_admin")
         farmer_token = create_admin_jwt(farmer.id, farmer.email, farmer.full_name, "farmer")
 
@@ -141,7 +148,7 @@ def test_payment_support_assistance_flow(db_session):
         )
         assert res_note.status_code == 200
 
-        # 8. Staff resolves the issue and manually activates subscription
+        # 8. Staff cannot treat a customer supplied UTR as provider verification
         res_assist = client.post(
             f"/api/admin/payments/orders/{order_id}/assist-activate",
             headers={"Authorization": f"Bearer {sa_token}"},
@@ -150,28 +157,29 @@ def test_payment_support_assistance_flow(db_session):
                 "payment_reference": "UPI-40982310924"
             }
         )
-        assert res_assist.status_code == 200
-        assist_data = res_assist.json()
-        assert assist_data["status"] == "paid"
+        assert res_assist.status_code == 409
+        assert res_assist.json()["detail"]["error"]["code"] == "PAYMENT_PROVIDER_RECONCILIATION_REQUIRED"
 
-        # 9. Verify that farmer now has an active subscription in database
+        # 9. No subscription or successful payment was created
         sub = db_session.query(UserSubscription).filter(
             UserSubscription.user_id == farmer.id,
             UserSubscription.status == "active"
         ).first()
-        assert sub is not None
-        assert sub.plan_version_id == ver.id
+        assert sub is None
+        assert db_session.query(PaymentTransaction).filter(
+            PaymentTransaction.order_id == order_id,
+            PaymentTransaction.status == "success",
+        ).count() == 0
 
-        # 10. Verify order status is now paid and issue is closed
-        db_session.refresh(sub)
+        # 10. Order remains unresolved until verified provider reconciliation
         res_list2 = client.get(
             "/api/admin/payments/orders",
             headers={"Authorization": f"Bearer {sa_token}"}
         )
         orders_list2 = res_list2.json()
         updated_order = next(o for o in orders_list2 if o["id"] == order_id)
-        assert updated_order["status"] == "paid"
-        assert updated_order["has_open_issue"] is False
+        assert updated_order["status"] == "issue_reported"
+        assert updated_order["has_open_issue"] is True
     finally:
         # Clean up all created test entities
         if order_id:

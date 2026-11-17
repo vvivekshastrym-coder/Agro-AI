@@ -63,16 +63,16 @@ export default function Diagnose() {
   };
 
   return (
-    <div className="p-4 flex flex-col gap-4">
-      <div>
+    <div className="p-4 flex flex-col gap-4 lg:grid lg:grid-cols-2 lg:items-start lg:gap-6 lg:p-8">
+      <div className="lg:col-span-2">
         <div className="text-xs text-ink-soft">/diagnose</div>
         <h2 className="text-xl font-semibold text-forest">Leaf Diagnose</h2>
       </div>
 
-      <div className="bg-white rounded-3xl p-4 shadow-soft border border-line">
+      <div className="bg-white rounded-3xl p-4 shadow-soft border border-line lg:grid lg:grid-cols-2 lg:gap-4 lg:p-6">
         <div
           onClick={() => fileRef.current?.click()}
-          className="border-2 border-dashed border-line rounded-3xl p-7 text-center text-sm text-ink-soft cursor-pointer bg-cream/50"
+          className="border-2 border-dashed border-line rounded-3xl p-7 text-center text-sm text-ink-soft cursor-pointer bg-cream/50 lg:row-start-1"
         >
           {preview ? (
             <img src={preview} alt="leaf" className="max-h-40 mx-auto rounded-2xl mb-2" />
@@ -83,7 +83,7 @@ export default function Diagnose() {
         </div>
         <input ref={fileRef} type="file" accept="image/*" onChange={handleFile} className="hidden" />
 
-        <div className="flex gap-2 mt-3">
+        <div className="mt-3 flex gap-2 lg:col-span-2">
           <select
             value={cropHint}
             onChange={(e) => setCropHint(e.target.value)}
@@ -104,10 +104,10 @@ export default function Diagnose() {
           </button>
         </div>
 
-        {error && <div className="mt-4 text-sm text-red-700">{error}</div>}
+        {error && <div className="mt-4 text-sm text-red-700 lg:col-span-2">{error}</div>}
 
         {result && (
-          <div className="mt-4">
+          <div className="mt-4 lg:col-start-2 lg:row-start-1 lg:mt-0">
             <span
               className={`inline-block rounded-full px-3 py-1 text-xs font-bold mb-2 ${
                 severityColor[result.severity.toLowerCase()] || "bg-leaf-pale text-forest"

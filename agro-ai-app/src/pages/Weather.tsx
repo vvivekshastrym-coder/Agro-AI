@@ -73,8 +73,8 @@ export default function Weather() {
   }
 
   return (
-    <div className="p-4 flex flex-col gap-4">
-      <div>
+    <div className="p-4 flex flex-col gap-4 lg:grid lg:grid-cols-2 lg:items-start lg:gap-6 lg:p-8">
+      <div className="lg:col-span-2">
         <div className="text-xs text-ink-soft">/weather</div>
         <h2 className="text-xl font-semibold text-forest">Weather &amp; Advisory</h2>
         {profile?.village && (
@@ -84,7 +84,7 @@ export default function Weather() {
         )}
       </div>
 
-      <div className="bg-gradient-to-br from-[#3D6FA8] to-[#284C77] text-white rounded-3xl p-5 shadow-sm">
+      <div className="bg-gradient-to-br from-[#3D6FA8] to-[#284C77] text-white rounded-3xl p-5 shadow-sm lg:min-h-56 lg:p-8">
         <div className="text-xs text-[#D7E5F2] mb-1">{label}</div>
         <div className="font-display text-4xl font-bold">
           {today ? `${today.max}°/${today.min}°` : "—"}
@@ -94,7 +94,7 @@ export default function Weather() {
         </div>
       </div>
 
-      <div className="bg-white rounded-3xl p-4 shadow-soft border border-line">
+      <div className="bg-white rounded-3xl p-4 shadow-soft border border-line lg:p-6">
         <div className="flex items-center justify-between mb-3">
           <h3 className="text-sm font-semibold">5-day outlook</h3>
           <button
@@ -110,9 +110,9 @@ export default function Weather() {
 
         {data?.daily ? (
           <>
-            <div className="flex gap-2.5 overflow-x-auto no-scrollbar pb-1 mb-3">
+            <div className="grid grid-cols-2 gap-2.5 pb-1 mb-3 sm:grid-cols-3 xl:grid-cols-5">
               {data.daily.time.map((t: string, i: number) => (
-                <div key={t} className="flex-shrink-0 w-16 bg-cream rounded-2xl p-2.5 text-center border border-line">
+                <div key={t} className="bg-cream rounded-2xl p-2.5 text-center border border-line">
                   <div className="text-[11px] text-ink-soft">
                     {new Date(t).toLocaleDateString(undefined, { weekday: "short" })}
                   </div>

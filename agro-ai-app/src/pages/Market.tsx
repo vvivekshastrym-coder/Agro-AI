@@ -56,8 +56,8 @@ export default function Market() {
   const allStates = Array.from(new Set([profile?.state, ...STATES].filter(Boolean) as string[]));
 
   return (
-    <div className="p-4 flex flex-col gap-4">
-      <div>
+    <div className="p-4 flex flex-col gap-4 lg:grid lg:grid-cols-2 lg:items-start lg:gap-6 lg:p-8">
+      <div className="lg:col-span-2">
         <div className="text-xs text-ink-soft">/market</div>
         <h2 className="text-xl font-semibold text-forest">Mandi Market</h2>
         {crops.length > 0 && (
@@ -67,8 +67,9 @@ export default function Market() {
         )}
       </div>
 
-      <div className="bg-white rounded-3xl p-4 shadow-soft border border-line">
-        <div className="flex gap-2">
+      <div className="bg-white rounded-3xl p-4 shadow-soft border border-line lg:col-span-2 lg:grid lg:grid-cols-2 lg:gap-6 lg:p-6">
+        <div>
+        <div className="flex flex-col gap-2 sm:flex-row">
           <select
             value={crop}
             onChange={(e) => setCrop(e.target.value)}
@@ -101,9 +102,10 @@ export default function Market() {
         </button>
 
         {error && <div className="mt-3 text-sm text-red-700">{error}</div>}
+        </div>
 
         {result && (
-          <div className="mt-4">
+          <div className="mt-4 lg:mt-0">
             {result.available ? (
               <>
                 <div className="text-center mb-3">

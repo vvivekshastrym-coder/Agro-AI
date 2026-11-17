@@ -769,36 +769,78 @@ async def get_roles_permission_matrix(admin: AdminUser = Depends(require_admin()
 @router.get("/overview/metrics")
 async def get_overview_metrics(admin: AdminUser = Depends(require_admin()), db: Session = Depends(get_db)):
     """Computes real live metrics directly from the database across all 9 Admin Console modules."""
+    now = datetime.datetime.now(datetime.timezone.utc)
     total_users = db.query(User).filter(User.is_test == False, User.is_active == True).count()
     total_farmers = db.query(User).filter(User.role == UserRole.farmer, User.is_test == False, User.is_active == True).count()
     verified_users = db.query(User).filter(User.is_verified == True, User.is_test == False, User.is_active == True).count()
-    active_subscriptions = db.query(UserSubscription).filter(UserSubscription.status == "active").count()
-    total_orders = db.query(PaymentOrder).count()
+    active_subscriptions = db.query(UserSubscription).join(User, UserSubscription.user_id == User.id).filter(
+        UserSubscription.status == "active",
+        UserSubscription.current_period_end > now,
+        User.is_test == False,
+    ).count()
+    total_orders = db.query(PaymentOrder).join(User, PaymentOrder.user_id == User.id).filter(User.is_test == False).count()
 
-    # Calculate revenue from successful transactions
-    revenue_res = db.query(func.sum(PaymentTransaction.amount_minor)).filter(PaymentTransaction.status == "success").scalar()
+    # Count only provider transactions for paid orders belonging to non-test users.
+    verified_payment_query = db.query(PaymentTransaction).join(
+        PaymentOrder, PaymentTransaction.order_id == PaymentOrder.id
+    ).join(User, PaymentOrder.user_id == User.id).filter(
+        PaymentTransaction.status == "success",
+        PaymentTransaction.provider == "razorpay",
+        PaymentTransaction.provider_payment_id.isnot(None),
+        PaymentOrder.status == "paid",
+        User.is_test == False,
+    )
+    revenue_res = db.query(func.sum(PaymentTransaction.amount_minor)).select_from(PaymentTransaction).join(
+        PaymentOrder, PaymentTransaction.order_id == PaymentOrder.id
+    ).join(User, PaymentOrder.user_id == User.id).filter(
+        PaymentTransaction.status == "success",
+        PaymentTransaction.provider == "razorpay",
+        PaymentTransaction.provider_payment_id.isnot(None),
+        PaymentOrder.status == "paid",
+        User.is_test == False,
+    ).scalar()
     total_revenue_inr = (revenue_res or 0) / 100.0
 
     # Real farmland & AI diagnosis operational data
-    total_acres = db.query(func.sum(Farm.total_acres)).scalar() or 0.0
-    ai_diagnoses = db.query(DiagnosisReport).count()
-    active_broadcasts = db.query(BroadcastItem).filter(BroadcastItem.status == BroadcastStatus.approved).count()
-    pending_posts_offers = db.query(BroadcastItem).filter(BroadcastItem.status == BroadcastStatus.pending_approval).count()
+    total_acres = db.query(func.sum(Farm.total_acres)).join(User, Farm.user_id == User.id).filter(User.is_test == False).scalar() or 0.0
+    ai_diagnoses = db.query(DiagnosisReport).join(User, DiagnosisReport.farmer_id == User.id).filter(User.is_test == False).count()
+    broadcast_source_filter = or_(BroadcastItem.created_by.is_(None), User.is_test == False)
+    active_broadcasts = db.query(BroadcastItem).outerjoin(User, BroadcastItem.created_by == User.id).filter(
+        BroadcastItem.status == BroadcastStatus.approved, broadcast_source_filter
+    ).count()
+    pending_posts_offers = db.query(BroadcastItem).outerjoin(User, BroadcastItem.created_by == User.id).filter(
+        BroadcastItem.status == BroadcastStatus.pending_approval, broadcast_source_filter
+    ).count()
     pending_staff_requests = db.query(AdminAccessRequest).filter(AdminAccessRequest.status == "pending").count()
 
     # Mart queues
-    pending_farmer_apps = db.query(MartSellerProfile).filter(MartSellerProfile.status.in_(["SUBMITTED", "UNDER_REVIEW"])).count()
-    pending_product_approvals = db.query(MartListing).filter(MartListing.status.in_(["SUBMITTED", "UNDER_REVIEW"])).count()
+    pending_farmer_apps = db.query(MartSellerProfile).join(User, MartSellerProfile.user_id == User.id).filter(
+        MartSellerProfile.status.in_(["SUBMITTED", "UNDER_REVIEW"]), User.is_test == False
+    ).count()
+    pending_product_approvals = db.query(MartListing).join(
+        MartSellerProfile, MartListing.seller_id == MartSellerProfile.id
+    ).join(User, MartSellerProfile.user_id == User.id).filter(
+        MartListing.status.in_(["SUBMITTED", "UNDER_REVIEW"]), User.is_test == False
+    ).count()
 
     # Excel Data Registry
-    recent_excel_imports = db.query(ExcelImportJob).count()
-    pending_excel_imports = db.query(ExcelImportJob).filter(ExcelImportJob.status == "PENDING_REVIEW").count()
+    recent_excel_imports = db.query(ExcelImportJob).join(User, ExcelImportJob.uploaded_by == User.id).filter(
+        User.is_test == False
+    ).count()
+    pending_excel_imports = db.query(ExcelImportJob).join(User, ExcelImportJob.uploaded_by == User.id).filter(
+        ExcelImportJob.status == "PENDING_REVIEW", User.is_test == False
+    ).count()
 
     # Subscription Plans & Payments & Data Requests
     published_plans = db.query(SubscriptionPlan).filter(SubscriptionPlan.status == "published").count()
-    verified_payments = db.query(PaymentTransaction).filter(PaymentTransaction.status == "success").count()
-    pending_financial_tasks = db.query(PaymentOrder).filter(PaymentOrder.status.in_(["failed", "issue_reported"])).count()
-    open_data_requests = db.query(DataRequest).filter(DataRequest.status.in_(["pending", "processing", "OPEN", "ASSIGNED", "IN_PROGRESS"])).count()
+    verified_payments = verified_payment_query.count()
+    pending_financial_tasks = db.query(PaymentOrder).join(User, PaymentOrder.user_id == User.id).filter(
+        PaymentOrder.status.in_(["failed", "issue_reported"]), User.is_test == False
+    ).count()
+    open_data_requests = db.query(DataRequest).join(User, DataRequest.user_id == User.id).filter(
+        DataRequest.status.in_(["pending", "processing", "OPEN", "ASSIGNED", "IN_PROGRESS"]),
+        User.is_test == False,
+    ).count()
 
     pending_approvals = (
         pending_posts_offers +
@@ -811,7 +853,9 @@ async def get_overview_metrics(admin: AdminUser = Depends(require_admin()), db: 
     # Recent audit logs (for Super Admin Head & Admin)
     recent_logs = []
     if has_permission(admin, "audit_logs", "read"):
-        logs_q = db.query(AdminAuditLog).order_by(AdminAuditLog.created_at.desc()).limit(8).all()
+        logs_q = db.query(AdminAuditLog).join(User, AdminAuditLog.actor_id == User.id).filter(
+            User.is_test == False
+        ).order_by(AdminAuditLog.created_at.desc()).limit(8).all()
         recent_logs = [
             {
                 "id": l.id,
@@ -851,12 +895,16 @@ async def get_overview_metrics(admin: AdminUser = Depends(require_admin()), db: 
         "recent_audit_activity": recent_logs,
         "system_status": {
             "database": "Connected",
-            "payment_webhook": "Active (/api/payments/webhook)",
+            "payment_webhook": "Configured" if os.getenv("RAZORPAY_WEBHOOK_SECRET", "").strip() else "Not configured",
             "mandi_directory_markets": mandi_markets_count,
-            "weather_provider": "Configured (OpenWeather / Open-Meteo)",
+            "weather_provider": "Open-Meteo fallback enabled; live health not probed",
             "super_admin_head": SUPER_ADMIN_EMAIL,
         },
-        "payment_gateway_status": "Active (Razorpay Webhook Listener)",
+        "payment_gateway_status": (
+            "Configured" if all(os.getenv(name, "").strip() for name in (
+                "RAZORPAY_KEY_ID", "RAZORPAY_KEY_SECRET", "RAZORPAY_WEBHOOK_SECRET"
+            )) else "Not configured"
+        ),
         "metrics_computed_at": datetime.datetime.now(datetime.timezone.utc).isoformat()
     }
 
@@ -1538,83 +1586,24 @@ async def staff_assist_activate_subscription(
     db: Session = Depends(get_db),
     request: Request = None
 ):
-    """Resolves a payment issue (e.g. money debited from farmer bank but webhook delayed) and activates membership."""
+    """Rejects support-driven payment activation; only provider reconciliation can establish payment success."""
     order = db.query(PaymentOrder).filter(PaymentOrder.id == order_id).first()
     if not order:
         raise HTTPException(status_code=404, detail={"error": {"code": "ORDER_NOT_FOUND", "message": "Order not found."}})
-
-    # Update order state to paid
-    order.status = "paid"
-    notes = order.notes.copy() if order.notes else {}
-    notes["staff_assistance"] = {
-        "assisted_by_user_id": admin.user_id,
-        "assisted_by_role": admin.role.value,
-        "assisted_at": datetime.datetime.now(datetime.timezone.utc).isoformat(),
-        "staff_notes": req.staff_notes,
-        "payment_reference": req.payment_reference,
-        "resolution": "Subscription manually verified & activated by staff"
-    }
-    notes["has_open_issue"] = False
-    order.notes = notes
-
-    # Record verified transaction
-    tx_ref = req.payment_reference or f"staff_ast_{str(uuid.uuid4())[:8]}"
-    existing_tx = db.query(PaymentTransaction).filter(PaymentTransaction.provider_payment_id == tx_ref).first()
-    if not existing_tx:
-        tx = PaymentTransaction(
-            id=str(uuid.uuid4()),
-            order_id=order.id,
-            user_id=order.user_id,
-            amount_minor=order.amount_minor,
-            currency=order.currency,
-            status="success",
-            provider="staff_assisted",
-            provider_payment_id=tx_ref
-        )
-        db.add(tx)
-
-    # Activate farmer's subscription
-    version = db.query(SubscriptionPlanVersion).filter(SubscriptionPlanVersion.id == order.plan_version_id).first()
-    now = datetime.datetime.now(datetime.timezone.utc)
-    interval = version.billing_interval if version else "monthly"
-    period_end = _compute_sub_expiry(now, interval)
-
-    # Deactivate existing active subscriptions
-    active_subs = db.query(UserSubscription).filter(
-        UserSubscription.user_id == order.user_id,
-        UserSubscription.status == "active"
-    ).all()
-    for s in active_subs:
-        s.status = "superseded"
-
-    new_sub = UserSubscription(
-        id=str(uuid.uuid4()),
-        user_id=order.user_id,
-        plan_version_id=order.plan_version_id,
-        status="active",
-        current_period_start=now,
-        current_period_end=period_end,
-        cancel_at_period_end=False
-    )
-    db.add(new_sub)
-    db.commit()
-
     log_admin_action(
         db, admin,
-        "STAFF_MANUAL_PAYMENT_ACTIVATION",
+        "UNVERIFIED_PAYMENT_ACTIVATION_BLOCKED",
         "payment_orders",
         order.id,
-        {"staff_notes": req.staff_notes, "ref": req.payment_reference, "user_id": order.user_id},
+        {"user_id": order.user_id},
         request
     )
-
-    return {
-        "success": True,
-        "order_id": order.id,
-        "status": order.status,
-        "subscription_id": new_sub.id,
-        "message": "Farmer subscription activated successfully."
-    }
+    db.commit()
+    raise HTTPException(
+        status_code=409,
+        detail={"error": {"code": "PAYMENT_PROVIDER_RECONCILIATION_REQUIRED",
+                           "message": "Support references cannot establish payment success. Keep the issue open and reconcile with the payment provider."}},
+    )
 
 
 @router.post("/payments/orders/{order_id}/add-notes")

@@ -257,7 +257,7 @@ export default function FarmerProfile() {
         </button>
       </header>
 
-      <main className="max-w-md w-full mx-auto p-4 space-y-5">
+      <main className="max-w-md w-full mx-auto p-4 space-y-5 lg:max-w-[1180px] lg:grid lg:grid-cols-2 lg:items-start lg:gap-6 lg:space-y-0 lg:p-8">
         {saveSuccess && (
           <div className="p-3 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-xl text-xs font-medium flex items-center gap-2">
             <span>✓</span>

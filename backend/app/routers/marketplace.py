@@ -4,6 +4,7 @@ from typing import Optional, List
 import math
 from ..database.connection import get_db
 from ..database.models import MarketplaceProduct, MarketplaceSeller
+from ..demo_data import demo_data_enabled
 
 router = APIRouter()
 
@@ -15,6 +16,8 @@ def haversine_km(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
     return round(R * 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a)), 1)
 
 def _ensure_default_inputs(db: Session):
+    if not demo_data_enabled():
+        return
     if db.query(MarketplaceProduct).count() > 0:
         return
     seller = db.query(MarketplaceSeller).filter(MarketplaceSeller.id == "seller_iffco_mandya").first()

@@ -1,5 +1,6 @@
 import os
 import time
+import uuid
 import jwt
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
@@ -61,35 +62,21 @@ async def update_me(body: ProfileUpdate, user: User = Depends(get_current_user),
 
 @router.post("/guest-session")
 async def create_guest_session(db: Session = Depends(get_db)):
-    """Issues a cryptographically signed JWT session for guest farmers."""
-    guest_id = "farmer_guest"
-    user = db.query(User).filter(User.id == guest_id).first()
-    if not user:
-        user = User(
-            id=guest_id,
-            email="guest@agroai.in",
-            phone="9876543210",
-            full_name="Vivek (Guest Farmer)",
-            role=UserRole.farmer,
-            is_verified=True,
-        )
-        db.add(user)
-        try:
-            db.commit()
-            db.refresh(user)
-        except Exception:
-            db.rollback()
-            user = db.query(User).filter(User.id == guest_id).first()
+    """Issues an isolated, short-lived identity for this guest session."""
+    guest_id = str(uuid.uuid4())
+    user = User(id=guest_id, full_name="Guest Farmer", role=UserRole.farmer, is_verified=False)
+    db.add(user)
+    db.commit()
+    db.refresh(user)
 
     payload = {
         "sub": guest_id,
         "aud": "authenticated",
         "iss": "agro-ai-local",
-        "exp": int(time.time()) + 86400 * 30,
-        "email": "guest@agroai.in",
+        "exp": int(time.time()) + 3600,
         "user_metadata": {
-            "name": "Vivek (Guest Farmer)",
-            "full_name": "Vivek (Guest Farmer)",
+            "name": "Guest Farmer",
+            "full_name": "Guest Farmer",
         }
     }
     guest_token = jwt.encode(payload, GUEST_SESSION_SECRET, algorithm="HS256")
@@ -105,7 +92,7 @@ import hashlib
 import secrets
 import re as _re
 from typing import Optional, Dict, Any
-from backend.app.services.sms_service import send_sms_otp, normalize_indian_phone
+from ..services.sms_service import send_sms_otp, normalize_indian_phone
 
 def generate_otp() -> str:
     """Generate a cryptographically secure 6-digit OTP."""
@@ -113,7 +100,7 @@ def generate_otp() -> str:
 
 def _hash_otp(phone: str, code: str) -> str:
     """Computes a cryptographically secure HMAC-SHA256 hash of phone + OTP."""
-    secret = (os.getenv("SERVER_SESSION_SECRET") or "agroai_production_otp_secret_key").encode()
+    secret = GUEST_SESSION_SECRET.encode()
     return hmac.new(secret, f"{phone}:{code}".encode(), hashlib.sha256).hexdigest()
 
 # In-memory secure OTP store: phone -> {
@@ -342,53 +329,13 @@ async def verify_phone_otp(body: PhoneOtpVerifyRequest, db: Session = Depends(ge
 
 
 @router.post("/google-session")
-async def create_google_session(body: GoogleSessionExchangeRequest, db: Session = Depends(get_db)):
-    """Verifies or exchanges a Google/Supabase OAuth login into a signed server session token."""
-    sub_id = (body.google_sub or body.sub or "").strip()
-    email_clean = (body.email or "").strip().lower()
-    if not email_clean:
-        email_clean = f"{sub_id or 'google_user'}@google.agroai.in"
-    user = db.query(User).filter(User.email == email_clean).first()
-    if not user and sub_id:
-        user = db.query(User).filter(User.id == sub_id).first()
-    display_name = (body.full_name or body.name or email_clean.split("@")[0] or "Farmer").strip()
-
-    if not user:
-        uid = sub_id or str(uuid.uuid4())
-        # Ensure ID uniqueness
-        if db.query(User).filter(User.id == uid).first():
-            uid = str(uuid.uuid4())
-        user = User(
-            id=uid,
-            email=email_clean,
-            full_name=display_name,
-            avatar_url=body.avatar_url,
-            role=UserRole.farmer,
-            is_active=True,
-            is_verified=True,
-        )
-        db.add(user)
-        try:
-            db.commit()
-            db.refresh(user)
-        except Exception:
-            db.rollback()
-            user = db.query(User).filter(User.email == email_clean).first()
-    else:
-        user.is_active = True
-        user.is_verified = True
-        if (body.full_name or body.name) and (not user.full_name or user.full_name == "Deleted User"):
-            user.full_name = display_name
-        if body.avatar_url:
-            user.avatar_url = body.avatar_url
-        db.commit()
-        db.refresh(user)
-
+async def create_google_session(user: User = Depends(get_current_user)):
+    """Exchange only an already verified bearer identity; never trust caller-supplied profile claims."""
     payload = {
         "sub": user.id,
         "aud": "authenticated",
         "iss": "agro-ai-local",
-        "exp": int(time.time()) + 86400 * 30,
+        "exp": int(time.time()) + 3600,
         "email": user.email,
         "user_metadata": {
             "name": user.full_name,
@@ -409,7 +356,6 @@ from ..database.models import (
     AgroGPTConversation, AgroGPTMessage, MartSavedItem, MartSellerProfile,
     AdminUser, DataRequest
 )
-import uuid
 import datetime
 
 

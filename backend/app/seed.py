@@ -1,38 +1,24 @@
-from sqlalchemy.orm import Session
+"""Legacy synthetic-data cleanup command, intentionally disabled.
+
+The historical implementation deleted whole business tables without being
+able to distinguish real rows from demo rows. Preserve the module path for
+operators and tests, but fail closed rather than risk destroying records.
+"""
 import os
 import sys
-from .database.connection import engine, SessionLocal, Base
-from .database.models import (
-    User, Driver, Vehicle, MarketplaceSeller,
-    MarketplaceProduct, DroneOperator, MarketPrice
-)
 
-# Ensure database tables are created without synthetic mock data
-Base.metadata.create_all(bind=engine)
 
-def purge_fictional_seed_data():
-    """
-    Purges any synthetic demo drivers, sellers, products, operators, or fabricated prices.
-    Agro AI strictly connects to verified real external providers.
-    """
-    db: Session = SessionLocal()
-    try:
-        db.query(DroneOperator).delete()
-        db.query(MarketplaceProduct).delete()
-        db.query(MarketplaceSeller).delete()
-        db.query(Vehicle).delete()
-        db.query(Driver).delete()
-        db.commit()
-        print("[SUCCESS] Fictional seed data cleanly purged from database.")
-    except Exception as e:
-        print(f"Error purging database: {e}")
-        db.rollback()
-    finally:
-        db.close()
+def purge_fictional_seed_data() -> None:
+    raise RuntimeError(
+        "Automatic demo-data deletion is disabled because records are not reliably classified. "
+        "Use a reviewed cleanup against an isolated database and explicit test record IDs."
+    )
+
 
 if __name__ == "__main__":
-    if os.getenv("ALLOW_DEMO_SEED") != "1":
-        sys.exit("Refusing to seed: this script inserts FICTIONAL drivers/sellers/operators/prices. "
-                 "Set ALLOW_DEMO_SEED=1 only for an isolated local demo database, never production.")
-    purge_fictional_seed_data()
-
+    environment = (os.getenv("ENVIRONMENT") or os.getenv("APP_ENV") or os.getenv("NODE_ENV") or "").strip().lower()
+    if environment in {"production", "prod"}:
+        sys.exit("Refusing to run demo-data cleanup in a production environment.")
+    if environment not in {"development", "dev", "test", "testing"} or os.getenv("ALLOW_DEMO_SEED") != "1":
+        sys.exit("Refusing to seed or clean outside an explicitly isolated demo/test environment.")
+    sys.exit("Legacy cleanup is disabled because existing rows cannot be safely identified as synthetic.")
