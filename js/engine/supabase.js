@@ -222,7 +222,8 @@
         window.google.accounts.id.prompt((notification) => {
           if (notification.isNotDisplayed() || notification.isSkippedMoment()) {
             const reason = notification.getNotDisplayedReason?.() || notification.getSkippedReason?.() || 'prompt_suppressed';
-            console.log('GIS One Tap prompt status (' + reason + ')');
+            console.log('GIS One Tap prompt suppressed (' + reason + '), falling back to OAuth redirect');
+            fallbackToOAuthRedirect().catch((err) => console.warn('OAuth redirect fallback error:', err));
           }
         });
         return { method: 'gis_prompt' };
@@ -253,6 +254,7 @@
   window.AgroSupabase = {
     getClient: () => client,
     signInWithGoogle,
+    fallbackToOAuthRedirect,
     signOut,
     initGoogleIdentity,
     renderGoogleButtons,

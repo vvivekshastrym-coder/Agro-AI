@@ -65,6 +65,22 @@ def _get_google_jwks_client() -> PyJWKClient:
     return _google_jwks_client
 
 
+_firebase_jwks_client = None
+FIREBASE_PROJECT_ID = os.getenv("FIREBASE_PROJECT_ID", "gen-lang-client-0224945015")
+
+
+def _get_firebase_jwks_client() -> PyJWKClient:
+    global _firebase_jwks_client
+    if _firebase_jwks_client is None:
+        _firebase_jwks_client = PyJWKClient(
+            "https://www.googleapis.com/service_accounts/v1/jwk/securetoken@system.gserviceaccount.com",
+            cache_keys=True,
+            lifespan=3600,
+            timeout=5,
+        )
+    return _firebase_jwks_client
+
+
 def verify_supabase_token(token: str) -> dict:
     """Return verified claims or raise 401. Never returns unverified data."""
     legacy_secret = os.getenv("SUPABASE_JWT_SECRET", "").strip()
@@ -92,6 +108,24 @@ def verify_supabase_token(token: str) -> dict:
             aud_str = aud_val[0] if isinstance(aud_val, list) and aud_val else str(aud_val)
             if not ALLOWED_GOOGLE_CLIENT_IDS or aud_str not in ALLOWED_GOOGLE_CLIENT_IDS:
                 raise _unauthorized("INVALID_TOKEN", "Invalid Google token audience.")
+            claims["user_metadata"] = {
+                "full_name": claims.get("name"),
+                "name": claims.get("name"),
+                "avatar_url": claims.get("picture"),
+            }
+            return claims
+
+        firebase_iss = f"https://securetoken.google.com/{FIREBASE_PROJECT_ID}"
+        if iss == firebase_iss:
+            key = _get_firebase_jwks_client().get_signing_key_from_jwt(token).key
+            claims = jwt.decode(
+                token,
+                key,
+                algorithms=["RS256"],
+                audience=FIREBASE_PROJECT_ID,
+                issuer=firebase_iss,
+                options={"require": ["exp", "sub", "aud", "iss"]},
+            )
             claims["user_metadata"] = {
                 "full_name": claims.get("name"),
                 "name": claims.get("name"),
