@@ -54,6 +54,24 @@ if (fs.existsSync(adminDistSrc)) {
 }
 
 // Generate static SEO pages + authoritative sitemap.xml in root and dist/
-execFileSync('python', ['-m', 'backend.app.seo_pages'], { cwd: root, stdio: 'inherit' });
+let pyRan = false;
+for (const pyBin of ['python3', 'python']) {
+  try {
+    execFileSync(pyBin, ['-m', 'backend.app.seo_pages'], { cwd: root, stdio: 'inherit' });
+    pyRan = true;
+    break;
+  } catch (e) {}
+}
+if (!pyRan) {
+  // Fallback if Python is absent in static build container: copy committed sitemap.xml and SEO routes
+  for (const f of ['sitemap.xml', 'robots.txt']) {
+    if (fs.existsSync(path.join(root, f))) {
+      fs.copyFileSync(path.join(root, f), path.join(dist, f));
+    }
+  }
+  for (const slug of ['diagnose', 'agrogpt', 'weather', 'mandi', 'plans', 'about', 'contact']) {
+    fs.copyFileSync(path.join(root, 'index.html'), path.join(dist, `${slug}.html`));
+  }
+}
 
 console.log('✅ Prepared lightweight mobile web assets in ./dist for Capacitor Android/iOS build.');

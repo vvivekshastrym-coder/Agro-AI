@@ -1,9 +1,38 @@
 {
   "version": 2,
   "name": "agro-ai",
+  "framework": null,
+  "buildCommand": "node scripts/prepare-mobile-dist.mjs",
+  "outputDirectory": "dist",
   "cleanUrls": true,
   "trailingSlash": false,
   "headers": [
+    {
+      "source": "/sitemap.xml",
+      "headers": [
+        {
+          "key": "Content-Type",
+          "value": "application/xml; charset=utf-8"
+        },
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=3600"
+        }
+      ]
+    },
+    {
+      "source": "/robots.txt",
+      "headers": [
+        {
+          "key": "Content-Type",
+          "value": "text/plain; charset=utf-8"
+        },
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=3600"
+        }
+      ]
+    },
     {
       "source": "/icons/(.*)",
       "headers": [
@@ -25,24 +54,12 @@
   ],
   "rewrites": [
     {
-      "source": "/admin/assets/:path*",
-      "destination": "/admin/dist/assets/:path*"
-    },
-    {
       "source": "/admin/:path*",
-      "destination": "/admin/dist/index.html"
-    },
-    {
-      "source": "/admin",
-      "destination": "/admin/dist/index.html"
+      "destination": "/admin/index.html"
     },
     {
       "source": "/api/:path*",
       "destination": "http://127.0.0.1:8080/api/:path*"
-    },
-    {
-      "source": "/(.*)",
-      "destination": "/index.html"
     }
   ]
 }
