@@ -15,7 +15,7 @@ TUNNEL_URL = os.getenv("TUNNEL_URL")
 DEFAULT_BASE_URL = "http://192.168.31.86:8080"
 BASE_URL = TUNNEL_URL if USE_TUNNEL and TUNNEL_URL else DEFAULT_BASE_URL
 
-from .database.connection import engine, Base
+from .database.connection import engine, Base, DATABASE_URL as _ACTIVE_DB_URL
 from .routers import auth, agri, weather, market, satellite, diagnosis, agro_gpt, logistics, marketplace, drone, admin, plans, payments, schemes, mart, privacy
 from .routers.logistics import trip_manager
 from .auth import feature_access
@@ -27,7 +27,7 @@ logger = logging.getLogger(__name__)
 _deployment_environment = (
     os.getenv("ENVIRONMENT") or os.getenv("APP_ENV") or os.getenv("NODE_ENV") or ""
 ).strip().lower()
-if not os.getenv("VERCEL") and (_deployment_environment not in {"production", "prod", "staging", "stage"} or os.getenv("ALLOW_SCHEMA_SYNC", "").strip().lower() in {"1", "true", "yes"}):
+if (not os.getenv("VERCEL") or _ACTIVE_DB_URL.startswith("sqlite")) and (_deployment_environment not in {"production", "prod", "staging", "stage"} or os.getenv("ALLOW_SCHEMA_SYNC", "").strip().lower() in {"1", "true", "yes"}):
     try:
         Base.metadata.create_all(bind=engine)
         from .database.schema_sync import sync_missing_columns

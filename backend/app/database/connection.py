@@ -69,11 +69,21 @@ if DATABASE_URL.startswith('sqlite'):
 else:
     if os.getenv('VERCEL'):
         from sqlalchemy.pool import NullPool
-        engine = create_engine(
+        _pg_engine = create_engine(
             DATABASE_URL,
-            connect_args=_engine_connect_args,
+            connect_args={**_engine_connect_args, 'connect_timeout': 2} if 'psycopg' in DATABASE_URL else _engine_connect_args,
             poolclass=NullPool,
         )
+        try:
+            from sqlalchemy import text as _sa_text
+            with _pg_engine.connect() as _conn:
+                _conn.execute(_sa_text("SELECT 1"))
+            engine = _pg_engine
+        except Exception as _pg_err:
+            import logging as _logging
+            _logging.getLogger(__name__).warning("Vercel Postgres unreachable (%s); using ephemeral /tmp/kisanai.db", type(_pg_err).__name__)
+            DATABASE_URL = "sqlite:////tmp/kisanai.db"
+            engine = create_engine(DATABASE_URL, connect_args={'check_same_thread': False, 'timeout': 15})
     else:
         engine = create_engine(
             DATABASE_URL,
