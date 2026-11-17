@@ -202,7 +202,7 @@ def patch_outbound_requests():
     """Monkey‑patch outbound HTTP clients to block any request to *.lhr.life.
     This prevents the server from unintentionally contacting the public tunnel.
     """
-    import httpx, requests
+    import httpx
     # httpx async client patch
     _orig_httpx_request = httpx.AsyncClient.request
     async def _blocked_httpx(self, method, url, *args, **kwargs):
@@ -214,15 +214,19 @@ def patch_outbound_requests():
             raise httpx.HTTPError('Outbound requests to .lhr.life are blocked')
         return await _orig_httpx_request(self, method, url, *args, **kwargs)
     httpx.AsyncClient.request = _blocked_httpx
-    # requests sync client patch
-    _orig_requests_request = requests.sessions.Session.request
-    def _blocked_requests(self, method, url, *args, **kwargs):
-        parsed = requests.utils.urlparse(url)
-        hostname = parsed.hostname or ''
-        if hostname.endswith('.lhr.life'):
-            raise requests.RequestException('Outbound requests to .lhr.life are blocked')
-        return _orig_requests_request(self, method, url, *args, **kwargs)
-    requests.sessions.Session.request = _blocked_requests
+    # requests sync client patch (optional if requests is installed)
+    try:
+        import requests
+        _orig_requests_request = requests.sessions.Session.request
+        def _blocked_requests(self, method, url, *args, **kwargs):
+            parsed = requests.utils.urlparse(url)
+            hostname = parsed.hostname or ''
+            if hostname.endswith('.lhr.life'):
+                raise requests.RequestException('Outbound requests to .lhr.life are blocked')
+            return _orig_requests_request(self, method, url, *args, **kwargs)
+        requests.sessions.Session.request = _blocked_requests
+    except ImportError:
+        pass
 
 
 # ─── Public Farmer Broadcasts & Promotional Offers ─────────────
