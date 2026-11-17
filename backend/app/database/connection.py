@@ -38,7 +38,7 @@ if DATABASE_URL.startswith('postgresql://'):
         _ssl_ctx = ssl.create_default_context()
         _ssl_ctx.check_hostname = False
         _ssl_ctx.verify_mode = ssl.CERT_NONE
-        _engine_connect_args = {'ssl_context': _ssl_ctx}
+        _engine_connect_args = {'ssl_context': _ssl_ctx, 'timeout': 5}
 
 if DATABASE_URL.startswith('sqlite'):
     engine = create_engine(
@@ -64,7 +64,7 @@ else:
         pool_size=5,
         max_overflow=10,
         pool_recycle=1800,
-        pool_timeout=30
+        pool_timeout=8
     )
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
