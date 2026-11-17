@@ -29,16 +29,26 @@ _engine_connect_args = {}
 if DATABASE_URL.startswith('postgresql://'):
     try:
         import psycopg2  # noqa: F401
+        _engine_connect_args = {'connect_timeout': 5}
     except ImportError:
-        import ssl
-        from urllib.parse import urlsplit, urlunsplit
-        DATABASE_URL = DATABASE_URL.replace('postgresql://', 'postgresql+pg8000://', 1)
-        parts = urlsplit(DATABASE_URL)
-        DATABASE_URL = urlunsplit((parts.scheme, parts.netloc, parts.path, '', ''))
-        _ssl_ctx = ssl.create_default_context()
-        _ssl_ctx.check_hostname = False
-        _ssl_ctx.verify_mode = ssl.CERT_NONE
-        _engine_connect_args = {'ssl_context': _ssl_ctx, 'timeout': 5}
+        try:
+            import psycopg  # noqa: F401
+            from urllib.parse import urlsplit, urlunsplit, parse_qsl, urlencode
+            DATABASE_URL = DATABASE_URL.replace('postgresql://', 'postgresql+psycopg://', 1)
+            parts = urlsplit(DATABASE_URL)
+            qs = [(k, v) for k, v in parse_qsl(parts.query) if k != 'supa']
+            DATABASE_URL = urlunsplit((parts.scheme, parts.netloc, parts.path, urlencode(qs), ''))
+            _engine_connect_args = {'connect_timeout': 5, 'prepare_threshold': None}
+        except ImportError:
+            import ssl
+            from urllib.parse import urlsplit, urlunsplit
+            DATABASE_URL = DATABASE_URL.replace('postgresql://', 'postgresql+pg8000://', 1)
+            parts = urlsplit(DATABASE_URL)
+            DATABASE_URL = urlunsplit((parts.scheme, parts.netloc, parts.path, '', ''))
+            _ssl_ctx = ssl.create_default_context()
+            _ssl_ctx.check_hostname = False
+            _ssl_ctx.verify_mode = ssl.CERT_NONE
+            _engine_connect_args = {'ssl_context': _ssl_ctx, 'timeout': 5}
 
 if DATABASE_URL.startswith('sqlite'):
     engine = create_engine(
