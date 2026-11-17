@@ -9,7 +9,7 @@ load_dotenv(os.path.join(os.path.dirname(__file__), '..', '..', '.env'))
 load_dotenv(os.path.join(os.path.dirname(__file__), '..', '..', '..', '.env'))
 
 RAW_DATABASE_URL = os.getenv('DATABASE_URL', '')
-root_db = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', '..', 'kisanai.db'))
+root_db = '/tmp/kisanai.db' if os.getenv('VERCEL') else os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', '..', 'kisanai.db'))
 SQLITE_FALLBACK_URL = f"sqlite:///{root_db.replace(os.sep, '/')}"
 
 if not RAW_DATABASE_URL or '[YOUR-PASSWORD]' in RAW_DATABASE_URL:
