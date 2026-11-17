@@ -56,6 +56,10 @@
     {
       "source": "/admin/:path*",
       "destination": "/admin/index.html"
+    },
+    {
+      "source": "/api/(.*)",
+      "destination": "/api/index.py"
     }
   ]
 }

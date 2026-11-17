@@ -8,7 +8,12 @@ from dotenv import load_dotenv
 load_dotenv(os.path.join(os.path.dirname(__file__), '..', '..', '.env'))
 load_dotenv(os.path.join(os.path.dirname(__file__), '..', '..', '..', '.env'))
 
-RAW_DATABASE_URL = os.getenv('DATABASE_URL', '')
+RAW_DATABASE_URL = (
+    os.getenv('DATABASE_URL')
+    or os.getenv('POSTGRES_URL_NON_POOLING')
+    or os.getenv('POSTGRES_URL')
+    or ''
+)
 root_db = '/tmp/kisanai.db' if os.getenv('VERCEL') else os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', '..', 'kisanai.db'))
 SQLITE_FALLBACK_URL = f"sqlite:///{root_db.replace(os.sep, '/')}"
 
@@ -19,6 +24,21 @@ else:
 
 if DATABASE_URL.startswith('postgres://'):
     DATABASE_URL = DATABASE_URL.replace('postgres://', 'postgresql://', 1)
+
+_engine_connect_args = {}
+if DATABASE_URL.startswith('postgresql://'):
+    try:
+        import psycopg2  # noqa: F401
+    except ImportError:
+        import ssl
+        from urllib.parse import urlsplit, urlunsplit
+        DATABASE_URL = DATABASE_URL.replace('postgresql://', 'postgresql+pg8000://', 1)
+        parts = urlsplit(DATABASE_URL)
+        DATABASE_URL = urlunsplit((parts.scheme, parts.netloc, parts.path, '', ''))
+        _ssl_ctx = ssl.create_default_context()
+        _ssl_ctx.check_hostname = False
+        _ssl_ctx.verify_mode = ssl.CERT_NONE
+        _engine_connect_args = {'ssl_context': _ssl_ctx}
 
 if DATABASE_URL.startswith('sqlite'):
     engine = create_engine(
@@ -39,9 +59,10 @@ if DATABASE_URL.startswith('sqlite'):
 else:
     engine = create_engine(
         DATABASE_URL,
+        connect_args=_engine_connect_args,
         pool_pre_ping=True,
-        pool_size=10,
-        max_overflow=20,
+        pool_size=5,
+        max_overflow=10,
         pool_recycle=1800,
         pool_timeout=30
     )
