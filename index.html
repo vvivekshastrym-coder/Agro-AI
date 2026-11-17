@@ -677,6 +677,8 @@
         <input class="field-input" id="phoneInput" type="tel" maxlength="14" placeholder="98765 43210" inputmode="numeric">
       </div>
       <button class="btn btn-primary btn-block" id="authSendOtpBtn" onclick="sendOtp()">Send OTP</button>
+      <div id="authOtpError" style="display:none;margin-top:10px;padding:10px 12px;border-radius:12px;background:#FDF2EF;border:1px solid #F3C4B8;color:#9A2E1A;font-size:12.5px;line-height:1.45;"></div>
+      <button class="btn btn-outline btn-block" id="authGuestBtn" onclick="continueAsGuest()" style="margin-top:10px;">🌾 Explore as Guest Farmer</button>
       <div id="recaptcha-container"></div>
 
 
@@ -3778,6 +3780,8 @@ function closeRegisteredFarmerModal(){
 
 async function sendOtp(){
   const phone = getCleanPhone();
+  const errBox = document.getElementById('authOtpError');
+  if(errBox){ errBox.style.display = 'none'; errBox.textContent = ''; }
   if(phone.length !== 10){ showToast('Enter a valid 10-digit mobile number'); return; }
   const btn = document.getElementById('authSendOtpBtn');
   if(btn) {
@@ -3793,7 +3797,13 @@ async function sendOtp(){
     });
     const data = await res.json().catch(() => ({}));
     if(!res.ok){
-      const errMsg = data.detail?.error?.message || data.detail || 'Service error';
+      let errMsg = data.detail?.error?.message || (typeof data.detail === 'string' ? data.detail : '');
+      if(!errMsg && res.status === 404){
+        errMsg = 'Live backend API is not connected on this domain yet. Use http://127.0.0.1:8000 locally or click "Explore as Guest Farmer".';
+      } else if(!errMsg){
+        errMsg = `Service error (HTTP ${res.status})`;
+      }
+      if(errBox){ errBox.textContent = errMsg; errBox.style.display = 'block'; }
       showToast('Could not send OTP: ' + errMsg);
       return;
     }
@@ -3811,7 +3821,9 @@ async function sendOtp(){
     showToast(`OTP sent successfully to ******${phone.slice(-4)}`);
     initWebOTPAutoFill();
   } catch(e){
-    showToast('Could not connect to server to send OTP. Please try again.');
+    const msg = 'Could not connect to server to send OTP. Please try again or click "Explore as Guest Farmer".';
+    if(errBox){ errBox.textContent = msg; errBox.style.display = 'block'; }
+    showToast(msg);
   } finally {
     if(btn) {
       btn.disabled = false;

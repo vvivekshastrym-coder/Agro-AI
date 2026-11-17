@@ -2,55 +2,55 @@
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url>
     <loc>https://agroai.live/</loc>
-    <lastmod>2026-11-17T15:49:43Z</lastmod>
+    <lastmod>2026-11-17T16:25:31Z</lastmod>
     <changefreq>daily</changefreq>
     <priority>1.0</priority>
   </url>
   <url>
     <loc>https://agroai.live/diagnose</loc>
-    <lastmod>2026-11-17T15:49:43Z</lastmod>
+    <lastmod>2026-11-17T16:25:31Z</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.9</priority>
   </url>
   <url>
     <loc>https://agroai.live/agrogpt</loc>
-    <lastmod>2026-11-17T15:49:43Z</lastmod>
+    <lastmod>2026-11-17T16:25:31Z</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.9</priority>
   </url>
   <url>
     <loc>https://agroai.live/weather</loc>
-    <lastmod>2026-11-17T15:49:43Z</lastmod>
+    <lastmod>2026-11-17T16:25:31Z</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.9</priority>
   </url>
   <url>
     <loc>https://agroai.live/mandi</loc>
-    <lastmod>2026-11-17T15:49:43Z</lastmod>
+    <lastmod>2026-11-17T16:25:31Z</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.9</priority>
   </url>
   <url>
     <loc>https://agroai.live/plans</loc>
-    <lastmod>2026-11-17T15:49:43Z</lastmod>
+    <lastmod>2026-11-17T16:25:31Z</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://agroai.live/about</loc>
-    <lastmod>2026-11-17T15:49:43Z</lastmod>
+    <lastmod>2026-11-17T16:25:31Z</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
     <loc>https://agroai.live/contact</loc>
-    <lastmod>2026-11-17T15:49:43Z</lastmod>
+    <lastmod>2026-11-17T16:25:31Z</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.6</priority>
   </url>
   <url>
     <loc>https://agroai.live/guides</loc>
-    <lastmod>2026-11-17T15:50:18Z</lastmod>
+    <lastmod>2026-11-17T15:56:47Z</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
@@ -92,19 +92,19 @@
   </url>
   <url>
     <loc>https://agroai.live/privacy</loc>
-    <lastmod>2026-11-17T15:45:30Z</lastmod>
+    <lastmod>2026-11-17T15:56:47Z</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://agroai.live/terms</loc>
-    <lastmod>2026-11-17T15:45:34Z</lastmod>
+    <lastmod>2026-11-17T15:56:47Z</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://agroai.live/cookies</loc>
-    <lastmod>2026-11-17T15:45:37Z</lastmod>
+    <lastmod>2026-11-17T15:56:47Z</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.4</priority>
   </url>
