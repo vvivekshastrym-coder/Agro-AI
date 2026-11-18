@@ -243,10 +243,26 @@ def require_admin(*allowed_roles: AdminUserRole, module: Optional[str] = None, a
     async def _dependency(request: Request, user: User = Depends(get_current_user), db: Session = Depends(get_db)) -> AdminUser:
         admin = db.query(AdminUser).filter(AdminUser.user_id == user.id, AdminUser.is_active == True).first()
         if not admin:
-            # If user is the designated head super admin, ensure active super admin record
+            is_prod = os.getenv("ENVIRONMENT", "development").strip().lower() in ("production", "prod") or os.getenv("VERCEL_ENV") == "production"
+            # If user is the designated head super admin, ensure verified identity and active record
             if user.email and user.email.lower() == SUPER_ADMIN_EMAIL:
+                if not getattr(user, "is_verified", False):
+                    _log_unauthorized_attempt(db, user, "unverified_email", "Super admin email is not verified", request)
+                    raise HTTPException(
+                        status_code=status.HTTP_403_FORBIDDEN,
+                        detail={"error": {"code": "ADMIN_EMAIL_UNVERIFIED", "message": "Administrative access requires a cryptographically verified email address."}}
+                    )
+
                 admin = db.query(AdminUser).filter(AdminUser.user_id == user.id).first()
                 if not admin:
+                    bootstrap_secret = os.getenv("ADMIN_BOOTSTRAP_TOKEN", "")
+                    provided_token = request.headers.get("x-admin-bootstrap-token", "")
+                    if is_prod and bootstrap_secret and provided_token != bootstrap_secret:
+                        _log_unauthorized_attempt(db, user, "unauthorized_bootstrap", "Missing valid X-Admin-Bootstrap-Token in production", request)
+                        raise HTTPException(
+                            status_code=status.HTTP_403_FORBIDDEN,
+                            detail={"error": {"code": "ADMIN_BOOTSTRAP_LOCKED", "message": "Super admin initialization in production requires explicit server bootstrap verification."}}
+                        )
                     admin = AdminUser(
                         id=str(uuid.uuid4()),
                         user_id=user.id,

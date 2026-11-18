@@ -8,6 +8,9 @@ from dotenv import load_dotenv
 load_dotenv(os.path.join(os.path.dirname(__file__), '..', '..', '.env'))
 load_dotenv(os.path.join(os.path.dirname(__file__), '..', '..', '..', '.env'))
 
+_env = (os.getenv("VERCEL_ENV") or os.getenv("ENVIRONMENT") or "development").strip().lower()
+_is_prod = _env in ("production", "prod")
+
 RAW_DATABASE_URL = (
     os.getenv('DATABASE_URL')
     or os.getenv('POSTGRES_URL')
@@ -18,6 +21,9 @@ root_db = '/tmp/kisanai.db' if os.getenv('VERCEL') else os.path.abspath(os.path.
 SQLITE_FALLBACK_URL = f"sqlite:///{root_db.replace(os.sep, '/')}"
 
 if not RAW_DATABASE_URL or '[YOUR-PASSWORD]' in RAW_DATABASE_URL:
+    if _is_prod:
+        import logging as _logging
+        _logging.getLogger(__name__).critical("Production DATABASE_URL not configured! Ephemeral SQLite fallback in production is strictly prohibited.")
     DATABASE_URL = SQLITE_FALLBACK_URL
 else:
     DATABASE_URL = RAW_DATABASE_URL
@@ -46,8 +52,12 @@ if DATABASE_URL.startswith('postgresql://'):
             parts = urlsplit(DATABASE_URL)
             DATABASE_URL = urlunsplit((parts.scheme, parts.netloc, parts.path, '', ''))
             _ssl_ctx = ssl.create_default_context()
-            _ssl_ctx.check_hostname = False
-            _ssl_ctx.verify_mode = ssl.CERT_NONE
+            if _is_prod and os.getenv("POSTGRES_INSECURE_TLS", "0") != "1":
+                _ssl_ctx.check_hostname = True
+                _ssl_ctx.verify_mode = ssl.CERT_REQUIRED
+            else:
+                _ssl_ctx.check_hostname = False
+                _ssl_ctx.verify_mode = ssl.CERT_NONE
             _engine_connect_args = {'ssl_context': _ssl_ctx, 'timeout': 5}
 
 if DATABASE_URL.startswith('sqlite'):
@@ -81,9 +91,15 @@ else:
             engine = _pg_engine
         except Exception as _pg_err:
             import logging as _logging
-            _logging.getLogger(__name__).warning("Vercel Postgres unreachable (%s); using ephemeral /tmp/kisanai.db", type(_pg_err).__name__)
-            DATABASE_URL = "sqlite:////tmp/kisanai.db"
-            engine = create_engine(DATABASE_URL, connect_args={'check_same_thread': False, 'timeout': 15})
+            if _is_prod:
+                _logging.getLogger(__name__).critical("Vercel Postgres unreachable (%s) in PRODUCTION. Ephemeral fallback disabled for zero-trust data protection.", type(_pg_err).__name__)
+                # In production, do not mask database pooler drops by downgrading to ephemeral SQLite.
+                # Retain the postgres engine so subsequent connections retry cleanly or raise 503.
+                engine = _pg_engine
+            else:
+                _logging.getLogger(__name__).warning("Vercel Postgres unreachable (%s); using ephemeral /tmp/kisanai.db for non-prod environment", type(_pg_err).__name__)
+                DATABASE_URL = "sqlite:////tmp/kisanai.db"
+                engine = create_engine(DATABASE_URL, connect_args={'check_same_thread': False, 'timeout': 15})
     else:
         engine = create_engine(
             DATABASE_URL,

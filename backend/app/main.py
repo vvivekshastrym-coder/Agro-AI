@@ -25,9 +25,10 @@ logger = logging.getLogger(__name__)
 
 # ─── DB Table Creation ────────────────────────────────────────
 _deployment_environment = (
-    os.getenv("ENVIRONMENT") or os.getenv("APP_ENV") or os.getenv("NODE_ENV") or ""
+    os.getenv("VERCEL_ENV") or os.getenv("ENVIRONMENT") or os.getenv("APP_ENV") or os.getenv("NODE_ENV") or ""
 ).strip().lower()
-if (not os.getenv("VERCEL") or _ACTIVE_DB_URL.startswith("sqlite")) and (_deployment_environment not in {"production", "prod", "staging", "stage"} or os.getenv("ALLOW_SCHEMA_SYNC", "").strip().lower() in {"1", "true", "yes"}):
+_is_production_env = _deployment_environment in {"production", "prod"}
+if not _is_production_env and (not os.getenv("VERCEL") or _ACTIVE_DB_URL.startswith("sqlite")):
     try:
         Base.metadata.create_all(bind=engine)
         from .database.schema_sync import sync_missing_columns
@@ -35,7 +36,7 @@ if (not os.getenv("VERCEL") or _ACTIVE_DB_URL.startswith("sqlite")) and (_deploy
     except Exception as _e:  # never block startup on transient DB/schema-sync issues
         logger.error("Schema sync failed: %s", _e)
 else:
-    logger.info("Automatic schema mutation is disabled for %s; apply reviewed migrations before startup.", _deployment_environment)
+    logger.info("Automatic schema mutation is disabled for %s; apply reviewed migrations before startup.", _deployment_environment or "production")
 
 # ─── Rate Limiter ─────────────────────────────────────────────
 limiter = Limiter(key_func=get_remote_address)
@@ -111,6 +112,7 @@ async def add_security_headers(request: Request, call_next):
     response.headers['Referrer-Policy'] = 'strict-origin-when-cross-origin'
     response.headers['Permissions-Policy'] = 'camera=(self), microphone=(self), geolocation=(self)'
     response.headers['Strict-Transport-Security'] = 'max-age=31536000; includeSubDomains'
+    response.headers['Content-Security-Policy'] = "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://apis.google.com https://cdn.jsdelivr.net https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdnjs.cloudflare.com; font-src 'self' https://fonts.gstatic.com https://cdnjs.cloudflare.com data:; img-src 'self' data: blob: https:; connect-src 'self' https://*.supabase.co https://*.googleapis.com https://agroai.live https://www.agroai.live https://api.open-meteo.com https://nominatim.openstreetmap.org; frame-ancestors 'none'; object-src 'none'; base-uri 'self';"
     if raw_path in ('/', '/index.html', '/sw.js', '/privacy', '/delete-account') or raw_path.endswith(('.html', '.js')):
         response.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
     return response
@@ -122,16 +124,26 @@ async def enforce_app_only_features(request: Request, call_next):
         request.method != "OPTIONS"
         and feature_access.enforcement_enabled()
         and feature_access.is_app_only_path(request.url.path)
-        and feature_access.client_platform(request.headers) != "app"
     ):
-        return JSONResponse(
-            status_code=403,
-            content={"detail": {"error": {
-                "code": "APP_REQUIRED",
-                "message": "This feature is available in the Agro AI mobile app.",
-                "retryable": False,
-            }}},
-        )
+        if feature_access.client_platform(request.headers) != "app":
+            return JSONResponse(
+                status_code=403,
+                content={"detail": {"error": {
+                    "code": "APP_REQUIRED",
+                    "message": "This operational logistics feature is strictly available in the Agro AI mobile app.",
+                    "retryable": False,
+                }}},
+            )
+        is_attested, attest_err = feature_access.verify_app_attestation(request.headers)
+        if not is_attested:
+            return JSONResponse(
+                status_code=403,
+                content={"detail": {"error": {
+                    "code": "APP_ATTESTATION_FAILED",
+                    "message": f"App integrity verification failed: {attest_err}. Verified mobile client binary required.",
+                    "retryable": False,
+                }}},
+            )
     return await call_next(request)
 
 @app.middleware('http')
@@ -413,6 +425,8 @@ async def serve_dynamic_sitemap():
 @app.get("/agrogpt", include_in_schema=False)
 @app.get("/weather", include_in_schema=False)
 @app.get("/mandi", include_in_schema=False)
+@app.get("/schemes", include_in_schema=False)
+@app.get("/my-land", include_in_schema=False)
 @app.get("/plans", include_in_schema=False)
 @app.get("/about", include_in_schema=False)
 @app.get("/contact", include_in_schema=False)

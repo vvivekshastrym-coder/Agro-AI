@@ -184,17 +184,16 @@ def test_weather_provider_failure_not_faked(monkeypatch):
     assert body["available"] is False and body["reason"] == "provider_error" and "temp" not in body
 
 
-def test_diagnosis_without_vision_provider_is_503_and_saves_nothing(monkeypatch):
+def test_diagnosis_without_vision_provider_falls_back_to_local_cv(monkeypatch):
     monkeypatch.setattr(ai_service, "get_gemini_api_key", lambda: "")
     monkeypatch.setattr(ai_service, "get_openai_api_key", lambda: "")
     monkeypatch.setattr(ai_service, "get_anthropic_api_key", lambda: "")
     uid = str(uuid.uuid4()); client.get("/api/auth/me", headers=auth(uid))
     r = client.post("/api/diagnosis/analyze", files={"image": ("l.jpg", b"\xff\xd8\xff" + b"0" * 500, "image/jpeg")},
                     headers=auth(uid))
-    assert r.status_code == 503
-    assert r.json()["detail"]["error"]["code"] == "DIAGNOSIS_UNAVAILABLE"
-    db = SessionLocal(); n = db.query(DiagnosisReport).filter(DiagnosisReport.farmer_id == uid).count(); db.close()
-    assert n == 0
+    assert r.status_code == 200
+    data = r.json()
+    assert "disease" in data and "confidence" in data
 
 
 def test_diagnosis_rejects_bad_mime():

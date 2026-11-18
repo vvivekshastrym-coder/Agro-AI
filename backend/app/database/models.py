@@ -1260,6 +1260,7 @@ class ParentalConsent(Base):
     status = Column(String(20), default='pending', nullable=False, index=True)  # pending | approved | rejected | withdrawn
     verification_method = Column(String(40), default='parent_otp_challenge', nullable=False)
     verification_code_hash = Column(String(128), nullable=False)
+    failed_attempts = Column(Integer, default=0, nullable=False)
     purpose_summary = Column(Text, nullable=False)
     requested_at = Column(DateTime(timezone=True), server_default=func.now())
     responded_at = Column(DateTime(timezone=True), nullable=True)

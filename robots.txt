@@ -62,3 +62,4 @@ Allow: /
 
 # Canonical XML Sitemap
 Sitemap: https://www.agroai.live/sitemap.xml
+Sitemap: https://agroai.live/sitemap.xml

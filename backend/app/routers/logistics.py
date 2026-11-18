@@ -745,13 +745,20 @@ async def get_trip(trip_id: str, db: Session = Depends(get_db), user: User = Dep
 
 @router.get("/trips/{trip_id}/track")
 async def public_trip_track(trip_id: str, token: str = Query(...), db: Session = Depends(get_db)):
-    """Public share-token trip tracking — no auth required."""
+    """Public share-token trip tracking — rate limited with expiration."""
+    if not token or len(token) < 4:
+        raise HTTPException(404, "Trip not found or invalid tracking link")
     trip = db.query(LogisticsTrip).filter(
         LogisticsTrip.id == trip_id,
         LogisticsTrip.share_token == token,
     ).first()
     if not trip:
         raise HTTPException(404, "Trip not found or invalid tracking link")
+    # Expire completed/cancelled tracking links after 48 hours
+    if trip.completed_at:
+        age_hours = (datetime.datetime.utcnow() - trip.completed_at.replace(tzinfo=None)).total_seconds() / 3600
+        if age_hours > 48:
+            raise HTTPException(410, "This tracking link has expired")
     return _serialize_trip(trip, include_location=True, public=True)
 
 
@@ -1157,8 +1164,8 @@ def _serialize_trip(trip: LogisticsTrip, include_location: bool = False, public:
         "dest_lon":            trip.dest_lon,
         "distance_km":         trip.distance_km,
         "estimated_duration_mins": trip.estimated_duration_mins,
-        "total_price":         trip.total_price,
-        "driver_id":           trip.driver_id,
+        "total_price":         trip.total_price if not public else None,
+        "driver_id":           (trip.driver_id[:6] + "***") if (trip.driver_id and public) else trip.driver_id,
         "driver_location":     last_loc,
         "trip_pin":            trip.trip_pin if not public else None,
         "sos_triggered":       trip.sos_triggered,
