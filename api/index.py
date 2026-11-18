@@ -9,6 +9,17 @@ if ROOT not in sys.path:
 
 try:
     from backend.app.main import app  # noqa: E402,F401
+
+    @app.middleware("http")
+    async def restore_original_vercel_path(request, call_next):
+        raw_path = request.url.path
+        if raw_path in ("/api/index.py", "/api/index", "/api"):
+            for h in ("x-forwarded-uri", "x-original-url", "x-matched-path"):
+                orig = request.headers.get(h)
+                if orig and orig not in ("/api/index.py", "/api/index", "/api"):
+                    request.scope["path"] = orig.split("?")[0]
+                    break
+        return await call_next(request)
 except Exception as _init_err:
     _err_msg = "".join(traceback.format_exception(_init_err))
     print(f"CRITICAL: Failed to import backend.app.main: {_err_msg}", file=sys.stderr)
