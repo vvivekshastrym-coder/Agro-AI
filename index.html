@@ -3,24 +3,30 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-<title>Agro AI — Agro GPT</title>
+<title>Agro AI: AI Crop Doctor, Live Mandi Rates &amp; Farm Weather</title>
 
 <!-- SEO & PWA Meta -->
-<meta name="description" content="Agro AI — The AI operating system for your farm: weather, mandi prices, crop diagnosis and Agro GPT in your language.">
-<link rel="canonical" href="https://agroai.live/">
+<meta name="description" content="Empowering Indian farmers with instant AI crop disease diagnosis, live APMC mandi prices, village weather forecasts, and multilingual farming advisory.">
+<link rel="canonical" href="https://www.agroai.live/">
+<meta name="keywords" content="Agro AI, AI crop doctor, plant disease diagnosis, live mandi prices, APMC market rates, farm weather forecast, PM-KISAN schemes, Indian agriculture">
+<meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="Agro AI">
 <meta property="og:locale" content="en_IN">
-<meta property="og:title" content="Agro AI — Agro GPT & Smart Farming Platform">
-<meta property="og:description" content="Agro AI — The AI operating system for your farm: weather forecasts, APMC mandi prices, crop disease diagnosis and Agro GPT in your language.">
-<meta property="og:url" content="https://agroai.live/">
-<meta property="og:image" content="https://agroai.live/icons/icon-512x512.png">
+<meta property="og:title" content="Agro AI: AI Crop Doctor, Live Mandi Rates &amp; Farm Weather">
+<meta property="og:description" content="Empowering Indian farmers with instant AI crop disease diagnosis, live APMC mandi prices, village weather forecasts, and multilingual farming advisory.">
+<meta property="og:url" content="https://www.agroai.live/">
+<meta property="og:image" content="https://www.agroai.live/icons/icon-512x512.png">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Agro AI: AI Crop Doctor, Live Mandi Rates &amp; Farm Weather">
+<meta name="twitter:description" content="Empowering Indian farmers with instant AI crop disease diagnosis, live APMC mandi prices, village weather forecasts, and multilingual farming advisory.">
+<meta name="twitter:image" content="https://www.agroai.live/icons/icon-512x512.png">
 <script type="application/ld+json">
 {
   "@context": "https://schema.org",
   "@type": "WebApplication",
   "name": "Agro AI",
-  "url": "https://agroai.live/",
+  "url": "https://www.agroai.live/",
   "applicationCategory": "BusinessApplication",
   "operatingSystem": "Web, Android",
   "description": "Agricultural intelligence platform providing weather forecasts, APMC mandi prices, crop diagnosis, and Agro GPT assistance."
@@ -1042,7 +1048,7 @@
           <div><div style="opacity:0.75;">🌅 Sun</div><div style="font-weight:700;" id="weatherSunMetric">—</div></div>
         </div>
         <div style="font-size:10.5px;opacity:0.75;margin-top:8px;display:flex;justify-content:space-between;flex-wrap:wrap;gap:6px;" id="weatherSourceFooter">
-          <span id="weatherProviderName">Source: Open-Meteo / IMD</span>
+          <span id="weatherProviderName">Source: OpenWeatherMap / IMD</span>
           <span id="weatherObservedAt">Updated: Just now</span>
         </div>
       </div>
@@ -3467,14 +3473,27 @@ function setRole(role){
 
 /* ---- AUTHENTICATION: Supabase Auth; the backend verifies the access token on every API call ---- */
 const _origFetch = window.fetch.bind(window);
-const _API_RE = /^(\/api\/|https?:\/\/(localhost|127\.0\.0\.1)(:(8000|8080))?\/api\/)/;
+const _API_RE = /^(\/api\/|https?:\/\/(localhost|127\.0\.0\.1)(:(8000|8080))?\/api\/|https:\/\/(www\.)?agroai\.live\/api\/)/;
 
 function _resolveBackendUrl(url) {
   if (typeof url !== 'string') return url;
   if (url.startsWith('/api/')) {
-    const port = window.location.port;
-    // Only redirect if running on an isolated frontend dev server (e.g. Vite:5173, CRA:3000)
-    if (port === '5173' || port === '3000') {
+    const hostname = (window.location.hostname || '').toLowerCase();
+    const port = window.location.port || '';
+    const protocol = (window.location.protocol || '').toLowerCase();
+
+    // 1. Mobile app (Capacitor / native webview / local file)
+    if (protocol === 'file:' || protocol === 'capacitor:' || protocol === 'ionic:' || window.Capacitor) {
+      return `https://www.agroai.live${url}`;
+    }
+
+    // 2. Firebase Hosting (static host without Python serverless)
+    if (hostname.endsWith('.web.app') || hostname.endsWith('.firebaseapp.com')) {
+      return `https://www.agroai.live${url}`;
+    }
+
+    // 3. Isolated frontend dev servers (Vite:5173, CRA:3000, LiveServer:5500, etc.)
+    if (port === '5173' || port === '3000' || port === '5500' || port === '5000') {
       const host = window.location.hostname || 'localhost';
       const targetPort = localStorage.getItem('AGROAI_BACKEND_PORT') || '8000';
       return `http://${host}:${targetPort}${url}`;
@@ -3534,7 +3553,21 @@ window.fetch = async function(input, init){
       init.headers = h;
     }
   }
-  let res = await _origFetch(resolvedInput, init);
+  let res;
+  try {
+    res = await _origFetch(resolvedInput, init);
+  } catch(fetchErr) {
+    if (typeof resolvedInput === 'string' && (resolvedInput.includes('localhost:8000') || resolvedInput.includes('127.0.0.1:8000'))) {
+      const prodUrl = resolvedInput.replace(/https?:\/\/(localhost|127\.0\.0\.1):8000/, 'https://www.agroai.live');
+      try {
+        res = await _origFetch(prodUrl, init);
+      } catch(secondErr) {
+        throw fetchErr;
+      }
+    } else {
+      throw fetchErr;
+    }
+  }
   // If an API request gets 401, attempt to transparently refresh the backend session token once instead of logging out
   if(isApi && res.status === 401 && !rawUrl.includes('/api/auth/')){
     try {
@@ -5523,6 +5556,11 @@ async function loadRealWeather(forceRefresh = false){
     const res = await fetch(`/api/weather/current?${params.toString()}`);
     if(!res.ok){
       setWeatherUnavailable(isKn ? 'ಹವಾಮಾನ ಸೇವೆ ಲಭ್ಯವಿಲ್ಲ' : (isHi ? 'मौसम सेवा अनुपलब्ध है' : 'Weather service unavailable'));
+      return;
+    }
+    const cType = res.headers.get('content-type') || '';
+    if(!cType.includes('application/json')){
+      setWeatherUnavailable(isKn ? 'ಹವಾಮಾನ ಸೇವೆ ಲಭ್ಯವಿಲ್ಲ' : 'Weather service unavailable');
       return;
     }
     const data = await res.json();

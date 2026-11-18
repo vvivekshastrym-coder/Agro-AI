@@ -6,56 +6,63 @@ import os
 import re
 from typing import Dict, List, Optional
 
-BASE_URL = "https://agroai.live"
+BASE_URL = "https://www.agroai.live"
 OG_IMAGE = f"{BASE_URL}/icons/icon-512x512.png"
 
 APP_SEO_ROUTES: Dict[str, dict] = {
     "/diagnose": {
         "name": "Crop Disease Diagnosis",
-        "title": "Crop Disease Diagnosis — Agro AI",
-        "description": "Analyze crop leaf photos and learn about common plant diseases, scouting practices, and pathology guidance on Agro AI.",
+        "title": "AI Crop Doctor: Instant Plant Disease Diagnosis | Agro AI",
+        "description": "Upload a leaf photo for instant crop disease detection, treatment remedies, and chemical spray dosage verified by ICAR agricultural guidelines.",
         "changefreq": "weekly",
         "priority": "0.9",
     },
     "/agrogpt": {
         "name": "Agro GPT",
-        "title": "Agro GPT Multilingual Assistant — Agro AI",
-        "description": "Ask practical farming questions in your language with Agro GPT text assistance on Agro AI.",
+        "title": "AgroGPT: 24/7 AI Agronomist & Farming Assistant | Agro AI",
+        "description": "Chat with your personal AI agronomist in your local language. Get instant expert advice on fertilizer schedules, pest control, and soil health.",
         "changefreq": "weekly",
         "priority": "0.9",
     },
     "/weather": {
         "name": "Weather Intelligence",
-        "title": "Farm Weather Intelligence — Agro AI",
-        "description": "Check live local weather forecasts, rainfall outlook, and spray-window advisories for your farm.",
+        "title": "Farm Weather Forecast & 7-Day Spray Window | Agro AI",
+        "description": "Hyperlocal 7-day farm weather forecasts, live rainfall probability, and optimal pesticide spray advisory tailored to your village GPS coordinates.",
         "changefreq": "daily",
         "priority": "0.9",
     },
     "/mandi": {
         "name": "Mandi Market Prices",
-        "title": "Mandi Market Prices — Agro AI",
-        "description": "Explore APMC mandi market prices, crop arrivals, and daily price trends across Indian agricultural markets.",
+        "title": "Live Mandi Prices & APMC Daily Market Rates | Agro AI",
+        "description": "Track real-time APMC mandi prices across Karnataka & India. Compare wholesale modal, min, and max commodity rates directly from AGMARKNET.",
+        "changefreq": "daily",
+        "priority": "0.9",
+    },
+    "/schemes": {
+        "name": "Government Schemes & Land",
+        "title": "Government Agriculture Schemes & PM-KISAN Portal | Agro AI",
+        "description": "Explore Central & State farmer schemes, PM-KISAN status, KCC loans, FRUITS ID subsidies, and crop insurance eligibility with instant application links.",
         "changefreq": "daily",
         "priority": "0.9",
     },
     "/plans": {
         "name": "Plans & Pricing",
-        "title": "Subscription Plans & Pricing — Agro AI",
-        "description": "View Agro AI free and paid membership plans with transparent billing terms, GST disclosure, and easy cancellation.",
+        "title": "Agro AI Pricing: Free & Pro Plans for Farmers | Agro AI",
+        "description": "Affordable AI farming plans for smallholders and commercial growers. Access unlimited crop diagnoses, live mandi alerts, and agronomist support.",
         "changefreq": "weekly",
         "priority": "0.8",
     },
     "/about": {
         "name": "About Agro AI",
-        "title": "About Agro AI — Smart Farming Platform",
-        "description": "Learn how Agro AI supports farmers with weather intelligence, mandi market prices, crop diagnosis, and multilingual advisory tools.",
+        "title": "About Agro AI: Building Bharat's Smart Farming OS",
+        "description": "Learn how Agro AI empowers Indian farmers with AI crop diagnostics, AGMARKNET market intelligence, and multilingual agronomy support.",
         "changefreq": "monthly",
         "priority": "0.7",
     },
     "/contact": {
         "name": "Contact & Support",
-        "title": "Contact & Farmer Support — Agro AI",
-        "description": "Contact Agro AI support and our Grievance Officer for help with accounts, billing, privacy, or parental consent.",
+        "title": "Contact Agro AI: Farmer Support & Agronomy Helpdesk",
+        "description": "Get in touch with Agro AI agricultural experts and technical support. Reach us via WhatsApp, phone, or email for quick farming assistance.",
         "changefreq": "monthly",
         "priority": "0.6",
     },
@@ -64,8 +71,8 @@ APP_SEO_ROUTES: Dict[str, dict] = {
 GUIDE_ARTICLES: Dict[str, dict] = {
     "/guides/crop-diseases": {
         "name": "Crop Disease Guides",
-        "title": "Crop Disease & Leaf Scouting Guide — Agro AI",
-        "description": "Practical guide to spotting early leaf spots, blights, rusts, and nutrient deficiencies in Indian crops.",
+        "title": "Crop Disease & Leaf Scouting Field Guide | Agro AI",
+        "description": "Learn how to identify early leaf spots, powdery mildew, rusts, and nutrient deficiencies with preventative organic and chemical field remedies.",
         "published": "2026-11-17T00:00:00Z",
         "cta_path": "/diagnose",
         "cta_label": "Open Crop Diagnosis Tool",
@@ -77,8 +84,8 @@ GUIDE_ARTICLES: Dict[str, dict] = {
     },
     "/guides/crop-cultivation": {
         "name": "Crop Cultivation Guides",
-        "title": "Seasonal Crop Cultivation Guide — Agro AI",
-        "description": "Core sowing, spacing, irrigation scheduling, and weed-management principles for Kharif and Rabi crops.",
+        "title": "Seasonal Crop Cultivation & Sowing Guide | Agro AI",
+        "description": "Essential guide to Kharif and Rabi crop sowing, certified seed selection, spacing, drip irrigation cycles, and weed control for maximum yield.",
         "published": "2026-11-17T00:00:00Z",
         "cta_path": "/agrogpt",
         "cta_label": "Ask Agro GPT About Your Crop",
@@ -90,8 +97,8 @@ GUIDE_ARTICLES: Dict[str, dict] = {
     },
     "/guides/weather-advisories": {
         "name": "Weather Advisory Articles",
-        "title": "Farm Weather Advisory Guide — Agro AI",
-        "description": "How to use local temperature, humidity, wind speed, and rain forecasts to plan spraying and harvesting.",
+        "title": "Farm Weather & Pesticide Spray Window Guide | Agro AI",
+        "description": "Master microclimate weather management: identify safe spray windows, humidity disease triggers, and rain forecast tracking for harvesting.",
         "published": "2026-11-17T00:00:00Z",
         "cta_path": "/weather",
         "cta_label": "Check Live Farm Weather",
@@ -103,8 +110,8 @@ GUIDE_ARTICLES: Dict[str, dict] = {
     },
     "/guides/mandi-markets": {
         "name": "Mandi Market Guides",
-        "title": "APMC Mandi Market Price Guide — Agro AI",
-        "description": "Understanding minimum, maximum, and modal mandi prices to plan harvest timing and transport.",
+        "title": "APMC Mandi Market Prices & Trading Guide | Agro AI",
+        "description": "Understand minimum, maximum, and modal wholesale rates, crop grading standards, and market logistics to maximize your mandi profit.",
         "published": "2026-11-17T00:00:00Z",
         "cta_path": "/mandi",
         "cta_label": "View Mandi Prices",
@@ -116,8 +123,8 @@ GUIDE_ARTICLES: Dict[str, dict] = {
     },
     "/guides/soil-and-fertilizers": {
         "name": "Fertilizer & Soil Information",
-        "title": "Soil Health & Balanced Fertilizer Guide — Agro AI",
-        "description": "Using soil testing, organic matter, and split nutrient application to support crop yield and soil fertility.",
+        "title": "Soil Health Testing & Balanced Fertilizer Guide | Agro AI",
+        "description": "Comprehensive guide to soil health cards, NPK ratio balance, micronutrient deficiency fixes, and organic composting techniques.",
         "published": "2026-11-17T00:00:00Z",
         "cta_path": "/agrogpt",
         "cta_label": "Get Soil Guidance in Agro GPT",
@@ -129,8 +136,8 @@ GUIDE_ARTICLES: Dict[str, dict] = {
     },
     "/guides/farmer-resources": {
         "name": "Farmer Education Resources",
-        "title": "Farmer Education & Digital Safety Resources — Agro AI",
-        "description": "Guides on using digital farm tools safely, understanding subscription terms, and protecting farm data.",
+        "title": "Digital Farming Safety & Farmer Education Hub | Agro AI",
+        "description": "Best practices for using digital agritech apps, data privacy protections, KVK extension services, and government grievance helplines.",
         "published": "2026-11-17T00:00:00Z",
         "cta_path": "/about",
         "cta_label": "Learn About Agro AI",
@@ -138,6 +145,20 @@ GUIDE_ARTICLES: Dict[str, dict] = {
             ("Using Digital Advisories Responsibly", "Combine digital diagnosis and weather insights with local Krishi Vigyan Kendra (KVK) or agronomist guidance for major crop interventions."),
             ("Understanding Your Data & Privacy", "Agro AI minimizes personal data collection, disables session replay, and gives farmers direct control over consent and account deletion."),
             ("Transparent Membership & Billing", "Review plan quotas, GST disclosure, and one-click cancellation terms anytime in the Plans section."),
+        ],
+    },
+    "/guides/government-schemes": {
+        "name": "Government Scheme Application Guide",
+        "title": "Guide to PM-KISAN, FRUITS & Krishi Subsidies | Agro AI",
+        "description": "Step-by-step instructions on applying for PM-KISAN installments, Karnataka FRUITS registration, KCC low-interest loans, and PMFBY insurance.",
+        "published": "2026-11-18T00:00:00Z",
+        "cta_path": "/schemes",
+        "cta_label": "Explore Government Schemes",
+        "sections": [
+            ("FRUITS Farmer Registration (Karnataka)", "FRUITS provides a unique Farmer ID linked to Bhoomi RTC land survey records, enabling direct subsidy transfers without paperwork."),
+            ("PM-KISAN e-KYC & Land Seeding", "Ensure your Aadhaar is linked to your active bank account (NPCI DBT enabled) and land records are seeded to receive the ₹6,000 annual benefit."),
+            ("Kisan Credit Card (KCC) Subsidized Loans", "KCC offers crop loans at an effective 4% interest rate with prompt repayment. Apply through your local cooperative or nationalized bank branch."),
+            ("Pradhan Mantri Fasal Bima Yojana (PMFBY)", "Insure non-preventable natural risk (drought, flood, unseasonal pest attack) before the cut-off date with subsidized 1.5% to 2% farmer premiums."),
         ],
     },
 }
@@ -371,30 +392,33 @@ def build_sitemap_xml(project_root: str) -> str:
 
 
 def write_dist_seo_pages(project_root: str, dist_dir: str) -> None:
-    """Materializes static SEO routes & sitemap into dist/ (for Firebase Hosting) and root sitemap.xml."""
-    for path in APP_SEO_ROUTES:
-        content = render_spa_seo_html(path, project_root)
-        if content:
-            out_file = os.path.join(dist_dir, path.lstrip("/") + ".html")
-            open(out_file, "w", encoding="utf-8").write(content)
+    """Materializes static SEO routes & sitemap into dist/ and project_root."""
+    targets = [dist_dir, project_root] if os.path.isdir(dist_dir) else [project_root]
 
-    guides_dir = os.path.join(dist_dir, "guides")
-    os.makedirs(guides_dir, exist_ok=True)
-    open(os.path.join(dist_dir, "guides.html"), "w", encoding="utf-8").write(render_guides_index_html())
-    for path in GUIDE_ARTICLES:
-        slug = path.split("/")[-1]
-        content = render_guide_article_html(path)
-        if content:
-            open(os.path.join(guides_dir, f"{slug}.html"), "w", encoding="utf-8").write(content)
-
+    guides_html = render_guides_index_html()
     sm = build_sitemap_xml(project_root)
-    open(os.path.join(project_root, "sitemap.xml"), "w", encoding="utf-8").write(sm)
-    open(os.path.join(dist_dir, "sitemap.xml"), "w", encoding="utf-8").write(sm)
+
+    for target in targets:
+        for path in APP_SEO_ROUTES:
+            content = render_spa_seo_html(path, project_root)
+            if content:
+                out_file = os.path.join(target, path.lstrip("/") + ".html")
+                open(out_file, "w", encoding="utf-8").write(content)
+
+        guides_dir = os.path.join(target, "guides")
+        os.makedirs(guides_dir, exist_ok=True)
+        open(os.path.join(target, "guides.html"), "w", encoding="utf-8").write(guides_html)
+        for path in GUIDE_ARTICLES:
+            slug = path.split("/")[-1]
+            content = render_guide_article_html(path)
+            if content:
+                open(os.path.join(guides_dir, f"{slug}.html"), "w", encoding="utf-8").write(content)
+
+        open(os.path.join(target, "sitemap.xml"), "w", encoding="utf-8").write(sm)
 
 
 if __name__ == "__main__":
     root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
     dist = os.path.join(root, "dist")
-    if os.path.isdir(dist):
-        write_dist_seo_pages(root, dist)
-        print("Generated SEO pages and sitemap.xml in dist/")
+    write_dist_seo_pages(root, dist)
+    print("Generated SEO pages and sitemap.xml in root and dist/")

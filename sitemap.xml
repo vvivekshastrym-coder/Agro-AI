@@ -1,109 +1,121 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url>
-    <loc>https://agroai.live/</loc>
-    <lastmod>2026-11-17T17:24:56Z</lastmod>
+    <loc>https://www.agroai.live/</loc>
+    <lastmod>2026-11-18T01:39:23Z</lastmod>
     <changefreq>daily</changefreq>
     <priority>1.0</priority>
   </url>
   <url>
-    <loc>https://agroai.live/diagnose</loc>
-    <lastmod>2026-11-17T17:24:56Z</lastmod>
+    <loc>https://www.agroai.live/diagnose</loc>
+    <lastmod>2026-11-18T01:39:23Z</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.9</priority>
   </url>
   <url>
-    <loc>https://agroai.live/agrogpt</loc>
-    <lastmod>2026-11-17T17:24:56Z</lastmod>
+    <loc>https://www.agroai.live/agrogpt</loc>
+    <lastmod>2026-11-18T01:39:23Z</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.9</priority>
   </url>
   <url>
-    <loc>https://agroai.live/weather</loc>
-    <lastmod>2026-11-17T17:24:56Z</lastmod>
+    <loc>https://www.agroai.live/weather</loc>
+    <lastmod>2026-11-18T01:39:23Z</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.9</priority>
   </url>
   <url>
-    <loc>https://agroai.live/mandi</loc>
-    <lastmod>2026-11-17T17:24:56Z</lastmod>
+    <loc>https://www.agroai.live/mandi</loc>
+    <lastmod>2026-11-18T01:39:23Z</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.9</priority>
   </url>
   <url>
-    <loc>https://agroai.live/plans</loc>
-    <lastmod>2026-11-17T17:24:56Z</lastmod>
+    <loc>https://www.agroai.live/schemes</loc>
+    <lastmod>2026-11-18T01:39:23Z</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>0.9</priority>
+  </url>
+  <url>
+    <loc>https://www.agroai.live/plans</loc>
+    <lastmod>2026-11-18T01:39:23Z</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://agroai.live/about</loc>
-    <lastmod>2026-11-17T17:24:56Z</lastmod>
+    <loc>https://www.agroai.live/about</loc>
+    <lastmod>2026-11-18T01:39:23Z</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
-    <loc>https://agroai.live/contact</loc>
-    <lastmod>2026-11-17T17:24:56Z</lastmod>
+    <loc>https://www.agroai.live/contact</loc>
+    <lastmod>2026-11-18T01:39:23Z</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.6</priority>
   </url>
   <url>
-    <loc>https://agroai.live/guides</loc>
-    <lastmod>2026-11-17T15:56:47Z</lastmod>
+    <loc>https://www.agroai.live/guides</loc>
+    <lastmod>2026-11-18T01:39:02Z</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://agroai.live/guides/crop-diseases</loc>
+    <loc>https://www.agroai.live/guides/crop-diseases</loc>
     <lastmod>2026-11-17T00:00:00Z</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
-    <loc>https://agroai.live/guides/crop-cultivation</loc>
+    <loc>https://www.agroai.live/guides/crop-cultivation</loc>
     <lastmod>2026-11-17T00:00:00Z</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
-    <loc>https://agroai.live/guides/weather-advisories</loc>
+    <loc>https://www.agroai.live/guides/weather-advisories</loc>
     <lastmod>2026-11-17T00:00:00Z</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
-    <loc>https://agroai.live/guides/mandi-markets</loc>
+    <loc>https://www.agroai.live/guides/mandi-markets</loc>
     <lastmod>2026-11-17T00:00:00Z</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
-    <loc>https://agroai.live/guides/soil-and-fertilizers</loc>
+    <loc>https://www.agroai.live/guides/soil-and-fertilizers</loc>
     <lastmod>2026-11-17T00:00:00Z</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
-    <loc>https://agroai.live/guides/farmer-resources</loc>
+    <loc>https://www.agroai.live/guides/farmer-resources</loc>
     <lastmod>2026-11-17T00:00:00Z</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
-    <loc>https://agroai.live/privacy</loc>
+    <loc>https://www.agroai.live/guides/government-schemes</loc>
+    <lastmod>2026-11-18T00:00:00Z</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://www.agroai.live/privacy</loc>
     <lastmod>2026-11-17T15:56:47Z</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
-    <loc>https://agroai.live/terms</loc>
+    <loc>https://www.agroai.live/terms</loc>
     <lastmod>2026-11-17T15:56:47Z</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
-    <loc>https://agroai.live/cookies</loc>
+    <loc>https://www.agroai.live/cookies</loc>
     <lastmod>2026-11-17T15:56:47Z</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.4</priority>
