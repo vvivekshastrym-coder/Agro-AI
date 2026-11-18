@@ -91,15 +91,14 @@ else:
             engine = _pg_engine
         except Exception as _pg_err:
             import logging as _logging
-            if _is_prod:
-                _logging.getLogger(__name__).critical("Vercel Postgres unreachable (%s) in PRODUCTION. Ephemeral fallback disabled for zero-trust data protection.", type(_pg_err).__name__)
-                # In production, do not mask database pooler drops by downgrading to ephemeral SQLite.
-                # Retain the postgres engine so subsequent connections retry cleanly or raise 503.
-                engine = _pg_engine
-            else:
-                _logging.getLogger(__name__).warning("Vercel Postgres unreachable (%s); using ephemeral /tmp/kisanai.db for non-prod environment", type(_pg_err).__name__)
+            allow_fallback = os.getenv("ALLOW_EPHEMERAL_DB_FALLBACK", "1").strip().lower() in ("1", "true", "yes")
+            if allow_fallback or not _is_prod:
+                _logging.getLogger(__name__).warning("Vercel Postgres unreachable (%s); using resilient /tmp/kisanai.db so services remain available while Supabase is paused. Set ALLOW_EPHEMERAL_DB_FALLBACK=0 to enforce strict database rejection.", type(_pg_err).__name__)
                 DATABASE_URL = "sqlite:////tmp/kisanai.db"
                 engine = create_engine(DATABASE_URL, connect_args={'check_same_thread': False, 'timeout': 15})
+            else:
+                _logging.getLogger(__name__).critical("Vercel Postgres unreachable (%s) in PRODUCTION. Ephemeral fallback disabled by ALLOW_EPHEMERAL_DB_FALLBACK=0.", type(_pg_err).__name__)
+                engine = _pg_engine
     else:
         engine = create_engine(
             DATABASE_URL,

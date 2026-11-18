@@ -56,6 +56,19 @@ app = FastAPI(
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
+from sqlalchemy.exc import SQLAlchemyError
+@app.exception_handler(SQLAlchemyError)
+async def handle_sqlalchemy_error(request: Request, exc: SQLAlchemyError):
+    logger.error("Database connection/query error: %s", exc)
+    return JSONResponse(
+        status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+        content={"detail": {"error": {
+            "code": "DATABASE_UNAVAILABLE",
+            "message": "The database is currently unreachable or sleeping in Supabase. Please verify Supabase project status or retry shortly.",
+            "retryable": True
+        }}}
+    )
+
 # ─── Middleware ───────────────────────────────────────────────
 _default_origins = (
     "https://agroai.live,https://www.agroai.live,"
