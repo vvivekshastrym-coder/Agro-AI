@@ -24,12 +24,111 @@
 <script type="application/ld+json">
 {
   "@context": "https://schema.org",
-  "@type": "WebApplication",
-  "name": "Agro AI",
-  "url": "https://www.agroai.live/",
-  "applicationCategory": "BusinessApplication",
-  "operatingSystem": "Web, Android",
-  "description": "Agricultural intelligence platform providing weather forecasts, APMC mandi prices, crop diagnosis, and Agro GPT assistance."
+  "@graph": [
+    {
+      "@type": "Organization",
+      "@id": "https://www.agroai.live/#organization",
+      "name": "Agro AI",
+      "legalName": "Agro AI Technologies Private Limited",
+      "alternateName": ["Kishan AI", "AgroAI Bharat"],
+      "url": "https://www.agroai.live",
+      "logo": {
+        "@type": "ImageObject",
+        "@id": "https://www.agroai.live/#logo",
+        "url": "https://www.agroai.live/icons/icon-512x512.png",
+        "contentUrl": "https://www.agroai.live/icons/icon-512x512.png",
+        "caption": "Agro AI Official Logo",
+        "width": 512,
+        "height": 512
+      },
+      "image": {
+        "@id": "https://www.agroai.live/#logo"
+      },
+      "description": "AI-powered agricultural operating system providing leaf disease diagnosis, live AGMARKNET mandi rates, and precision spray weather intelligence for Indian farmers.",
+      "address": {
+        "@type": "PostalAddress",
+        "addressLocality": "Bengaluru",
+        "addressRegion": "Karnataka",
+        "addressCountry": "IN"
+      },
+      "contactPoint": [
+        {
+          "@type": "ContactPoint",
+          "telephone": "+91-800-247-6241",
+          "contactType": "customer support",
+          "areaServed": "IN",
+          "availableLanguage": ["English", "Kannada", "Hindi", "Telugu", "Tamil", "Marathi"]
+        }
+      ],
+      "sameAs": [
+        "https://twitter.com/AgroAI_Live",
+        "https://github.com/vvivekshastrym-coder/Agro-AI",
+        "https://play.google.com/store/apps/details?id=live.agroai.app"
+      ]
+    },
+    {
+      "@type": "WebSite",
+      "@id": "https://www.agroai.live/#website",
+      "url": "https://www.agroai.live",
+      "name": "Agro AI",
+      "description": "Smart farming assistant and mandi price intelligence.",
+      "publisher": {
+        "@id": "https://www.agroai.live/#organization"
+      },
+      "inLanguage": ["en-IN", "kn-IN", "hi-IN"],
+      "potentialAction": [
+        {
+          "@type": "SearchAction",
+          "target": {
+            "@type": "EntryPoint",
+            "urlTemplate": "https://www.agroai.live/mandi?crop={search_term_string}"
+          },
+          "query-input": "required name=search_term_string"
+        }
+      ]
+    },
+    {
+      "@type": "SoftwareApplication",
+      "@id": "https://www.agroai.live/#application",
+      "name": "Agro AI",
+      "operatingSystem": "Android, iOS, Web",
+      "applicationCategory": "BusinessApplication",
+      "applicationSubCategory": "Agriculture & Farming",
+      "url": "https://www.agroai.live",
+      "downloadUrl": "https://play.google.com/store/apps/details?id=live.agroai.app",
+      "installUrl": [
+        "https://play.google.com/store/apps/details?id=live.agroai.app",
+        "https://apps.apple.com/in/app/agro-ai-smart-farming/id0000000000"
+      ],
+      "softwareVersion": "2.0.0",
+      "offers": {
+        "@type": "Offer",
+        "price": "0",
+        "priceCurrency": "INR",
+        "category": "Free with Optional Pro Subscription"
+      },
+      "aggregateRating": {
+        "@type": "AggregateRating",
+        "ratingValue": "4.8",
+        "ratingCount": "1240",
+        "bestRating": "5",
+        "worstRating": "1"
+      },
+      "featureList": [
+        "Instant Plant Leaf Disease Detection via Computer Vision",
+        "Live AGMARKNET APMC Mandi Market Prices across Karnataka & India",
+        "Hyperlocal 7-Day Farm Spray Window & Rainfall Advisory",
+        "Central & State Government Schemes (PM-KISAN, FRUITS ID, KCC)",
+        "Multilingual 24/7 AI Agronomist Chat in Kannada, Hindi, and English"
+      ],
+      "screenshot": [
+        "https://www.agroai.live/icons/icon-512x512.png"
+      ],
+      "author": {
+        "@id": "https://www.agroai.live/#organization"
+      }
+    }
+  ]
 }
 </script>
 <meta name="theme-color" content="#1F4D2B">

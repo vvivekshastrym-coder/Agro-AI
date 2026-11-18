@@ -88,6 +88,16 @@ async def analyze_diagnosis(
             detail={"error": {"code": "IMAGE_TOO_LARGE", "message": "Image size exceeds 10MB limit.", "retryable": True}}
         )
 
+    # Validate Magic Bytes (defense-in-depth against MIME spoofing)
+    is_jpeg = contents.startswith(b"\xff\xd8\xff")
+    is_png = contents.startswith(b"\x89PNG\r\n\x1a\n")
+    is_webp = contents.startswith(b"RIFF") and b"WEBP" in contents[:16]
+    if not (is_jpeg or is_png or is_webp):
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail={"error": {"code": "INVALID_IMAGE_PAYLOAD", "message": "File signature is not a recognized image format (JPG, PNG, WebP).", "retryable": True}}
+        )
+
     # 3. Call Vision AI Model Service on Backend
     try:
         res = await analyze_leaf_image(

@@ -40,13 +40,16 @@ else:
 # ─── Rate Limiter ─────────────────────────────────────────────
 limiter = Limiter(key_func=get_remote_address)
 
+_is_prod = _deployment_environment in {"production", "prod"} or bool(os.getenv("VERCEL"))
+
 # ─── App ──────────────────────────────────────────────────────
 app = FastAPI(
     title='Agro AI Unified Backend API',
     description='Single Source of Truth for Leaf Diagnosis, Agro GPT, Logistics, and Inputs',
     version='2.0.0',
-    docs_url='/api/docs',
-    redoc_url='/api/redoc'
+    docs_url=None if _is_prod else '/api/docs',
+    redoc_url=None if _is_prod else '/api/redoc',
+    openapi_url=None if _is_prod else '/api/openapi.json',
 )
 
 app.state.limiter = limiter

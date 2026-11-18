@@ -1356,3 +1356,18 @@ class SchemeApplication(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
 
+
+class PhoneOtpRecord(Base):
+    """Database-backed OTP persistence across serverless and distributed instances."""
+    __tablename__ = 'phone_otp_records'
+
+    phone = Column(String(20), primary_key=True)
+    otp_hash = Column(String(128), nullable=False)
+    expires_at = Column(Float, nullable=False, index=True)
+    last_sent_at = Column(Float, nullable=False)
+    send_count = Column(Integer, default=1, nullable=False)
+    window_start = Column(Float, nullable=False)
+    attempts = Column(Integer, default=0, nullable=False)
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+

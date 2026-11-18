@@ -8,7 +8,7 @@ from pydantic import BaseModel, Field
 from typing import Optional
 
 from ..database.connection import get_db
-from ..database.models import User, UserRole
+from ..database.models import User, UserRole, PhoneOtpRecord
 from ..auth.deps import get_current_user, GUEST_SESSION_SECRET
 
 router = APIRouter()
@@ -143,10 +143,10 @@ class GoogleSessionExchangeRequest(BaseModel):
 
 
 @router.post("/phone-otp/send")
-async def send_phone_otp(body: PhoneOtpSendRequest):
+async def send_phone_otp(body: PhoneOtpSendRequest, db: Session = Depends(get_db)):
     """
     Generates a cryptographically secure 6-digit OTP and dispatches it via real SMS.
-    Enforces cooldown and window limits. Never returns or logs the OTP itself.
+    Enforces cooldown and window limits across distributed instances.
     """
     digits = normalize_indian_phone(body.phone)
     if len(digits) != 10:
@@ -156,25 +156,35 @@ async def send_phone_otp(body: PhoneOtpSendRequest):
         )
 
     now = time.time()
-    record = _OTP_STORE.get(digits)
+    db_rec = None
+    try:
+        db_rec = db.query(PhoneOtpRecord).filter(PhoneOtpRecord.phone == digits).first()
+    except Exception:
+        pass
+    mem_rec = _OTP_STORE.get(digits)
+
+    last_sent = db_rec.last_sent_at if db_rec else (mem_rec.get("last_sent_at", 0) if mem_rec else 0)
+    window_start = db_rec.window_start if db_rec else (mem_rec.get("window_start", now) if mem_rec else now)
+    send_count = db_rec.send_count if db_rec else (mem_rec.get("send_count", 0) if mem_rec else 0)
 
     # 1. Cooldown enforcement: must wait 60s between OTP requests
-    if record:
-        time_since_last = now - record.get("last_sent_at", 0)
-        if time_since_last < 60:
-            remaining = int(60 - time_since_last)
+    if last_sent and (now - last_sent < 60):
+        remaining = int(60 - (now - last_sent))
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail={"error": {"code": "RATE_LIMITED", "message": f"Please wait {remaining} seconds before requesting a new OTP."}}
+        )
+
+    # 2. Window rate limit: max 3 requests per 10-minute window
+    if (now - window_start) < 600:
+        if send_count >= 3:
             raise HTTPException(
                 status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-                detail={"error": {"code": "RATE_LIMITED", "message": f"Please wait {remaining} seconds before requesting a new OTP."}}
+                detail={"error": {"code": "MAX_RESEND_EXCEEDED", "message": "Too many OTP requests. Please wait 10 minutes before requesting again."}}
             )
-
-        # 2. Window rate limit: max 3 requests per 10-minute window
-        if (now - record.get("window_start", 0)) < 600:
-            if record.get("send_count", 0) >= 3:
-                raise HTTPException(
-                    status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-                    detail={"error": {"code": "MAX_RESEND_EXCEEDED", "message": "Too many OTP requests. Please wait 10 minutes before requesting again."}}
-                )
+    else:
+        window_start = now
+        send_count = 0
 
     # 3. Generate unpredictable 6-digit OTP
     code = generate_otp()
@@ -197,18 +207,44 @@ async def send_phone_otp(body: PhoneOtpSendRequest):
             }
         )
 
-    # 5. Store hashed OTP only after confirmed acceptance by the SMS provider
-    window_start = record.get("window_start", now) if record and (now - record.get("window_start", 0) < 600) else now
-    send_count = (record.get("send_count", 0) + 1) if record and (now - record.get("window_start", 0) < 600) else 1
+    # 5. Persist hashed OTP to database (and memory mirror)
+    new_hash = _hash_otp(digits, code)
+    new_send_count = send_count + 1
 
     _OTP_STORE[digits] = {
-        "otp_hash": _hash_otp(digits, code),
-        "expires_at": now + 300,  # 5 minutes validity
+        "otp_hash": new_hash,
+        "expires_at": now + 300,
         "last_sent_at": now,
         "window_start": window_start,
-        "send_count": send_count,
+        "send_count": new_send_count,
         "attempts": 0,
     }
+
+    try:
+        if not db_rec:
+            db_rec = PhoneOtpRecord(
+                phone=digits,
+                otp_hash=new_hash,
+                expires_at=now + 300,
+                last_sent_at=now,
+                window_start=window_start,
+                send_count=new_send_count,
+                attempts=0
+            )
+            db.add(db_rec)
+        else:
+            db_rec.otp_hash = new_hash
+            db_rec.expires_at = now + 300
+            db_rec.last_sent_at = now
+            db_rec.window_start = window_start
+            db_rec.send_count = new_send_count
+            db_rec.attempts = 0
+        db.commit()
+    except Exception as dbe:
+        try:
+            db.rollback()
+        except Exception:
+            pass
 
     masked = f"+91 ******{digits[-4:]}"
     return {
@@ -243,15 +279,31 @@ async def verify_phone_otp(body: PhoneOtpVerifyRequest, db: Session = Depends(ge
             detail={"error": {"code": "INVALID_CODE_FORMAT", "message": "Please enter a valid 6-digit verification code."}}
         )
 
-    record = _OTP_STORE.get(digits)
-    if not record:
+    db_rec = None
+    try:
+        db_rec = db.query(PhoneOtpRecord).filter(PhoneOtpRecord.phone == digits).first()
+    except Exception:
+        pass
+    mem_rec = _OTP_STORE.get(digits)
+
+    if not db_rec and not mem_rec:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail={"error": {"code": "NO_OTP_FOUND", "message": "No active verification code found. Please request a new OTP."}}
         )
 
+    expected_hash = db_rec.otp_hash if db_rec else mem_rec.get("otp_hash", "")
+    expires_at = db_rec.expires_at if db_rec else mem_rec.get("expires_at", 0)
+    attempts = db_rec.attempts if db_rec else mem_rec.get("attempts", 0)
+
     # Check 5-minute expiration
-    if time.time() > record.get("expires_at", 0):
+    if time.time() > expires_at:
+        if db_rec:
+            try:
+                db.delete(db_rec)
+                db.commit()
+            except Exception:
+                db.rollback()
         _OTP_STORE.pop(digits, None)
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -259,8 +311,23 @@ async def verify_phone_otp(body: PhoneOtpVerifyRequest, db: Session = Depends(ge
         )
 
     # Increment verification attempt counter
-    record["attempts"] = record.get("attempts", 0) + 1
-    if record["attempts"] > 3:
+    attempts += 1
+    if db_rec:
+        try:
+            db_rec.attempts = attempts
+            db.commit()
+        except Exception:
+            db.rollback()
+    if mem_rec:
+        mem_rec["attempts"] = attempts
+
+    if attempts > 3:
+        if db_rec:
+            try:
+                db.delete(db_rec)
+                db.commit()
+            except Exception:
+                db.rollback()
         _OTP_STORE.pop(digits, None)
         raise HTTPException(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,
@@ -268,17 +335,21 @@ async def verify_phone_otp(body: PhoneOtpVerifyRequest, db: Session = Depends(ge
         )
 
     # Constant-time comparison of HMAC-SHA256 hashes
-    expected_hash = record.get("otp_hash", "")
     submitted_hash = _hash_otp(digits, code_clean)
-
     if not hmac.compare_digest(expected_hash, submitted_hash):
-        remaining = max(0, 3 - record["attempts"])
+        remaining = max(0, 3 - attempts)
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail={"error": {"code": "INVALID_OTP", "message": f"Incorrect verification code. {remaining} attempt(s) remaining."}}
         )
 
-    # Single-use: immediately delete from store upon successful verification
+    # Single-use: immediately delete from database and memory store upon successful verification
+    if db_rec:
+        try:
+            db.delete(db_rec)
+            db.commit()
+        except Exception:
+            db.rollback()
     _OTP_STORE.pop(digits, None)
 
     user = db.query(User).filter(User.phone == digits, User.id != "farmer_guest").first()
