@@ -28,7 +28,7 @@ _deployment_environment = (
     os.getenv("VERCEL_ENV") or os.getenv("ENVIRONMENT") or os.getenv("APP_ENV") or os.getenv("NODE_ENV") or ""
 ).strip().lower()
 _is_production_env = _deployment_environment in {"production", "prod"}
-if not _is_production_env and (not os.getenv("VERCEL") or _ACTIVE_DB_URL.startswith("sqlite")):
+if _ACTIVE_DB_URL.startswith("sqlite") or (not _is_production_env and not os.getenv("VERCEL")):
     try:
         Base.metadata.create_all(bind=engine)
         from .database.schema_sync import sync_missing_columns
