@@ -81,7 +81,7 @@ else:
         from sqlalchemy.pool import NullPool
         _pg_engine = create_engine(
             DATABASE_URL,
-            connect_args={**_engine_connect_args, 'connect_timeout': 2} if 'psycopg' in DATABASE_URL else _engine_connect_args,
+            connect_args={**_engine_connect_args, 'connect_timeout': 1},
             poolclass=NullPool,
         )
         try:
