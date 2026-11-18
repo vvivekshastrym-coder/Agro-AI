@@ -25,10 +25,10 @@ def audit_html_assets() -> Tuple[int, List[Tuple[str, str, str]]]:
 
         links = re.findall(r'(?:href|src)=["\']([^"\']+)["\']', content)
         for link in links:
-            if link.startswith(("http://", "https://", "mailto:", "tel:", "javascript:", "#", "data:")):
+            if link.startswith(("http://", "https://", "mailto:", "tel:", "javascript:", "#", "data:", "${")):
                 continue
             clean = link.split("?")[0].split("#")[0].strip()
-            if not clean:
+            if not clean or clean.startswith("${"):
                 continue
             target = os.path.join(ROOT, clean.lstrip("/"))
             checked += 1
