@@ -11,6 +11,8 @@ ENV/
 
 # Databases & local data
 *.db
+*.db-shm
+*.db-wal
 *.sqlite
 *.sqlite3
 *.bak

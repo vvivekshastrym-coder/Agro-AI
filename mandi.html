@@ -68,28 +68,42 @@
 <script src="js/engine/schemes-land.js"></script>
 <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
 <script>
-  // Capacitor Android Native Bridge: route relative /api/* requests to configured backend host
+  // Universal API Router: seamless connectivity for Mobile App (Capacitor), Firebase Hosting, and Web
   (function () {
+    const hostname = window.location.hostname || '';
+    const protocol = window.location.protocol || '';
     const isCap = Boolean(
       (window.Capacitor && typeof window.Capacitor.isNativePlatform === 'function' && window.Capacitor.isNativePlatform()) ||
-      window.location.protocol === 'capacitor:' ||
-      ((window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') && window.location.port === '')
+      protocol === 'capacitor:'
     );
-    if (!isCap) return;
+    const isStaticDeploy = (
+      protocol === 'file:' ||
+      hostname.endsWith('web.app') ||
+      hostname.endsWith('firebaseapp.com') ||
+      ((hostname === 'localhost' || hostname === '127.0.0.1') && (window.location.port === '5500' || window.location.port === '3000' || window.location.port === '5173'))
+    );
+
+    // If running directly on the production Vercel domain, relative /api/* works natively
+    if (!isCap && !isStaticDeploy) return;
+
     const origFetch = window.fetch.bind(window);
     window.fetch = async function (input, init) {
       let url = typeof input === 'string' ? input : (input && input.url ? input.url : '');
       if (typeof url === 'string' && url.startsWith('/api/')) {
         const hdrs = new Headers((init && init.headers) || (input && input.headers) || {});
-        hdrs.set('X-Agro-Client', 'app');
+        if (isCap) {
+          hdrs.set('X-Agro-Client', 'app');
+        }
         init = Object.assign({}, init || {}, { headers: hdrs });
-        const primaryHost = (localStorage.getItem('AGROAI_BACKEND_URL') || 'http://192.168.31.86:8080').replace(/\/+$/, '');
+        const primaryHost = (localStorage.getItem('AGROAI_BACKEND_URL') || 'https://www.agroai.live').replace(/\/+$/, '');
         const fallbackHost = 'http://10.0.2.2:8080';
         try {
           return await origFetch(primaryHost + url, init);
         } catch (err) {
-          if (primaryHost !== fallbackHost) {
-            return await origFetch(fallbackHost + url, init);
+          if (isCap && primaryHost !== fallbackHost) {
+            try {
+              return await origFetch(fallbackHost + url, init);
+            } catch (_) {}
           }
           throw err;
         }

@@ -32,12 +32,12 @@ async def get_diagnosis_engine_status():
     openai_key = get_openai_api_key()
     has_cloud_vision = bool(gemini_key and len(gemini_key) > 10) or bool(openai_key and len(openai_key) > 10)
     provider = "Gemini 2.0 Flash Vision" if (gemini_key and len(gemini_key) > 10) else (
-        "OpenAI GPT-4o-mini Vision" if (openai_key and len(openai_key) > 10) else "None configured (diagnosis unavailable)"
+        "OpenAI GPT-4o-mini Vision" if (openai_key and len(openai_key) > 10) else "Local Pixel CV + ICAR Pathology"
     )
     return {
         "has_cloud_vision": has_cloud_vision,
         "active_engine": provider,
-        "pixel_computer_vision_active": False
+        "pixel_computer_vision_active": True
     }
 
 @router.post("/set-key")
@@ -163,9 +163,16 @@ async def analyze_diagnosis(
         model_version="2.0"
     )
     
-    db.add(report)
-    db.commit()
-    db.refresh(report)
+    try:
+        db.add(report)
+        db.commit()
+        db.refresh(report)
+    except Exception as dbe:
+        logger.warning(f"Database save diagnosis report fallback: {dbe}")
+        try:
+            db.rollback()
+        except Exception:
+            pass
 
     # 5. Return Structured Response Matching Required Schema
     return {

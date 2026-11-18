@@ -12,7 +12,7 @@ import os
 # ─── Base URL configuration ────────────────────────────────────────
 USE_TUNNEL = os.getenv("USE_TUNNEL", "false").lower() == "true"
 TUNNEL_URL = os.getenv("TUNNEL_URL")
-DEFAULT_BASE_URL = "http://192.168.31.86:8080"
+DEFAULT_BASE_URL = "https://www.agroai.live"
 BASE_URL = TUNNEL_URL if USE_TUNNEL and TUNNEL_URL else DEFAULT_BASE_URL
 
 from .database.connection import engine, Base, DATABASE_URL as _ACTIVE_DB_URL
@@ -53,15 +53,20 @@ app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 # ─── Middleware ───────────────────────────────────────────────
-_allowed_raw = os.getenv(
-    "ALLOWED_ORIGINS",
-    "http://localhost:8000,http://127.0.0.1:8000,http://localhost:8080,http://127.0.0.1:8080,http://localhost:3000,http://localhost:5173"
+_default_origins = (
+    "https://agroai.live,https://www.agroai.live,"
+    "https://gen-lang-client-0224945015.web.app,https://gen-lang-client-0224945015.firebaseapp.com,"
+    "http://localhost:8000,http://127.0.0.1:8000,http://localhost:8080,http://127.0.0.1:8080,"
+    "http://localhost:3000,http://127.0.0.1:3000,http://localhost:5173,http://127.0.0.1:5173,"
+    "http://localhost:5500,http://127.0.0.1:5500,capacitor://localhost,ionic://localhost"
 )
+_allowed_raw = os.getenv("ALLOWED_ORIGINS", _default_origins)
 ALLOWED_ORIGINS = [orig.strip() for orig in _allowed_raw.split(",") if orig.strip()]
 
 app.add_middleware(
     CORSMiddleware,
     allow_origins=ALLOWED_ORIGINS,
+    allow_origin_regex=r"^https://([a-zA-Z0-9-]+\.)?(agroai\.live|web\.app|firebaseapp\.com|vercel\.app)$",
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allow_headers=["*"],
