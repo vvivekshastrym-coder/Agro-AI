@@ -4,7 +4,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vite build && node scripts/prepare-mobile-dist.mjs",
+    "build": "vite build",
     "start": "nitro start",
     "preview": "vite preview",
     "mobile:prepare": "node scripts/prepare-mobile-dist.mjs",

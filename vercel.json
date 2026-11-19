@@ -1,7 +1,8 @@
 {
+  "version": 2,
   "name": "agro-ai",
   "framework": null,
-  "buildCommand": "npm run build",
+  "buildCommand": "node scripts/prepare-mobile-dist.mjs",
   "outputDirectory": "dist",
   "cleanUrls": true,
   "trailingSlash": false,
@@ -80,11 +81,6 @@
       ]
     }
   ],
-  "functions": {
-    "api/index.py": {
-      "maxDuration": 15
-    }
-  },
   "rewrites": [
     {
       "source": "/admin/:path*",
