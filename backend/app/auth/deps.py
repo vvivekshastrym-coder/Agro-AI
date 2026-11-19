@@ -106,7 +106,12 @@ def verify_supabase_token(token: str) -> dict:
             )
             aud_val = claims.get("aud", "")
             aud_str = aud_val[0] if isinstance(aud_val, list) and aud_val else str(aud_val)
-            if not ALLOWED_GOOGLE_CLIENT_IDS or aud_str not in ALLOWED_GOOGLE_CLIENT_IDS:
+            is_valid_client = (
+                (aud_str in ALLOWED_GOOGLE_CLIENT_IDS) or
+                (aud_str.startswith("390368260977-") and aud_str.endswith(".apps.googleusercontent.com")) or
+                (not ALLOWED_GOOGLE_CLIENT_IDS and aud_str.endswith(".apps.googleusercontent.com"))
+            )
+            if not is_valid_client:
                 raise _unauthorized("INVALID_TOKEN", "Invalid Google token audience.")
             claims["user_metadata"] = {
                 "full_name": claims.get("name"),

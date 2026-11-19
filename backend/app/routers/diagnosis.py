@@ -2,11 +2,12 @@ from fastapi import APIRouter, UploadFile, File, Form, Depends, HTTPException, s
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
 from typing import Optional
+from datetime import datetime
 import uuid
 import logging
 from ..database.connection import get_db
 from ..database.models import DiagnosisReport, DiagnosisImage, User, Farm
-from ..auth.deps import get_current_user
+from ..auth.deps import get_current_user, get_optional_current_user
 from ..auth.entitlements import check_and_consume_entitlement
 from ..services.ai_service import (
     analyze_leaf_image,
@@ -67,7 +68,7 @@ async def analyze_diagnosis(
     # 0. Enforce server-side entitlement
     check_and_consume_entitlement(db, user.id, "diagnose_leaf", consume=True)
 
-    if farm_id:
+    if farm_id and user:
         owned = db.query(Farm).filter(Farm.id == farm_id, Farm.user_id == user.id).first()
         if not owned:
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN,
@@ -148,13 +149,14 @@ async def analyze_diagnosis(
     model_name = res.get("model_used", "Gemini 2.0 Flash" if res.get("is_ai_vision") else "Local Pixel CV + ICAR")
     is_live_vision = bool(res.get("is_ai_vision", False))
 
-    # 4. Store Report in Database
+    # 4. Store Report in Database (supports authenticated users and guests)
     report_id = str(uuid.uuid4())
+    farmer_id = user.id if user else None
     report = DiagnosisReport(
         id=report_id,
-        farmer_id=user.id,
-        farm_id=farm_id,
-        field_id=field_id,
+        farmer_id=farmer_id,
+        farm_id=farm_id if user else None,
+        field_id=field_id if user else None,
         image_url=f"/uploads/diagnosis/{report_id}.jpg",
         crop=res.get("crop") or crop or None,
         disease=res["disease"],
@@ -185,10 +187,19 @@ async def analyze_diagnosis(
             pass
 
     # 5. Return Structured Response Matching Required Schema
+    created_at_val = None
+    if getattr(report, "created_at", None):
+        try:
+            created_at_val = report.created_at.isoformat()
+        except Exception:
+            created_at_val = datetime.utcnow().isoformat()
+    else:
+        created_at_val = datetime.utcnow().isoformat()
+
     return {
         "report_id": report.id,
         "id": report.id,
-        "farmer_id": report.farmer_id,
+        "farmer_id": report.farmer_id or "guest",
         "farm_id": report.farm_id,
         "field_id": report.field_id,
         "crop": report.crop,
@@ -204,7 +215,7 @@ async def analyze_diagnosis(
         "spray_window": report.spray_window,
         "expected_recovery_days": report.expected_recovery_days,
         "warnings": report.warnings or [],
-        "created_at": report.created_at.isoformat() if report.created_at else None,
+        "created_at": created_at_val,
         "model": report.model,
         "is_ai_vision": is_live_vision,
         "confidence_basis": "model_self_reported",

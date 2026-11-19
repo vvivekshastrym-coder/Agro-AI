@@ -780,12 +780,152 @@ def get_contextual_gpt_reply(messages: list, context_data: dict, language: str =
     user_query = ""
     for msg in reversed(messages):
         if msg.get("role") == "user":
-            user_query = msg.get("content", "").lower()
+            user_query = msg.get("content", "").strip().lower()
             break
+
+    # Reconstruct past discussion context for conversational memory
+    history_text = " ".join([m.get("content", "").lower() for m in messages[:-1]])
             
-    crop = context_data.get("current_crop") or "crop"
+    crop = context_data.get("current_crop") or "Tomato"
     farmer_name = context_data.get("farmer_name") or "Farmer"
+    village = context_data.get("village") or "Mandya"
     diag = context_data.get("latest_diagnosis")
+
+    # 1. Greetings (hi, hello, namaste, vanakkam, etc.)
+    greeting_words = ["hi", "hello", "hey", "namaste", "vanakkam", "ram ram", "kisan", "agro", "good morning", "good evening"]
+    if any(user_query == w or user_query.startswith(w + " ") or user_query.endswith(" " + w) for w in greeting_words):
+        if language == "hi":
+            return (
+                f"🌾 नमस्ते {farmer_name} जी! मैं एग्रो जीपीटी (Agro GPT) हूँ।\n"
+                f"मैं आपके खेत ({village}, फसल: {crop}) से जुड़ा हुआ हूँ। आज मैं आपकी क्या सहायता कर सकता हूँ?\n\n"
+                "1. 🌿 **पत्ती रोग जांच व उपचार** (फोटो अपलोड करें या लक्षण बताएं)\n"
+                "2. 📈 **ताजा मंडी भाव** (एपीएमसी के लाइव रेट)\n"
+                "3. 🌦️ **हाइपरलोकल मौसम व स्प्रे सलाह**\n"
+                "4. 🧪 **खाद, यूरिया व सिंचाई शेड्यूल**\n\n"
+                "अपनी फसल या समस्या के बारे में सीधे पूछें!"
+            )
+        elif language == "kn":
+            return (
+                f"🌾 ನಮಸ್ಕಾರ {farmer_name}! ನಾನು ಆಗ್ರೋ ಜಿಪಿಟಿ (Agro GPT).\n"
+                f"ನಿಮ್ಮ ಹೊಲದ ವಿವರಗಳು ({village}, ಬೆಳೆ: {crop}) ನನ್ನ ಬಳಿ ಇವೆ. ಇಂದು ನಾನು ನಿಮಗೆ ಹೇಗೆ ಸಹಾಯ ಮಾಡಲಿ?\n\n"
+                "1. 🌿 **ಎಲೆ ರೋಗ ತಪಾಸಣೆ ಮತ್ತು ಚಿಕಿತ್ಸೆ**\n"
+                "2. 📈 **ನೇರ ಎಪಿಎಂಸಿ ಮಂಡಿ ದರಗಳು**\n"
+                "3. 🌦️ **ಹವಾಮಾನ ಮತ್ತು ಸಿಂಪಡಣಾ ಮುನ್ಸೂಚನೆ**\n"
+                "4. 🧪 **ರಸಗೊಬ್ಬರ ಮತ್ತು ನೀರಾವರಿ ವೇಳಾಪಟ್ಟಿ**\n\n"
+                "ನಿಮ್ಮ ಬೆಳೆ ಅಥವಾ ಪ್ರಶ್ನೆಯನ್ನು ಇಲ್ಲಿ ತಿಳಿಸಿ!"
+            )
+        else:
+            return (
+                f"🌾 Namaste {farmer_name}! I am Agro GPT, your AI agricultural companion.\n"
+                f"I am connected to your farm profile ({village}, primary crop: {crop}). How can I assist you today?\n\n"
+                "1. 🌿 **Crop Leaf Diagnosis & Treatment** (tell me symptoms or upload in Diagnose tab)\n"
+                "2. 📈 **Live APMC Mandi Prices** (daily modal rates & trends)\n"
+                "3. 🌦️ **Hyperlocal Weather & Optimal Spray Window**\n"
+                "4. 🧪 **Fertilizer Dosage & Irrigation Schedules**\n\n"
+                "Feel free to ask any farming question or describe your crop condition!"
+            )
+
+    # 2. Conversational Follow-up ("then", "then?", "what next", "after that", "next", "aur", "phir", "kya karein", "matte", "aamele")
+    follow_up_tokens = ["then", "then?", "what next", "next", "after that", "and then", "aur batao", "phir", "aage kya", "matte", "aamele", "hege"]
+    is_follow_up = any(user_query == token or user_query.startswith(token) for token in follow_up_tokens)
+
+    if is_follow_up:
+        # Check if recent conversation or diagnosis was about leaf disease / yellow spots
+        if diag or any(w in history_text for w in ["disease", "yellow spot", "blight", "fungus", "spot", "leaf", "rot"]):
+            target_crop = (diag.get("crop") if diag else None) or crop
+            target_disease = (diag.get("disease") if diag else None) or "Foliar Blight / Yellow Spots"
+            if language == "hi":
+                return (
+                    f"🌿 **{target_crop} में {target_disease} के लिए अगला कदम:**\n\n"
+                    "1. ⏰ **छिड़काव का समय:** सुबह 6:30 से 9:00 बजे के बीच जब पत्तियों पर ओस सूख जाए। तेज धूप या हवा में स्प्रे न करें।\n"
+                    "2. ✂️ **संक्रमित पत्तियां हटाएं:** जमीन से छूने वाली पीली या धब्बेदार पत्तियों को काटकर खेत से दूर नष्ट करें ताकि फफूंद आगे न फैले।\n"
+                    "3. 🔍 **3-5 दिन बाद निरीक्षण:** देखें कि नए पत्तों पर धब्बे रुक गए हैं या नहीं।\n"
+                    "4. 🌱 **रिकवरी खुराक (7 दिन बाद):** फसल को नया फुटाव देने के लिए 19:19:19 (5 ग्राम/लीटर) + सूक्ष्म पोषक तत्वों का छिड़काव करें।\n\n"
+                    "क्या आप छिड़काव के लिए पानी व दवा की सही मात्रा जानना चाहते हैं?"
+                )
+            elif language == "kn":
+                return (
+                    f"🌿 **{target_crop} ಬೆಳೆಯಲ್ಲಿ {target_disease} ನಿವಾರಣೆಗೆ ಮುಂದಿನ ಹಂತಗಳು:**\n\n"
+                    "1. ⏰ **ಸಿಂಪಡಿಸುವ ಸರಿಯಾದ ಸಮಯ:** ಮುಂಜಾನೆ 6:30 ರಿಂದ 9:00 ರೊಳಗೆ ಇಬ್ಬನಿ ಆವಿಯಾದ ನಂತರ ಸಿಂಪಡಿಸಿ.\n"
+                    "2. ✂️ **ರೋಗಪೀಡಿತ ಎಲೆಗಳ ಕತ್ತರಿಸುವಿಕೆ:** ಕೆಳಗಿನ ಹಳದಿ ಮತ್ತು ಚುಕ್ಕೆ ಬಿದ್ದ ಎಲೆಗಳನ್ನು ತೆಗೆದು ಸುಟ್ಟುಹಾಕಿ, ರೋಗ ಹರಡುವುದು ನಿಲ್ಲುತ್ತದೆ.\n"
+                    "3. 🔍 **3-5 ದಿನಗಳ ನಂತರ ಪರಿಶೀಲನೆ:** ಹೊಸ ಚಿಗುರುಗಳಲ್ಲಿ ರೋಗದ ಲಕ್ಷಣಗಳು ನಿಯಂತ್ರಣಕ್ಕೆ ಬಂದಿವೆಯೇ ಗಮನಿಸಿ.\n"
+                    "4. 🌱 **ಚೇತರಿಕೆ ಪೋಷಕಾಂಶ (7 ದಿನಗಳ ನಂತರ):** ಬೆಳೆ ಶೀಘ್ರವಾಗಿ ಚೇತರಿಸಿಕೊಳ್ಳಲು 19:19:19 ನೀರಿನಲ್ಲಿ ಕರಗುವ ಗೊಬ್ಬರ (5 ಗ್ರಾಂ/ಲೀಟರ್) ಸಿಂಪಡಿಸಿ.\n\n"
+                    "ಔಷಧಿ ಪ್ರಮಾಣ ಅಥವಾ ಇಂದಿನ ಹವಾಮಾನ ಸೂಕ್ತತೆಯ ಬಗ್ಗೆ ತಿಳಿಯಬೇಕೇ?"
+                )
+            else:
+                return (
+                    f"🌿 **Immediate Next Action Plan for {target_crop} ({target_disease}):**\n\n"
+                    "1. ⏰ **Spray Timing:** Apply the foliar spray during early morning (6:30 – 9:00 AM) when foliage is dry and wind is calm (<10 km/h).\n"
+                    "2. ✂️ **Sanitation & Pruning:** Clip off and dispose of lower infected leaves touching the soil bed to stop spore circulation.\n"
+                    "3. 🔍 **Monitor Progression:** Inspect leaf margins in 3–5 days. Dark borders should stabilize and dry out.\n"
+                    "4. 🌱 **Foliar Booster (Day 7–10):** Apply water-soluble NPK 19:19:19 @ 5g/L + Zinc to accelerate fresh healthy canopy growth.\n\n"
+                    "Would you like guidance on the exact spray tank dosage or weather suitability for today?"
+                )
+        elif any(w in history_text for w in ["wheat", "sowing", "seed", "plant", "season"]):
+            if language == "hi":
+                return (
+                    "🌾 **बुवाई के बाद के अगले चरण:**\n"
+                    "1. **अंकुरण जांच:** 5-7 दिन में देखें कि अंकुरण एकसमान है या नहीं।\n"
+                    "2. **खरपतवार नियंत्रण:** बुवाई के 48 घंटे के भीतर पेंडीमेथालिन 30% EC का छिड़काव किया है या नहीं, सुनिश्चित करें।\n"
+                    "3. **पहली सिंचाई (CRI अवस्था):** बुवाई के 21 दिन बाद पहली हल्की सिंचाई अवश्य करें।\n"
+                    "4. **यूरिया टॉप ड्रेसिंग:** पहली सिंचाई के समय 45 किग्रा नीम-लेपित यूरिया प्रति एकड़ दें।"
+                )
+            elif language == "kn":
+                return (
+                    "🌾 **ಬಿತ್ತನೆಯ ನಂತರದ ಮುಂದಿನ ಹಂತಗಳು:**\n"
+                    "1. **ಮೊಳಕೆ ಪರಿಶೀಲನೆ:** 5-7 ದಿನಗಳಲ್ಲಿ ಮೊಳಕೆಯೊಡೆಯುವಿಕೆಯನ್ನು ಪರಿಶೀಲಿಸಿ.\n"
+                    "2. **ಕಳೆ ನಿಯಂತ್ರಣ:** ಬಿತ್ತಿದ 48 ಗಂಟೆಗಳ ಒಳಗೆ ಕಳೆನಾಶಕ ಸಿಂಪಡಿಸದಿದ್ದರೆ ಮೇಲುಕಳೆ ನಿಯಂತ್ರಣಕ್ಕೆ ಸಿದ್ಧತೆ ಮಾಡಿಕೊಳ್ಳಿ.\n"
+                    "3. **ಮೊದಲ ನೀರಾವರಿ:** ಬಿತ್ತಿದ 21 ದಿನಗಳಿಗೆ ಕಿರೀಟ ಬೇರು ಹಂತದಲ್ಲಿ ತಪ್ಪದೇ ನೀರು ಕೊಡಿ.\n"
+                    "4. **ಮೇಲುಗೊಬ್ಬರ:** ಮೊದಲ ನೀರಾವರಿಯ ನಂತರ ಪ್ರತಿ ಎಕರೆಗೆ 40-45 ಕೆ.ಜಿ ಯೂರಿಯಾ ನೀಡಿ."
+                )
+            else:
+                return (
+                    "🌾 **Next Steps Post-Sowing:**\n"
+                    "1. **Germination Check:** Monitor emergence uniformity at 5–7 days.\n"
+                    "2. **Critical First Irrigation:** Irrigate at the Crown Root Initiation (CRI) stage (day 21 after sowing).\n"
+                    "3. **Nitrogen Top-Dressing:** Broadcast 40–45 kg Neem-Coated Urea per acre following the first irrigation.\n"
+                    "4. **Weed Inspection:** Check for broadleaf and grassy weeds at 25–30 days for selective post-emergence control."
+                )
+        else:
+            if language == "hi":
+                return (
+                    f"🌱 **आपके खेत ({crop}) के लिए अगला कदम:**\n"
+                    "आपकी फसल वर्तमान में किस अवस्था में है?\n"
+                    "1. **बुवाई / रोपाई** — बीज उपचार व बेसल खाद\n"
+                    "2. **वानस्पतिक वृद्धि** — यूरिया, कीट व खरपतवार नियंत्रण\n"
+                    "3. **फूल व फल अवस्था** — सूक्ष्म पोषक तत्व व सिंचाई\n"
+                    "4. **कटाई व मंडी बिक्री** — आज के नजदीकी एपीएमसी भाव\n\n"
+                    "अपनी फसल अवस्था बताएं, ताकि मैं सटीक मार्गदर्शन दे सकूँ।"
+                )
+            elif language == "kn":
+                return (
+                    f"🌱 **ನಿಮ್ಮ {crop} ಬೆಳೆಗೆ ಮುಂದಿನ ಹಂತದ ಸಲಹೆ:**\n"
+                    "ನಿಮ್ಮ ಬೆಳೆ ಪ್ರಸ್ತುತ ಯಾವ ಹಂತದಲ್ಲಿದೆ ತಿಳಿಸಿ:\n"
+                    "1. **ಬಿತ್ತನೆ / ನಾಟಿ ಹಂತ** — ಬೀಜೋಪಚಾರ ಮತ್ತು ಮೂಲ ಗೊಬ್ಬರ\n"
+                    "2. **ಬೆಳವಣಿಗೆ ಹಂತ** — ಕಳೆ ಮತ್ತು ಕೀಟ ನಿಯಂತ್ರಣ, ಮೇಲುಗೊಬ್ಬರ\n"
+                    "3. **ಹೂವು / ಕಾಯಿ ಹಂತ** — ಲಘು ಪೋಷಕಾಂಶ ಮತ್ತು ನೀರಾವರಿ\n"
+                    "4. **ಕೊಯ್ಲು ಹಂತ** — ಮಾರುಕಟ್ಟೆ ಮಂಡಿ ದರಗಳು\n\n"
+                    "ನಿಮ್ಮ ಬೆಳೆಯ ಹಂತವನ್ನು ತಿಳಿಸಿದರೆ ನಿಖರ ಹಂತ-ಹಂತದ ಕ್ರಮ ತಿಳಿಸುತ್ತೇನೆ."
+                )
+            else:
+                return (
+                    f"🌱 **Actionable Next Steps for {crop}:**\n"
+                    "Which stage is your crop currently in?\n"
+                    "1. **Sowing / Transplanting** — Basal fertilizer & seed treatment\n"
+                    "2. **Vegetative Growth** — Top-dressing urea, weed & pest scouting\n"
+                    "3. **Flowering & Fruit Setting** — Micronutrient foliar spray & moisture regulation\n"
+                    "4. **Harvest & Marketing** — Checking today's top APMC mandi rates\n\n"
+                    "Tell me your crop stage, and I'll lay out the exact immediate steps!"
+                )
+
+    # 3. Gratitude / Acknowledgement ("ok", "thanks", "thank you", "dhanyawad", "shukriya")
+    if any(user_query == w or user_query.startswith(w + " ") for w in ["ok", "okay", "thanks", "thank you", "dhanyawad", "shukriya", "dhanyavadagalu", "theek hai"]):
+        if language == "hi":
+            return f"खुशी हुई आपकी सहायता करके {farmer_name} जी! किसी भी समय कीट, रोग, मौसम या मंडी भाव के लिए मुझसे पूछें। आपकी फसल अच्छी और खुशहाल रहे! 🌾"
+        elif language == "kn":
+            return f"ಸಂತೋಷವಾಯಿತು {farmer_name}! ಯಾವುದೇ ಸಂದರ್ಭದಲ್ಲಿ ಬೆಳೆ ರೋಗ, ಹವಾಮಾನ ಅಥವಾ ಮಂಡಿ ದರಗಳ ಕುರಿತು ಮಾರ್ಗದರ್ಶನಕ್ಕಾಗಿ ನಾನು ಸದಾ ಸಿದ್ಧ. ನಿಮ್ಮ ಬೆಳೆ ಸಮೃದ್ಧವಾಗಿರಲಿ! 🌾"
+        else:
+            return f"You're very welcome, {farmer_name}! Feel free to reach out anytime for crop pathology, spray schedules, weather, or mandi updates. Wishing you a bountiful harvest! 🌾"
     
     if diag and any(w in user_query for w in ["disease", "diagnosis", "cure", "spray", "treatment", "medicine", "leaf", "problem", "remedy", "bimar", "dawa", "ilaj"]):
         org = ", ".join(diag.get("organic_treatment", [])[:2]) or "Neem oil spray (5ml/L)"

@@ -4559,8 +4559,14 @@ async function runDiagnosis(){
       formData.append('language', currentLang);
       formData.append('farmer_id', (session.google && session.google.email) ? session.google.email : (session.phone || 'farmer_1'));
 
+      const diagHeaders = {};
+      if (typeof session !== 'undefined' && session && session.token) {
+        diagHeaders['Authorization'] = 'Bearer ' + session.token;
+      }
+
       const response = await fetch('/api/diagnosis/analyze', {
         method: 'POST',
+        headers: diagHeaders,
         body: formData
       });
 
@@ -4912,9 +4918,40 @@ async function sendChat(preset, isVoice = false){
 }
 
 function pickFallbackReply(msg){
-  const m = msg.toLowerCase();
+  const m = msg.trim().toLowerCase();
   const isKn = currentLang === 'kn';
   const isHi = currentLang === 'hi';
+  const crop = (farmerProfile && farmerProfile.crop) ? farmerProfile.crop : 'Tomato';
+  const village = (farmerProfile && farmerProfile.village) ? farmerProfile.village : 'Mandya';
+
+  // 1. Greeting
+  const greetings = ['hi', 'hello', 'hey', 'namaste', 'vanakkam', 'ram ram', 'kisan', 'agro'];
+  if (greetings.some(g => m === g || m.startsWith(g + ' ') || m.endsWith(' ' + g))) {
+    if (isKn) return `🌾 ನಮಸ್ಕಾರ! ನಾನು ಆಗ್ರೋ ಜಿಪಿಟಿ (Agro GPT).\nನಿಮ್ಮ ಹೊಲದ (${village}, ಬೆಳೆ: ${crop}) ಸಂಪೂರ್ಣ ಕೃಷಿ ಸಹಾಯಕ್ಕೆ ನಾನು ಇಲ್ಲಿದ್ದೇನೆ.\n• 🌿 ಎಲೆ ರೋಗ ತಪಾಸಣೆ\n• 📈 ಇಂದಿನ ಲೈವ್ ಮಂಡಿ ದರಗಳು\n• 🌦️ ಹವಾಮಾನ ಮತ್ತು ಸಿಂಪಡಣೆ ಸಲಹೆ\n• 🧪 ಗೊಬ್ಬರ ಹಾಗೂ ನೀರಾವರಿ ವೇಳಾಪಟ್ಟಿ\n\nನಿಮ್ಮ ಪ್ರಶ್ನೆಯನ್ನು ಇಲ್ಲಿ ಕೇಳಿ!`;
+    if (isHi) return `🌾 नमस्ते! मैं एग्रो जीपीटी (Agro GPT) हूँ।\nआपके खेत (${village}, फसल: ${crop}) से जुड़े किसी भी सवाल का जवाब पाने के लिए तैयार हूँ:\n• 🌿 पत्ती रोग व उपचार\n• 📈 लाइव मंडी भाव\n• 🌦️ मौसम व स्प्रे की सलाह\n• 🧪 खाद व सिंचाई समय सारिणी\n\nआप अपनी फसल या समस्या के बारे में पूछें!`;
+    return `🌾 Namaste! I'm Agro GPT, your AI agricultural companion.\nI have your farm context loaded (${village}, crop: ${crop}). How can I help you today?\n• 🌿 Leaf Disease Diagnosis & Spray Windows\n• 📈 Live APMC Mandi Rates & Trends\n• 🌦️ Hyperlocal Weather & Spray Advisory\n• 🧪 Fertilizer Dosage & Sowing Advice\n\nFeel free to ask any farming question!`;
+  }
+
+  // 2. Follow-up ("then", "next", "what next", "after that", "aur", "phir")
+  const followUps = ['then', 'then?', 'what next', 'next', 'after that', 'and then', 'aur', 'phir', 'aage kya', 'matte', 'aamele'];
+  if (followUps.some(f => m === f || m.startsWith(f + ' '))) {
+    const lastAiMsg = (typeof chatHistory !== 'undefined' && chatHistory.length) ? chatHistory[chatHistory.length - 1].text.toLowerCase() : '';
+    if (lastAiMsg.includes('blight') || lastAiMsg.includes('spot') || lastAiMsg.includes('disease') || lastAiMsg.includes('spray') || lastAiMsg.includes('ಚುಕ್ಕೆ') || lastAiMsg.includes('धब्बे')) {
+      if (isKn) return "🌿 ರೋಗ ನಿಯಂತ್ರಣಕ್ಕೆ ಮುಂದಿನ ಹಂತಗಳು:\n1. ⏰ ಸಿಂಪಡಣೆ: ಮುಂಜಾನೆ 6:30 ರಿಂದ 9:00 ರ ನಡುವೆ ಒಣ ಎಲೆಗಳ ಮೇಲೆ ಸಿಂಪಡಿಸಿ.\n2. ✂️ ನೈರ್ಮಲ್ಯ: ನೆಲ ಮುಟ್ಟುವ ರೋಗಪೀಡಿತ ಎಲೆಗಳನ್ನು ತೆಗೆದು ಸುಟ್ಟುಹಾಕಿ.\n3. 🔍 3-5 ದಿನಗಳ ನಂತರ ಹೊಸ ಚಿಗುರುಗಳಲ್ಲಿ ರೋಗ ಹರಡುವಿಕೆ ನಿಂತಿದೆಯೇ ನೋಡಿ.\n4. 🌱 7 ದಿನಗಳ ನಂತರ 19:19:19 (5 ಗ್ರಾಂ/ಲೀಟರ್) ಸಿಂಪಡಿಸಿ ಗಿಡಕ್ಕೆ ಚೈತನ್ಯ ನೀಡಿ.";
+      if (isHi) return "🌿 रोग नियंत्रण के लिए अगले कदम:\n1. ⏰ स्प्रे का समय: सुबह 6:30 से 9:00 बजे जब पत्तियां सूखी हों।\n2. ✂️ संक्रमित पत्तियां हटाएं: जमीन छूने वाली पत्तियों को काटकर नष्ट करें।\n3. 🔍 3-5 दिन बाद निरीक्षण करें कि फैलाव रुक गया है।\n4. 🌱 7 दिन बाद 19:19:19 (5 ग्राम/लीटर) का पर्णीय छिड़काव कर नए फुटाव को बढ़ावा दें।";
+      return "🌿 Next Action Plan for Disease Control:\n1. ⏰ Spray Timing: Apply early morning (6:30–9:00 AM) when foliage is dry.\n2. ✂️ Sanitation: Prune off and destroy lower infected leaves touching the soil bed.\n3. 🔍 Monitor: Check leaf borders in 3–5 days to verify the infection is checked.\n4. 🌱 Recovery Booster: After 7 days, spray 19:19:19 @ 5g/L + micronutrients to stimulate fresh healthy growth.";
+    }
+    if (isKn) return `🌱 ನಿಮ್ಮ ${crop} ಬೆಳೆಗೆ ಮುಂದಿನ ಹಂತ:\nನಿಮ್ಮ ಬೆಳೆ ಈಗ ಯಾವ ಹಂತದಲ್ಲಿದೆ?\n1. ಬಿತ್ತನೆ / ನಾಟಿ\n2. ಬೆಳವಣಿಗೆ ಮತ್ತು ಕಳೆ ನಿಯಂತ್ರಣ\n3. ಹೂವು ಮತ್ತು ಕಾಯಿ ಕಟ್ಟುವ ಹಂತ\n4. ಕೊಯ್ಲು ಮತ್ತು ಮಂಡಿ ಮಾರಾಟ\n\nನಿಮ್ಮ ಬೆಳೆಯ ಹಂತ ತಿಳಿಸಿದರೆ ಮುಂದಿನ ನಿಖರ ಕ್ರಮ ತಿಳಿಸುತ್ತೇನೆ.`;
+    if (isHi) return `🌱 आपकी ${crop} फसल के लिए अगला कदम:\nआपकी फसल वर्तमान में किस अवस्था में है?\n1. बुवाई या रोपाई\n2. वानस्पतिक बढ़वार व खरपतवार नियंत्रण\n3. फूल व फल लगने का समय\n4. कटाई व मंडी बिक्री\n\nअवस्था बताएं, मैं सटीक मार्गदर्शन दूंगा।`;
+    return `🌱 Next Steps for Your ${crop} Crop:\nWhich stage is your field currently at?\n1. Sowing / Transplanting\n2. Vegetative Growth & Weed Scouting\n3. Flowering & Fruit Setting\n4. Harvesting & APMC Mandi Sale\n\nTell me your stage, and I'll detail the immediate next practices.`;
+  }
+
+  // 3. Gratitude / acknowledgement
+  if (['ok', 'okay', 'thanks', 'thank you', 'dhanyawad', 'shukriya', 'dhanyavadagalu'].some(t => m === t || m.startsWith(t + ' '))) {
+    if (isKn) return "ಸಂತೋಷವಾಯಿತು! ನಿಮ್ಮ ಕೃಷಿ ಸಂಬಂಧಿತ ಯಾವುದೇ ಪ್ರಶ್ನೆಗಳಿಗೆ ನಾನು ಸದಾ ಲಭ್ಯ. ನಿಮ್ಮ ಬೆಳೆ ಹುಲುಸಾಗಿ ಬೆಳೆಯಲಿ! 🌾";
+    if (isHi) return "खुशी हुई आपकी मदद करके! किसी भी समय कीट, रोग, मौसम या मंडी भाव के लिए पूछें। आपकी फसल अच्छी हो! 🌾";
+    return "You're very welcome! Feel free to ask anytime for leaf diagnosis, spray timing, or mandi prices. Wishing you a healthy harvest! 🌾";
+  }
 
   if(m.includes('yellow spot') || m.includes('patton') || m.includes('ಹಳದಿ ಚುಕ್ಕೆ') || m.includes('पीले धब्बे')){
     if(isKn) return "🍅 ಟೊಮೆಟೊ ಎಲೆಗಳ ಮೇಲೆ ಹಳದಿ ಚುಕ್ಕೆಗಳು (ಅರ್ಲಿ ಬ್ಲೈಟ್):\n1. ಸಾವಯವ ಪರಿಹಾರ: ಬೇವಿನ ಎಣ್ಣೆ (10,000 ppm) 3-4 ಮಿ.ಲೀ ಪ್ರತಿ ಲೀಟರ್ ನೀರಿಗೆ ಬೆರೆಸಿ ಸಿಂಪಡಿಸಿ.\n2. ರಾಸಾಯನಿಕ ಪರಿಹಾರ: ಮ್ಯಾಂಕೋಜೆಬ್ 75% WP @ 2.5 ಗ್ರಾಂ/ಲೀಟರ್ ಅಥವಾ 1% ಬೋರ್ಡೊ ಮಿಶ್ರಣವನ್ನು ಮುಂಜಾನೆ (6:30–9:00 AM) ಸಿಂಪಡಿಸಿ.";

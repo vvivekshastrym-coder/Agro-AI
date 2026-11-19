@@ -7,7 +7,19 @@
 
   const SUPABASE_URL = 'https://eziigoiirqdsgimfkquv.supabase.co';
   const SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_fDc46mh4MukSCabbBpeVMA_KqtWdOee';
-  const GOOGLE_CLIENT_ID = '390368260977-eor3n1p73ujaho1noubvojt6jlec9a88.apps.googleusercontent.com';
+  let GOOGLE_CLIENT_ID = window.AGRO_GOOGLE_CLIENT_ID || localStorage.getItem('agro_google_client_id') || '390368260977-eor3n1p73ujaho1noubvojt6jlec9a88.apps.googleusercontent.com';
+
+  function setGoogleClientId(newId) {
+    if (newId && typeof newId === 'string' && newId.includes('.apps.googleusercontent.com')) {
+      GOOGLE_CLIENT_ID = newId.trim();
+      localStorage.setItem('agro_google_client_id', GOOGLE_CLIENT_ID);
+      gsiInitialized = false;
+      initGoogleIdentity();
+      console.log('⚡ Google Client ID updated:', GOOGLE_CLIENT_ID);
+      return true;
+    }
+    return false;
+  }
 
   let client = null;
   let gsiInitialized = false;
@@ -259,9 +271,11 @@
     initGoogleIdentity,
     renderGoogleButtons,
     handleGoogleCredentialResponse,
+    setGoogleClientId,
+    getGoogleClientId: () => GOOGLE_CLIENT_ID,
     SUPABASE_URL,
     SUPABASE_PUBLISHABLE_KEY,
-    GOOGLE_CLIENT_ID,
+    get GOOGLE_CLIENT_ID() { return GOOGLE_CLIENT_ID; },
   };
 
   // Start init

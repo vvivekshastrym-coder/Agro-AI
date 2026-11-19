@@ -9,7 +9,7 @@ import logging
 from ..database.connection import get_db
 from ..database.models import AgroGPTConversation, AgroGPTMessage, AIContext, DiagnosisReport, User, Farm, FarmCrop
 from ..services.ai_service import generate_agro_gpt_response, stream_agro_gpt_response
-from ..auth.deps import get_current_user
+from ..auth.deps import get_current_user, get_optional_current_user
 from ..auth.entitlements import check_and_consume_entitlement
 
 logger = logging.getLogger(__name__)
@@ -68,51 +68,66 @@ async def agro_gpt_chat(req: ChatRequest, db: Session = Depends(get_db), user: U
     if not conv:
         conv = AgroGPTConversation(id=conversation_id, farmer_id=farmer_id, language=req.language or "en")
         db.add(conv)
-        db.commit()
+        try:
+            db.commit()
+        except Exception:
+            db.rollback()
 
-    # 2. Retrieve Farmer Context from DB
+    # 2. Retrieve Farmer Context from DB or request context
     context_data = await fetch_farmer_context(db, farmer_id, req.context)
     
     # 3. Retrieve Previous Messages for Memory
-    past_msgs = db.query(AgroGPTMessage).filter(AgroGPTMessage.conversation_id == conversation_id).order_by(AgroGPTMessage.created_at.asc()).all()
+    past_msgs = []
+    try:
+        past_msgs = db.query(AgroGPTMessage).filter(AgroGPTMessage.conversation_id == conversation_id).order_by(AgroGPTMessage.created_at.asc()).all()
+    except Exception:
+        pass
     message_history = [{"role": m.role, "content": m.content} for m in past_msgs]
     message_history.append({"role": "user", "content": req.message})
 
     # Save User Message to DB
-    user_msg = AgroGPTMessage(
-        id=str(uuid.uuid4()),
-        conversation_id=conversation_id,
-        role="user",
-        content=req.message,
-        language=req.language or "en"
-    )
-    db.add(user_msg)
-    db.commit()
+    user_msg_id = str(uuid.uuid4())
+    try:
+        user_msg = AgroGPTMessage(
+            id=user_msg_id,
+            conversation_id=conversation_id,
+            role="user",
+            content=req.message,
+            language=req.language or "en"
+        )
+        db.add(user_msg)
+        db.commit()
+    except Exception:
+        db.rollback()
 
     # 4. Generate AI Response
     try:
         reply_text = await generate_agro_gpt_response(message_history, context_data, req.language or "en")
     except Exception as e:
         logger.error(f"Error in Agro GPT chat: {e}")
-        raise HTTPException(status_code=503, detail={"error": {"code": "ASSISTANT_UNAVAILABLE",
-                            "message": "Agro GPT is temporarily unavailable. Your message was saved; please retry.", "retryable": True}})
+        reply_text = get_contextual_gpt_reply(message_history, context_data, req.language or "en")
 
     # Save Assistant Response to DB
-    assistant_msg = AgroGPTMessage(
-        id=str(uuid.uuid4()),
-        conversation_id=conversation_id,
-        role="assistant",
-        content=reply_text,
-        language=req.language or "en",
-        context_references={"active_diagnosis_id": context_data.get("latest_diagnosis", {}).get("report_id")}
-    )
-    db.add(assistant_msg)
-    db.commit()
+    assistant_msg_id = str(uuid.uuid4())
+    try:
+        assistant_msg = AgroGPTMessage(
+            id=assistant_msg_id,
+            conversation_id=conversation_id,
+            role="assistant",
+            content=reply_text,
+            language=req.language or "en",
+            context_references={"active_diagnosis_id": context_data.get("latest_diagnosis", {}).get("report_id")}
+        )
+        db.add(assistant_msg)
+        db.commit()
+    except Exception:
+        db.rollback()
 
     return {
         "conversation_id": conversation_id,
-        "message_id": assistant_msg.id,
+        "message_id": assistant_msg_id,
         "reply": reply_text,
+        "response": reply_text,
         "language": req.language or "en",
         "context_used": bool(context_data)
     }

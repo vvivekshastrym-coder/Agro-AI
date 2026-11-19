@@ -98,5 +98,10 @@
   "overrides": {
     "seroval": "^1.6.2",
     "seroval-plugins": "^1.6.2"
+  },
+  "allowScripts": {
+    "esbuild": true,
+    "workerd": true,
+    "prisma": true
   }
 }
