@@ -1,7 +1,6 @@
 {
-  "version": 2,
+  "$schema": "https://openapi.vercel.sh/vercel.json",
   "name": "agro-ai",
-  "framework": null,
   "buildCommand": "node scripts/prepare-mobile-dist.mjs",
   "outputDirectory": "dist",
   "cleanUrls": true,
@@ -87,12 +86,8 @@
       "destination": "/admin/index.html"
     },
     {
-      "source": "/api",
-      "destination": "/api/index.py"
-    },
-    {
       "source": "/api/(.*)",
-      "destination": "/api/index.py"
+      "destination": "/api"
     }
   ]
 }
