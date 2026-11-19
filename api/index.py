@@ -13,12 +13,18 @@ try:
     @app.middleware("http")
     async def restore_original_vercel_path(request, call_next):
         raw_path = request.url.path
-        if raw_path in ("/api/index.py", "/api/index", "/api"):
-            for h in ("x-forwarded-uri", "x-original-url", "x-matched-path"):
+        if raw_path.rstrip("/") in ("/api/index.py", "/api/index", "/api", "/index.py", "/index", ""):
+            restored = False
+            for h in ("x-forwarded-uri", "x-original-url", "x-matched-path", "x-vercel-matched-path", "x-real-path"):
                 orig = request.headers.get(h)
-                if orig and orig not in ("/api/index.py", "/api/index", "/api"):
+                if orig and orig.rstrip("/") not in ("/api/index.py", "/api/index", "/api", "/index.py", "/index", ""):
                     request.scope["path"] = orig.split("?")[0]
+                    restored = True
                     break
+            if not restored:
+                path_param = request.query_params.get("path")
+                if path_param:
+                    request.scope["path"] = f"/api/{path_param.lstrip('/')}".split("?")[0]
         return await call_next(request)
 except Exception as _init_err:
     _err_msg = "".join(traceback.format_exception(_init_err))

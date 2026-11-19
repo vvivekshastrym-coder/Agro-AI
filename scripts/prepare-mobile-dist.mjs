@@ -53,20 +53,6 @@ if (fs.existsSync(adminDistSrc)) {
   fs.cpSync(adminDistSrc, path.join(dist, 'admin'), { recursive: true });
 }
 
-// Copy serverless API and backend to dist/ so Vercel functions are included in outputDirectory
-const apiSrc = path.join(root, 'api');
-if (fs.existsSync(apiSrc)) {
-  fs.cpSync(apiSrc, path.join(dist, 'api'), { recursive: true });
-}
-const backendSrc = path.join(root, 'backend');
-if (fs.existsSync(backendSrc)) {
-  fs.cpSync(backendSrc, path.join(dist, 'backend'), { recursive: true });
-}
-const reqSrc = path.join(root, 'requirements.txt');
-if (fs.existsSync(reqSrc)) {
-  fs.copyFileSync(reqSrc, path.join(dist, 'requirements.txt'));
-}
-
 // Generate static SEO pages + authoritative sitemap.xml in root and dist/
 let pyRan = false;
 for (const pyBin of ['python3', 'python']) {
