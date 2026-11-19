@@ -1,6 +1,7 @@
 {
   "name": "agro-ai",
-  "buildCommand": "node scripts/prepare-mobile-dist.mjs",
+  "framework": null,
+  "buildCommand": "npm run build",
   "outputDirectory": "dist",
   "cleanUrls": true,
   "trailingSlash": false,
