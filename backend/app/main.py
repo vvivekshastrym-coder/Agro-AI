@@ -19,6 +19,7 @@ from .database.connection import engine, Base, DATABASE_URL as _ACTIVE_DB_URL
 from .routers import auth, agri, weather, market, satellite, diagnosis, agro_gpt, logistics, marketplace, drone, admin, plans, payments, schemes, mart, privacy
 from .routers.logistics import trip_manager
 from .auth import feature_access
+from .services.markets import markets_router
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -187,6 +188,7 @@ app.include_router(logistics.router,   prefix='/api/logistics',   tags=['Logisti
 app.include_router(marketplace.router, prefix='/api/market',      tags=['Input Marketplace'])
 app.include_router(drone.router,       prefix='/api/drone',       tags=['Drone Scout'])
 app.include_router(market.router,      prefix='/api/market',      tags=['Mandi Prices'])
+app.include_router(markets_router,     prefix='/api/markets',     tags=['Real-Time Mandi Markets'])
 app.include_router(weather.router,     prefix='/api/weather',     tags=['Weather'])
 app.include_router(agri.router,        prefix='/api/agri',        tags=['Agriculture'])
 app.include_router(satellite.router,   prefix='/api/satellite',   tags=['Satellite'])

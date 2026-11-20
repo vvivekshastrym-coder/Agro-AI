@@ -1251,26 +1251,35 @@
         </div>
       </div>
 
-      <!-- Commodity Selection -->
-      <div style="margin-bottom:12px;">
-        <label style="font-size:11px;font-weight:700;color:var(--ink-soft);display:block;margin-bottom:3px;" id="lblMandiCrop">COMMODITY / CROP</label>
-        <select id="cropSel" onchange="onMandiCommodityChange()" style="width:100%;padding:9px 12px;border:1.5px solid var(--line);border-radius:10px;font-size:13px;outline:none;">
-          <option value="Tomato">Tomato</option>
-        </select>
+      <!-- Commodity & Date Selection Row -->
+      <div class="select-row" style="margin-bottom:12px;gap:8px;">
+        <div style="flex:1;">
+          <label style="font-size:11px;font-weight:700;color:var(--ink-soft);display:block;margin-bottom:3px;" id="lblMandiCrop">COMMODITY / CROP</label>
+          <select id="cropSel" onchange="onMandiCommodityChange()" style="width:100%;padding:9px 12px;border:1.5px solid var(--line);border-radius:10px;font-size:13px;outline:none;">
+            <option value="Tomato">Tomato</option>
+          </select>
+        </div>
+        <div style="flex:1;">
+          <label style="font-size:11px;font-weight:700;color:var(--ink-soft);display:block;margin-bottom:3px;" id="lblMandiDate">MARKET DATE</label>
+          <input type="date" id="mandiDateSel" onchange="onMandiDateChange()" style="width:100%;padding:8px 10px;border:1.5px solid var(--line);border-radius:10px;font-size:13px;outline:none;background:#fff;color:var(--ink);">
+        </div>
       </div>
 
       <!-- Market Search Input -->
       <div style="position:relative;margin-bottom:10px;">
         <input type="text" id="marketSearchInput"
-               placeholder="🔍 Search APMC market e.g. Yeshwanthpur, Kolar, Byadgi..."
+               placeholder="🔍 Search APMC market e.g. Mandya, Mysuru, Maddur, Kolar, Byadgi..."
                style="width:100%;padding:10px 14px;border:1.5px solid var(--line);border-radius:10px;font-size:13px;outline:none;"
                oninput="onMandiSearchInput(event)">
       </div>
 
       <!-- Market Count Summary Bar -->
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;padding:2px 2px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;padding:2px 2px;flex-wrap:wrap;gap:6px;">
         <span id="marketCountSummary" style="font-size:12px;font-weight:600;color:var(--forest);">Loading APMC markets…</span>
-        <span id="marketSourceBadge" class="pill" style="font-size:10px;background:#E8F5E9;color:var(--forest);">Agmarknet Official</span>
+        <div style="display:flex;align-items:center;gap:6px;">
+          <span id="mandiLastUpdatedIndicator" style="font-size:10.5px;color:var(--ink-soft);"></span>
+          <span id="marketSourceBadge" class="pill" style="font-size:10px;background:#E8F5E9;color:var(--forest);">AGMARKNET Verified</span>
+        </div>
       </div>
 
       <!-- Markets Selection Cards List -->
@@ -6085,6 +6094,32 @@ let mandiTotalMarkets = 0;
 let mandiLoadedMarkets = [];
 let mandiSearchTimeout = null;
 let mandiIsInitialized = false;
+let mandiCurrentDate = '';
+
+function onMandiDateChange() {
+  const el = document.getElementById('mandiDateSel');
+  mandiCurrentDate = el ? el.value : '';
+  if (mandiCurrentMarket) {
+    fetchMandiPrice(mandiCurrentMarket, mandiCurrentCommodity);
+  }
+}
+
+async function loadMandiSourcesBadge() {
+  const badge = document.getElementById('marketSourceBadge');
+  const ind = document.getElementById('mandiLastUpdatedIndicator');
+  try {
+    const res = await fetch('/api/markets/sources');
+    if (res.ok) {
+      const data = await res.json();
+      if (badge && data.sources && data.sources.length) {
+        badge.textContent = `🏛️ ${data.sources[0].source_name} Verified`;
+      }
+      if (ind && data.last_successful_refresh) {
+        ind.textContent = `Updated: ${new Date(data.last_successful_refresh).toLocaleDateString()}`;
+      }
+    }
+  } catch(e) {}
+}
 
 async function initMandiMarketView(forceRefresh = false) {
   if (mandiIsInitialized && !forceRefresh) return;
@@ -6094,6 +6129,14 @@ async function initMandiMarketView(forceRefresh = false) {
   mandiCurrentDistrict = localStorage.getItem('agroai_mandi_district') || '';
   mandiCurrentCommodity = localStorage.getItem('agroai_mandi_commodity') || 'Tomato';
   mandiCurrentMarket = localStorage.getItem('agroai_mandi_market') || 'Kolar APMC';
+
+  const datePicker = document.getElementById('mandiDateSel');
+  if (datePicker && !datePicker.value) {
+    const today = new Date().toISOString().split('T')[0];
+    datePicker.max = today;
+  }
+
+  loadMandiSourcesBadge();
 
   await Promise.all([
     loadMandiStates(),
@@ -6383,12 +6426,61 @@ async function fetchMandiPrice(marketName, commodity) {
     </div>`;
 
   try {
-    const url = `/api/market/prices?market_name=${encodeURIComponent(marketName)}&commodity=${encodeURIComponent(commodity)}&state=${encodeURIComponent(mandiCurrentState)}`;
-    const res = await fetch(url);
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const data = await res.json();
+    let top = null;
+    let isRealtimeModule = false;
 
-    const top = data.available && data.records && data.records[0];
+    // 1. First attempt to fetch from the Real-Time Mandi Markets service (/api/markets/prices)
+    try {
+      let rtUrl = `/api/markets/prices?market=${encodeURIComponent(marketName)}&commodity=${encodeURIComponent(commodity)}&state=${encodeURIComponent(mandiCurrentState)}`;
+      if (mandiCurrentDate) {
+        rtUrl += `&market_date=${encodeURIComponent(mandiCurrentDate)}`;
+      }
+      const rtRes = await fetch(rtUrl);
+      if (rtRes.ok) {
+        const rtData = await rtRes.json();
+        if (rtData.records && rtData.records.length > 0) {
+          top = rtData.records[0];
+          isRealtimeModule = true;
+        }
+      }
+    } catch (errRt) {
+      console.warn('Real-time markets endpoint query fallback:', errRt);
+    }
+
+    // 2. Fallback to legacy endpoint if not found in real-time records and no custom date filter set
+    if (!top && !mandiCurrentDate) {
+      try {
+        const url = `/api/market/prices?market_name=${encodeURIComponent(marketName)}&commodity=${encodeURIComponent(commodity)}&state=${encodeURIComponent(mandiCurrentState)}`;
+        const res = await fetch(url);
+        if (res.ok) {
+          const data = await res.json();
+          if (data.available && data.records && data.records[0]) {
+            const leg = data.records[0];
+            top = {
+              market: leg.market_name,
+              commodity: leg.commodity,
+              variety: leg.variety,
+              district: leg.district,
+              state: leg.state,
+              min_price: leg.min_price,
+              max_price: leg.max_price,
+              modal_price: leg.modal_price,
+              currency: 'INR',
+              unit: leg.unit || 'quintal',
+              arrival_quantity: null,
+              arrival_unit: 'quintal',
+              market_date: leg.price_date,
+              source_name: (leg.metadata && leg.metadata.source) || 'AGMARKNET',
+              source_url: 'https://agmarknet.gov.in',
+              fetched_at: (leg.metadata && leg.metadata.last_updated) || null,
+              verification_status: 'verified'
+            };
+          }
+        }
+      } catch (errLeg) {
+        console.warn('Legacy market prices endpoint fallback failed:', errLeg);
+      }
+    }
 
     // Separate market availability from price availability (Truthful reporting, never fabricate)
     if (!top || !(top.modal_price || top.max_price)) {
@@ -6396,10 +6488,10 @@ async function fetchMandiPrice(marketName, commodity) {
         'ಪ್ರಸ್ತುತ ಈ ಮಾರುಕಟ್ಟೆಗೆ ಬೆಲೆ ಮಾಹಿತಿ ಲಭ್ಯವಿಲ್ಲ' :
         (isHi ? 'इस मंडी के लिए वर्तमान मूल्य डेटा उपलब्ध नहीं है।' : 'No current price data available for this market.');
       const noObsSub = isKn ?
-        `${escHtml(marketName)} ಮಾರುಕಟ್ಟೆಯು ಅಧಿಕೃತ APMC ಡೈರೆಕ್ಟರಿಯಲ್ಲಿದೆ, ಆದರೆ ಇಂದು ${escHtml(dict.crops?.[commodity] || commodity)} ಬೆಳೆಗೆ ಯಾವುದೇ ದರ ದಾಖಲಾಗಿಲ್ಲ.` :
+        `${escHtml(marketName)} ಮಾರುಕಟ್ಟೆಯು ಅಧಿಕೃತ APMC ಡೈರೆಕ್ಟರಿಯಲ್ಲಿದೆ, ಆದರೆ ${mandiCurrentDate ? escHtml(mandiCurrentDate) + ' ರಂದು' : 'ಇಂದು'} ${escHtml(dict.crops?.[commodity] || commodity)} ಬೆಳೆಗೆ ಯಾವುದೇ ದರ ದಾಖಲಾಗಿಲ್ಲ.` :
         (isHi ?
-          `${escHtml(marketName)} मंडी आधिकारिक APMC डायरेक्टरी में पंजीकृत है, लेकिन आज ${escHtml(dict.crops?.[commodity] || commodity)} के भाव दर्ज नहीं हुए हैं।` :
-          `${escHtml(marketName)} is an active APMC market, but no arrival prices were reported for ${escHtml(dict.crops?.[commodity] || commodity)} on this date.`);
+          `${escHtml(marketName)} मंडी आधिकारिक APMC डायरेक्टरी में पंजीकृत है, लेकिन ${mandiCurrentDate ? escHtml(mandiCurrentDate) + ' को' : 'आज'} ${escHtml(dict.crops?.[commodity] || commodity)} के भाव दर्ज नहीं हुए हैं।` :
+          `${escHtml(marketName)} is an active APMC market, but no arrival prices were reported for ${escHtml(dict.crops?.[commodity] || commodity)} on ${mandiCurrentDate ? escHtml(mandiCurrentDate) : 'this date'}.`);
 
       area.innerHTML = `
         <div class="card" style="margin-top:14px;border-color:var(--line);background:#fafafa;">
@@ -6410,73 +6502,109 @@ async function fetchMandiPrice(marketName, commodity) {
           <div class="muted" style="font-size:12.5px;line-height:1.4;margin-bottom:10px;">
             ${noObsSub}
           </div>
-          <div style="display:flex;gap:8px;align-items:center;">
+          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
             <span class="pill" style="font-size:11px;background:#F1EDE1;color:var(--ink-soft);">
               ${escHtml(marketName)} · ${escHtml(mandiCurrentState)}
             </span>
             <span class="pill" style="font-size:11px;background:#E8F5E9;color:var(--forest);">
               ✓ Active APMC Yard
             </span>
+            ${mandiCurrentDate ? `<span class="pill" style="font-size:11px;background:#EFF6FF;color:#1D4ED8;">📅 ${escHtml(mandiCurrentDate)}</span>` : ''}
           </div>
         </div>`;
       return;
     }
 
     const price = top.modal_price || top.max_price;
-    const defaultSrc = isKn ? 'ಅಧಿಕೃತ ಅಗ್ರೋ AI ಮಂಡಿ ನೆಟ್‌ವರ್ಕ್' : (isHi ? 'आधिकारिक एग्रो AI मंडी नेटवर्क' : 'Agro AI Official Mandi Network');
-    const src = (top.metadata && top.metadata.source) || data.source || defaultSrc;
     const dispCrop = dict.crops?.[top.commodity] || top.commodity;
     const dispState = dict.states?.[top.state] || top.state;
     const dispUnit = isKn ? 'ಕ್ವಿಂಟಾಲ್' : (isHi ? 'क्विंटल' : (top.unit || 'quintal'));
-    const obsDateText = isKn ? 'ದಾಖಲಾದ ದಿನಾಂಕ' : (isHi ? 'अवलोकन दिनांक' : 'Observed on');
+    const obsDateText = isKn ? 'ಮಾರುಕಟ್ಟೆ ಹರಾಜು ದಿನಾಂಕ' : (isHi ? 'मंडी नीलामी दिनांक' : 'Market Date (Auction)');
+    const fetchedText = isKn ? 'ಅಗ್ರೋ AI ಪರಿಶೀಲಿಸಿದ ಸಮಯ' : (isHi ? 'सिस्टम सत्यापन समय' : 'Verified & Indexed');
     const minText = isKn ? 'ಕನಿಷ್ಠ' : (isHi ? 'न्यूनतम' : 'Min');
     const maxText = isKn ? 'ಗರಿಷ್ಠ' : (isHi ? 'अधिकतम' : 'Max');
-    const noteText = isKn ?
-      'ಇದು ದಾಖಲಾದ ಅಧಿಕೃತ APMC ವೀಕ್ಷಣೆ. ಹವಾಮಾನ ಮತ್ತು ಪೂರೈಕೆ ಆಧರಿಸಿ ದೈನಂದಿನ ಹರಾಜು ಬೆಲೆ ಬದಲಾಗಬಹುದು.' :
+    const modalText = isKn ? 'ಮಾದರಿ ಬೆಲೆ' : (isHi ? 'मॉडल भाव' : 'Modal Price');
+    const arrivalText = isKn ? 'ದೈನಂದಿನ ಆವಕ' : (isHi ? 'दैनिक आवक' : 'Daily Arrivals');
+    const sourceName = top.source_name || 'AGMARKNET';
+    const sourceUrl = top.source_url || 'https://agmarknet.gov.in';
+
+    let statusBadge = '<span class="pill pill-forest" style="font-size:10.5px;font-weight:700;">✓ VERIFIED APMC</span>';
+    if (top.verification_status === 'flagged_conflict') {
+      statusBadge = '<span class="pill" style="font-size:10.5px;font-weight:700;background:#FEF3C7;color:#92400E;">⚠️ CONFLICT FLAGGED</span>';
+    } else if (top.verification_status === 'provisional') {
+      statusBadge = '<span class="pill" style="font-size:10.5px;font-weight:700;background:#EFF6FF;color:#1E40AF;">ℹ️ PROVISIONAL</span>';
+    }
+
+    const trustFootnote = isKn ?
+      '<strong>🔒 ವಿಶ್ವಾಸಾರ್ಹತೆ ಮತ್ತು ಪಾರದರ್ಶಕತೆ:</strong> ಮಾರುಕಟ್ಟೆ ದಿನಾಂಕವು APMC ಯಾರ್ಡ್‌ನಲ್ಲಿ ಅಧಿಕೃತ ಹರಾಜು ದಾಖಲಾದ ದಿನವಾಗಿದೆ, ಆದರೆ ಸಂಗ್ರಹಿಸಿದ ಸಮಯವು ಅಗ್ರೋ AI ವ್ಯವಸ್ಥೆಯು ದರವನ್ನು ಪರಿಶೀಲಿಸಿ ದಾಖಲಿಸಿದ ಸಮಯವಾಗಿದೆ.' :
       (isHi ?
-        'यह सत्यापित APMC मंडी का दर्ज भाव है। दैनिक आवक और गुणवत्ता के आधार पर नीलामी दरें भिन्न हो सकती हैं।' :
-        'Verified APMC mandi observation. Modal prices reflect weighted daily auction rates.');
+        '<strong>🔒 पारदर्शिता और विश्वास:</strong> मंडी दिनांक APMC यार्ड में आधिकारिक नीलामी दर्ज होने की तारीख है, जबकि सत्यापन समय एग्रो AI द्वारा डेटा की पुष्टि करने का समय है।' :
+        '<strong>🔒 Farmer Trust & Transparency:</strong> Market date reflects when prices were recorded at the APMC auction yard, while fetched time reflects when Agro AI verified and indexed the data.');
+
+    const fetchedTimeFormatted = top.fetched_at ?
+      new Date(top.fetched_at).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' }) :
+      'Recently';
 
     area.innerHTML = `
       <div class="card" style="margin-top:14px;border:1.5px solid #bbf7d0;background:#ffffff;">
-        <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:4px;">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px;gap:8px;">
           <div>
-            <div style="font-weight:700;font-size:16px;color:var(--forest);">
-              ${escHtml(top.market_name)}
+            <div style="font-weight:700;font-size:17px;color:var(--forest);">
+              ${escHtml(top.market || top.market_name || marketName)}
             </div>
-            <div class="muted" style="font-size:12px;">
+            <div class="muted" style="font-size:12.5px;margin-top:2px;">
               ${escHtml(dispCrop)}${top.variety ? ' (' + escHtml(top.variety) + ')' : ''} · ${escHtml(top.district || '')}, ${escHtml(dispState)}
             </div>
           </div>
-          <span class="pill pill-forest" style="font-size:10px;">VERIFIED APMC</span>
+          <div>${statusBadge}</div>
         </div>
 
-        <div style="margin:10px 0 6px;">
-          <div class="price-big" style="color:var(--forest);font-size:28px;">
+        <div style="margin:12px 0 8px;">
+          <div class="price-big" style="color:var(--forest);font-size:28px;font-weight:800;">
             ₹${Number(price).toLocaleString('en-IN')}
-            <span style="font-size:14px;color:var(--ink-soft);font-family:'Inter',sans-serif;font-weight:400;"> / ${escHtml(dispUnit)}</span>
+            <span style="font-size:14px;color:var(--ink-soft);font-family:'Inter',sans-serif;font-weight:500;"> / ${escHtml(dispUnit)}</span>
           </div>
         </div>
 
-        <div style="display:flex;gap:10px;margin:8px 0;font-size:12.5px;">
-          <div style="background:#F4F1EA;padding:6px 10px;border-radius:6px;flex:1;">
-            <span class="muted">${minText}:</span> <strong>₹${escHtml(top.min_price ?? '—')}</strong>
+        <div style="display:flex;gap:8px;margin:10px 0;font-size:12px;flex-wrap:wrap;">
+          <div style="background:#F4F1EA;padding:7px 10px;border-radius:8px;flex:1;min-width:100px;">
+            <span class="muted">${minText}:</span> <strong>₹${escHtml(top.min_price != null ? Number(top.min_price).toLocaleString('en-IN') : '—')}</strong>
           </div>
-          <div style="background:#F4F1EA;padding:6px 10px;border-radius:6px;flex:1;">
-            <span class="muted">${maxText}:</span> <strong>₹${escHtml(top.max_price ?? '—')}</strong>
+          <div style="background:#F4F1EA;padding:7px 10px;border-radius:8px;flex:1;min-width:100px;">
+            <span class="muted">${modalText}:</span> <strong>₹${escHtml(top.modal_price != null ? Number(top.modal_price).toLocaleString('en-IN') : '—')}</strong>
           </div>
-          <div style="background:#F4F1EA;padding:6px 10px;border-radius:6px;flex:1;">
-            <span class="muted">${obsDateText}:</span> <strong>${escHtml(top.price_date || 'Today')}</strong>
+          <div style="background:#F4F1EA;padding:7px 10px;border-radius:8px;flex:1;min-width:100px;">
+            <span class="muted">${maxText}:</span> <strong>₹${escHtml(top.max_price != null ? Number(top.max_price).toLocaleString('en-IN') : '—')}</strong>
+          </div>
+          ${top.arrival_quantity != null ? `
+          <div style="background:#ECFDF5;padding:7px 10px;border-radius:8px;flex:1;min-width:120px;border:1px solid #A7F3D0;">
+            <span style="color:#047857;font-weight:600;">📦 ${arrivalText}:</span> <strong style="color:#065F46;">${Number(top.arrival_quantity).toLocaleString('en-IN')} ${escHtml(top.arrival_unit || top.unit || 'quintal')}</strong>
+          </div>` : ''}
+        </div>
+
+        <!-- Audit & Trust Box -->
+        <div style="background:#FAF8F5;border:1px solid var(--line);border-radius:8px;padding:9px 12px;margin:10px 0 6px;font-size:11.5px;display:flex;flex-direction:column;gap:5px;">
+          <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px;">
+            <div>
+              <span class="muted">${obsDateText}:</span>
+              <strong style="color:var(--ink);">${escHtml(top.market_date || 'Today')}</strong>
+            </div>
+            <div>
+              <span class="muted">${fetchedText}:</span>
+              <span style="color:var(--ink-soft);">${escHtml(fetchedTimeFormatted)}</span>
+            </div>
+          </div>
+          <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;border-top:1px dashed var(--line);padding-top:5px;margin-top:2px;">
+            <span class="muted">${isKn ? 'ಮೂಲ:' : (isHi ? 'स्रोत:' : 'Source:')}</span>
+            <a href="${escHtml(sourceUrl)}" target="_blank" rel="noopener noreferrer" style="font-weight:600;color:var(--forest);text-decoration:underline;">
+              🏛️ ${escHtml(sourceName)} ↗
+            </a>
+            <span style="color:var(--ink-soft);font-size:10.5px;">(Official Agricultural Market Data)</span>
           </div>
         </div>
 
-        <div style="margin:8px 0 4px;">
-          <span class="pill" style="background:#F1EDE1;color:var(--ink-soft);font-size:11px;">
-            🏛️ ${escHtml(src)}
-          </span>
-        </div>
-        <div class="muted" style="font-size:11.5px;line-height:1.4;margin-top:6px;">
-          ${noteText}
+        <div style="font-size:11px;color:var(--ink-soft);line-height:1.45;margin-top:8px;padding:8px 10px;background:#F9F8F5;border-radius:6px;border-left:3px solid var(--forest);">
+          ${trustFootnote}
         </div>
       </div>`;
   } catch (e) {

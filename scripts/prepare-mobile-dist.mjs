@@ -55,7 +55,7 @@ if (fs.existsSync(adminDistSrc)) {
 
 // Generate static SEO pages + authoritative sitemap.xml in root and dist/
 let pyRan = false;
-for (const pyBin of ['python3', 'python']) {
+for (const pyBin of ['py', 'python', 'python3']) {
   try {
     execFileSync(pyBin, ['-m', 'backend.app.seo_pages'], { cwd: root, stdio: 'inherit' });
     pyRan = true;

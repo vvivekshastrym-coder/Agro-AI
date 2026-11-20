@@ -540,6 +540,37 @@ class MarketPrice(Base):
     unit = Column(String(20), default='quintal')
     price_date = Column(DateTime(timezone=True), index=True)
     data_source = Column(String(100), default='Agmarknet / Govt Mandi Data API')
+
+
+class MandiPriceRecord(Base):
+    """Authoritative normalized mandi prices from AGMARKNET, e-NAM, APMC portals, and verified market feeds."""
+    __tablename__ = 'mandi_prices'
+    __table_args__ = (
+        UniqueConstraint('commodity', 'market', 'market_date', 'unit', 'source_name', name='uq_mandi_prices_entry'),
+        Index('ix_mandi_prices_comm_mkt_date', 'commodity', 'market', 'market_date'),
+    )
+
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    commodity = Column(String(100), nullable=False, index=True)
+    market = Column(String(150), nullable=False, index=True)
+    district = Column(String(100), nullable=False, index=True)
+    state = Column(String(100), nullable=False, index=True)
+    min_price = Column(Float, nullable=False)
+    max_price = Column(Float, nullable=False)
+    modal_price = Column(Float, nullable=False)
+    currency = Column(String(10), default='INR', nullable=False)
+    unit = Column(String(20), default='quintal', nullable=False)
+    arrival_quantity = Column(Float, nullable=True)
+    arrival_unit = Column(String(20), default='quintal', nullable=True)
+    market_date = Column(String(10), nullable=False, index=True)  # YYYY-MM-DD
+    source_name = Column(String(100), nullable=False, default='AGMARKNET')
+    source_url = Column(String(500), nullable=True)
+    fetched_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    verification_status = Column(String(30), default='verified', nullable=False)  # 'verified', 'provisional', 'flagged_conflict'
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
+
+
 class MandiMarket(Base):
     """Master directory of genuine APMC and regulated agricultural markets across India."""
     __tablename__ = 'mandi_markets'
