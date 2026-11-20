@@ -216,15 +216,22 @@ async def send_phone_otp(body: PhoneOtpSendRequest, db: Session = Depends(get_db
 
     if not sms_res.get("success"):
         err_code = sms_res.get("code") or "SMS_DISPATCH_FAILED"
-        err_msg = sms_res.get("message") or "Failed to deliver SMS. Please check your mobile number or try again."
-        status_code = status.HTTP_503_SERVICE_UNAVAILABLE if err_code == "SMS_PROVIDER_NOT_CONFIGURED" else status.HTTP_502_BAD_GATEWAY
+        err_msg = sms_res.get("message") or "SMS verification is temporarily unavailable for this number. Please try again later or continue as Guest Farmer."
+        if err_code in ("INVALID_PHONE", "INVALID_MOBILE_NUMBER"):
+            status_code = status.HTTP_400_BAD_REQUEST
+        elif err_code in ("SMS_PROVIDER_NOT_CONFIGURED", "SMS_SERVICE_UNAVAILABLE"):
+            status_code = status.HTTP_503_SERVICE_UNAVAILABLE
+        else:
+            status_code = status.HTTP_502_BAD_GATEWAY
+
         raise HTTPException(
             status_code=status_code,
             detail={
                 "error": {
                     "code": err_code,
                     "message": err_msg,
-                    "provider": sms_res.get("provider")
+                    "provider": sms_res.get("provider"),
+                    "guest_fallback_available": True
                 }
             }
         )

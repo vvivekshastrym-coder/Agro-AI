@@ -4135,8 +4135,18 @@ async function sendOtp(){
       } else if(!errMsg){
         errMsg = `Service error (HTTP ${res.status})`;
       }
-      if(errBox){ errBox.textContent = errMsg; errBox.style.display = 'block'; }
-      showToast('Could not send OTP: ' + errMsg);
+      if(errBox){
+        errBox.textContent = errMsg;
+        errBox.style.display = 'block';
+        if(data.detail?.error?.code === 'TWILIO_DESTINATION_UNVERIFIED' || errMsg.includes('Guest Farmer')){
+          const guestBtn = document.getElementById('authGuestBtn');
+          if(guestBtn){
+            guestBtn.style.outline = '2px solid #2D5A27';
+            guestBtn.style.boxShadow = '0 0 10px rgba(45, 90, 39, 0.25)';
+          }
+        }
+      }
+      showToast(errMsg);
       return;
     }
     session.phone = phone;

@@ -132,27 +132,52 @@ async def _send_via_twilio(clean_digits: str, message_text: str) -> Dict[str, An
             "status": "delivered"
         }
     else:
-        err_msg = "Twilio rejected SMS request"
-        err_code = f"TWILIO_{resp.status_code}"
+        raw_code = None
+        raw_msg = ""
         try:
             err_json = resp.json()
             raw_code = err_json.get("code")
-            if raw_code == 21608 or "unverified" in (err_json.get("message") or "").lower():
-                err_code = "TWILIO_TRIAL_UNVERIFIED_NUMBER"
-                err_msg = (
-                    "Twilio Trial Notice: This phone number is unverified in your Twilio account. "
-                    "Verify this number at twilio.com/console/phone-numbers/verified or click 'Explore as Guest Farmer' for instant access."
-                )
-            else:
-                err_msg = err_json.get("message") or err_msg
+            raw_msg = str(err_json.get("message") or "")
         except Exception:
             pass
-        logger.error("Twilio SMS error [%d]: %s", resp.status_code, err_msg)
+
+        # Internal server-side audit log with masked phone number and no credentials
+        logger.warning(
+            "Twilio SMS delivery rejected for +91 %s******%s: status=%d, twilio_code=%s, reason=%s",
+            clean_digits[:2], clean_digits[-2:], resp.status_code, raw_code, raw_msg
+        )
+
+        raw_lower = raw_msg.lower()
+        # 1. Twilio Trial restriction: unverified destination phone number (Twilio Error 21608)
+        if raw_code == 21608 or "unverified" in raw_lower or "trial" in raw_lower:
+            err_code = "TWILIO_DESTINATION_UNVERIFIED"
+            err_msg = "SMS verification is temporarily unavailable for this number. Please try again later or continue as Guest Farmer."
+        # 2. Region / Geo permission not enabled (Twilio Error 21408)
+        elif raw_code == 21408 or "permission to send an sms has not been enabled" in raw_lower:
+            err_code = "TWILIO_REGION_RESTRICTED"
+            err_msg = "SMS delivery is not enabled for this region. Please try again later or continue as Guest Farmer."
+        # 3. Invalid destination number / landline / incapable of SMS (Twilio Errors 21211, 21614, 21612)
+        elif raw_code in (21211, 21614, 21612) or "not a valid mobile" in raw_lower or "cannot receive sms" in raw_lower:
+            err_code = "INVALID_MOBILE_NUMBER"
+            err_msg = "This mobile number cannot receive SMS. Please check your 10-digit number or continue as Guest Farmer."
+        # 4. Recipient opt-out / blacklist (Twilio Error 21610)
+        elif raw_code == 21610 or "unsubscribed" in raw_lower:
+            err_code = "TWILIO_RECIPIENT_OPTOUT"
+            err_msg = "SMS delivery blocked by recipient opt-out. Please use another number or continue as Guest Farmer."
+        # 5. Account suspended / authentication error / trial balance exhausted (Twilio Error 20003)
+        elif raw_code == 20003 or resp.status_code in (401, 403):
+            err_code = "SMS_SERVICE_UNAVAILABLE"
+            err_msg = "SMS verification service is temporarily unavailable. Please try again later or continue as Guest Farmer."
+        else:
+            err_code = "SMS_DISPATCH_FAILED"
+            err_msg = "SMS verification is temporarily unavailable for this number. Please try again later or continue as Guest Farmer."
+
         return {
             "success": False,
             "provider": "twilio",
             "code": err_code,
-            "message": err_msg
+            "message": err_msg,
+            "guest_fallback_available": True
         }
 
 

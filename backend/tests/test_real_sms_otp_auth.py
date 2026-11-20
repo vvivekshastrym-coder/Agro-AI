@@ -125,3 +125,139 @@ def test_otp_rate_limiting_cooldown():
         r2 = client.post("/api/auth/phone-otp/send", json={"phone": "9876543210"})
         assert r2.status_code == 429
         assert r2.json()["detail"]["error"]["code"] == "RATE_LIMITED"
+
+
+def test_twilio_trial_restriction_error_21608():
+    """Twilio Error 21608 (Trial unverified number) must return TWILIO_DESTINATION_UNVERIFIED without exposing secrets."""
+    mock_send = AsyncMock(return_value={
+        "success": False,
+        "provider": "twilio",
+        "code": "TWILIO_DESTINATION_UNVERIFIED",
+        "message": "SMS verification is temporarily unavailable for this number. Please try again later or continue as Guest Farmer.",
+        "guest_fallback_available": True
+    })
+    with patch("app.routers.auth.send_sms_otp", mock_send):
+        resp = client.post("/api/auth/phone-otp/send", json={"phone": "+919876543210", "role": "farmer"})
+        assert resp.status_code == 502
+        data = resp.json()
+        err = data["detail"]["error"]
+        assert err["code"] == "TWILIO_DESTINATION_UNVERIFIED"
+        assert "SMS verification is temporarily unavailable for this number" in err["message"]
+        assert "continue as Guest Farmer" in err["message"]
+        assert err["guest_fallback_available"] is True
+        assert err["provider"] == "twilio"
+
+        # Zero leakage of credentials or sensitive internals
+        assert "TWILIO_AUTH_TOKEN" not in resp.text
+        assert "AC7efbc452" not in resp.text
+        assert "password" not in resp.text
+
+        # Phone is NOT saved to active OTP store
+        assert "9876543210" not in _OTP_STORE
+
+
+def test_twilio_service_direct_error_handling():
+    """Test _send_via_twilio error classifications directly with mocked HTTP responses."""
+    import asyncio
+    from app.services.sms_service import _send_via_twilio
+    from unittest.mock import MagicMock
+
+    async def _run():
+        with patch.dict(os.environ, {
+            "TWILIO_ACCOUNT_SID": "AC_TEST_SID",
+            "TWILIO_AUTH_TOKEN": "TEST_AUTH_TOKEN",
+            "TWILIO_PHONE_NUMBER": "+1234567890"
+        }):
+            # 1. Twilio 21608 Trial Unverified number
+            mock_resp_21608 = MagicMock()
+            mock_resp_21608.status_code = 400
+            mock_resp_21608.json.return_value = {
+                "code": 21608,
+                "message": "The number +919876543210 is unverified. Trial accounts cannot send messages to unverified numbers"
+            }
+
+            with patch("httpx.AsyncClient.post", AsyncMock(return_value=mock_resp_21608)):
+                res = await _send_via_twilio("9876543210", "Your Agro AI code is 123456")
+                assert res["success"] is False
+                assert res["code"] == "TWILIO_DESTINATION_UNVERIFIED"
+                assert "continue as Guest Farmer" in res["message"]
+                assert res["guest_fallback_available"] is True
+
+            # 2. Twilio 21408 Region / Geo permissions disabled
+            mock_resp_21408 = MagicMock()
+            mock_resp_21408.status_code = 400
+            mock_resp_21408.json.return_value = {
+                "code": 21408,
+                "message": "Permission to send an SMS has not been enabled for the region indicated by the 'To' number"
+            }
+            with patch("httpx.AsyncClient.post", AsyncMock(return_value=mock_resp_21408)):
+                res = await _send_via_twilio("9876543210", "Your Agro AI code is 123456")
+                assert res["success"] is False
+                assert res["code"] == "TWILIO_REGION_RESTRICTED"
+                assert "continue as Guest Farmer" in res["message"]
+
+            # 3. Twilio 21211 Invalid mobile number
+            mock_resp_21211 = MagicMock()
+            mock_resp_21211.status_code = 400
+            mock_resp_21211.json.return_value = {
+                "code": 21211,
+                "message": "The 'To' number +910000000000 is not a valid phone number."
+            }
+            with patch("httpx.AsyncClient.post", AsyncMock(return_value=mock_resp_21211)):
+                res = await _send_via_twilio("0000000000", "Your Agro AI code is 123456")
+                assert res["success"] is False
+                assert res["code"] == "INVALID_MOBILE_NUMBER"
+                assert "continue as Guest Farmer" in res["message"]
+
+            # 4. Twilio 20003 Account suspended or insufficient funds
+            mock_resp_20003 = MagicMock()
+            mock_resp_20003.status_code = 401
+            mock_resp_20003.json.return_value = {
+                "code": 20003,
+                "message": "Authentication Error - account suspended"
+            }
+            with patch("httpx.AsyncClient.post", AsyncMock(return_value=mock_resp_20003)):
+                res = await _send_via_twilio("9876543210", "Your Agro AI code is 123456")
+                assert res["success"] is False
+                assert res["code"] == "SMS_SERVICE_UNAVAILABLE"
+                assert "continue as Guest Farmer" in res["message"]
+
+    asyncio.run(_run())
+
+
+def test_window_rate_limiting_exceeded():
+    """Max 3 OTP requests allowed per 10-minute window."""
+    digits = "9988776655"
+    now = time.time()
+    _OTP_STORE[digits] = {
+        "otp_hash": _hash_otp(digits, "123456"),
+        "expires_at": now + 300,
+        "last_sent_at": now - 80,  # Cooldown passed
+        "window_start": now - 200, # In current 10-minute window
+        "send_count": 3,           # Already hit 3 sends
+        "attempts": 0,
+    }
+
+    # Ensure DB record doesn't override with different values
+    from app.database.connection import SessionLocal
+    from app.database.models import PhoneOtpRecord
+    db = SessionLocal()
+    try:
+        db.query(PhoneOtpRecord).filter(PhoneOtpRecord.phone == digits).delete()
+        db.add(PhoneOtpRecord(
+            phone=digits,
+            otp_hash=_hash_otp(digits, "123456"),
+            expires_at=now + 300,
+            last_sent_at=now - 80,
+            window_start=now - 200,
+            send_count=3,
+            attempts=0
+        ))
+        db.commit()
+    finally:
+        db.close()
+
+    resp = client.post("/api/auth/phone-otp/send", json={"phone": digits, "role": "farmer"})
+    assert resp.status_code == 429
+    assert resp.json()["detail"]["error"]["code"] == "MAX_RESEND_EXCEEDED"
+
