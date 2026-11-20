@@ -182,6 +182,36 @@ async def log_requests(request: Request, call_next):
     logger.info(f'← {response.status_code} {request.url.path}')
     return response
 
+from urllib.parse import parse_qsl, urlencode
+
+@app.middleware('http')
+async def rewrite_vercel_serverless_path(request: Request, call_next):
+    raw_path = request.url.path or "/"
+    if raw_path in ("/api/index.py", "/api/index", "/api", "/index.py", "/index", ""):
+        p = request.query_params.get("path")
+        if p:
+            clean = p.lstrip("/")
+            if not clean.startswith("api/"):
+                clean = f"api/{clean}"
+            request.scope["path"] = f"/{clean}".split("?")[0]
+            request.scope["raw_path"] = request.scope["path"].encode("utf-8")
+            qs = request.scope.get("query_string", b"").decode("latin-1")
+            filtered = [(k, v) for k, v in parse_qsl(qs) if k != "path"]
+            request.scope["query_string"] = urlencode(filtered).encode("latin-1")
+        else:
+            for header_name in ("x-forwarded-uri", "x-original-url", "x-real-path"):
+                h_val = request.headers.get(header_name)
+                if h_val:
+                    h_val = h_val.split("?")[0].strip()
+                    if h_val and h_val not in ("/api/index.py", "/api/index", "/api", "/index.py", "/index", ""):
+                        clean = h_val.lstrip("/")
+                        if not clean.startswith("api/"):
+                            clean = f"api/{clean}"
+                        request.scope["path"] = f"/{clean}"
+                        request.scope["raw_path"] = request.scope["path"].encode("utf-8")
+                        break
+    return await call_next(request)
+
 # ─── Routers ──────────────────────────────────────────────────
 app.include_router(auth.router,        prefix='/api/auth',        tags=['Authentication'])
 app.include_router(diagnosis.router,   prefix='/api/diagnosis',   tags=['Leaf Diagnosis'])
@@ -494,12 +524,7 @@ async def handle_unmatched_api_route(request: Request, unmatched_path: str):
         content={
             "error": {
                 "code": "NOT_FOUND",
-                "message": f"API route /api/{unmatched_path} not found.",
-                "unmatched_path": unmatched_path,
-                "scope_path": request.scope.get("path"),
-                "query": str(request.query_params),
-                "x_matched_path": request.headers.get("x-matched-path"),
-                "x_forwarded_uri": request.headers.get("x-forwarded-uri"),
+                "message": f"API route /api/{unmatched_path} not found."
             }
         }
     )
