@@ -735,7 +735,7 @@
       <div id="recaptcha-container"></div>
 
 
-      <p class="fine-print" id="authFinePrint">By continuing, you agree to Agro AI's <a href="/terms" target="_blank" rel="noopener" style="color:inherit;text-decoration:underline;font-weight:600;">Terms of Service</a> and <a href="/privacy" target="_blank" rel="noopener" style="color:inherit;text-decoration:underline;font-weight:600;">Privacy Policy</a>.<br>We never share your farm data without your consent.</p>
+      <p class="fine-print" id="authFinePrint">By continuing, you agree to Agro AI's <a href="/terms" onclick="openLegalDocModal('terms', event)" target="_blank" rel="noopener" style="color:inherit;text-decoration:underline;font-weight:600;">Terms of Service</a> and <a href="/privacy" onclick="openLegalDocModal('privacy', event)" target="_blank" rel="noopener" style="color:inherit;text-decoration:underline;font-weight:600;">Privacy Policy</a>.<br>We never share your farm data without your consent.</p>
     </section>
 
     <!-- ============ AUTH: OTP ============ -->
@@ -1965,6 +1965,20 @@
     </div>
   </div>
 
+  <!-- Legal Document (Terms & Privacy) Modal Sheet -->
+  <div class="modal-backdrop" id="legalDocModal" onclick="if(event.target===this)closeLegalDocModal()">
+    <div class="modal-sheet" style="max-height:85vh;overflow-y:auto;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;position:sticky;top:0;background:#fff;padding-bottom:8px;border-bottom:1px solid var(--line);z-index:2;">
+        <h3 class="display" style="margin:0;font-size:18px;" id="legalDocModalTitle">Terms of Service</h3>
+        <div style="display:flex;gap:6px;align-items:center;">
+          <a id="legalDocExternalLink" href="/terms" target="_blank" rel="noopener" class="btn btn-outline" style="padding:4px 8px;font-size:11px;text-decoration:none;">Open full page ↗</a>
+          <button class="btn btn-outline" style="padding:4px 10px;font-size:12px;" onclick="closeLegalDocModal()">✕</button>
+        </div>
+      </div>
+      <div id="legalDocModalContent" style="font-size:13px;line-height:1.6;color:var(--ink);"></div>
+    </div>
+  </div>
+
   <!-- Agro AI Mart Delivery PIN Modal -->
   <div class="modal-backdrop" id="martPinModal" onclick="if(event.target===this)closeMartPinModal()">
     <div class="modal-sheet">
@@ -2206,7 +2220,7 @@ const I18N = {
     auth_phone_lbl: "Mobile number",
     auth_send_otp: "Send OTP",
     auth_guest_btn: "🌾 Explore as Guest Farmer",
-    auth_fine_print: "By continuing, you agree to Agro AI's <a href='/terms' target='_blank' rel='noopener' style='color:inherit;text-decoration:underline;font-weight:600;'>Terms of Service</a> and <a href='/privacy' target='_blank' rel='noopener' style='color:inherit;text-decoration:underline;font-weight:600;'>Privacy Policy</a>.<br>We never share your farm data without your consent.",
+    auth_fine_print: "By continuing, you agree to Agro AI's <a href='/terms' onclick=\"openLegalDocModal('terms', event)\" target='_blank' rel='noopener' style='color:inherit;text-decoration:underline;font-weight:600;'>Terms of Service</a> and <a href='/privacy' onclick=\"openLegalDocModal('privacy', event)\" target='_blank' rel='noopener' style='color:inherit;text-decoration:underline;font-weight:600;'>Privacy Policy</a>.<br>We never share your farm data without your consent.",
     otp_back: "← Back",
     otp_title: "Verify your number",
     otp_verify: "Verify & continue",
@@ -2404,7 +2418,7 @@ const I18N = {
     auth_phone_lbl: "ಮೊಬೈಲ್ ಸಂಖ್ಯೆ",
     auth_send_otp: "OTP ಕಳುಹಿಸಿ",
     auth_guest_btn: "🌾 ರೈತರಾಗಿ ಮುಂದುವರಿಯಿರಿ (ತ್ವರಿತ ಪ್ರವೇಶ)",
-    auth_fine_print: "ಮುಂದುವರಿಯುವ ಮೂಲಕ, ನೀವು ಆಗ್ರೋ AI ನ <a href='/terms' target='_blank' rel='noopener' style='color:inherit;text-decoration:underline;font-weight:600;'>ಸೇವಾ ನಿಯಮಗಳು</a> ಮತ್ತು <a href='/privacy' target='_blank' rel='noopener' style='color:inherit;text-decoration:underline;font-weight:600;'>ಗೌಪ್ಯತಾ ನೀತಿಯನ್ನು</a> ಒಪ್ಪುತ್ತೀರಿ.<br>ನಿಮ್ಮ ಒಪ್ಪಿಗೆಯಿಲ್ಲದೆ ನಿಮ್ಮ ಕೃಷಿ ಡೇಟಾವನ್ನು ಹಂಚಿಕೊಳ್ಳುವುದಿಲ್ಲ.",
+    auth_fine_print: "ಮುಂದುವರಿಯುವ ಮೂಲಕ, ನೀವು ಆಗ್ರೋ AI ನ <a href='/terms' onclick=\"openLegalDocModal('terms', event)\" target='_blank' rel='noopener' style='color:inherit;text-decoration:underline;font-weight:600;'>ಸೇವಾ ನಿಯಮಗಳು</a> ಮತ್ತು <a href='/privacy' onclick=\"openLegalDocModal('privacy', event)\" target='_blank' rel='noopener' style='color:inherit;text-decoration:underline;font-weight:600;'>ಗೌಪ್ಯತಾ ನೀತಿಯನ್ನು</a> ಒಪ್ಪುತ್ತೀರಿ.<br>ನಿಮ್ಮ ಒಪ್ಪಿಗೆಯಿಲ್ಲದೆ ನಿಮ್ಮ ಕೃಷಿ ಡೇಟಾವನ್ನು ಹಂಚಿಕೊಳ್ಳುವುದಿಲ್ಲ.",
     otp_back: "← ಹಿಂದಕ್ಕೆ",
     otp_title: "ನಿಮ್ಮ ಸಂಖ್ಯೆಯನ್ನು ಪರಿಶೀಲಿಸಿ",
     otp_verify: "ಪರಿಶೀಲಿಸಿ & ಮುಂದುವರಿಯಿರಿ",
@@ -2600,7 +2614,7 @@ const I18N = {
       "auth_phone_lbl": "मोबाइल नंबर",
       "auth_send_otp": "OTP भेजें",
       "auth_guest_btn": "🌾 अतिथि किसान के रूप में देखें",
-      "auth_fine_print": "जारी रखकर, आप एग्रो AI की <a href='/terms' target='_blank' rel='noopener' style='color:inherit;text-decoration:underline;font-weight:600;'>सेवा की शर्तों</a> और <a href='/privacy' target='_blank' rel='noopener' style='color:inherit;text-decoration:underline;font-weight:600;'>गोपनीयता नीति</a> से सहमत होते हैं।<br>हम आपकी सहमति के बिना कभी भी आपका कृषि डेटा साझा नहीं करते हैं।",
+      "auth_fine_print": "जारी रखकर, आप एग्रो AI की <a href='/terms' onclick=\"openLegalDocModal('terms', event)\" target='_blank' rel='noopener' style='color:inherit;text-decoration:underline;font-weight:600;'>सेवा की शर्तों</a> और <a href='/privacy' onclick=\"openLegalDocModal('privacy', event)\" target='_blank' rel='noopener' style='color:inherit;text-decoration:underline;font-weight:600;'>गोपनीयता नीति</a> से सहमत होते हैं।<br>हम आपकी सहमति के बिना कभी भी आपका कृषि डेटा साझा नहीं करते हैं।",
       "otp_back": "← वापस",
       "otp_title": "अपना नंबर सत्यापित करें",
       "otp_verify": "सत्यापित करें और आगे बढ़ें",
@@ -4615,6 +4629,86 @@ function showToast(msg){
   el.classList.add('show');
   setTimeout(()=>el.classList.remove('show'), 2400);
 }
+
+/* ================= LEGAL DOCUMENTS MODAL (TERMS & PRIVACY) ================= */
+function openLegalDocModal(type, e) {
+  if (e && e.preventDefault) e.preventDefault();
+  const modal = document.getElementById('legalDocModal');
+  const title = document.getElementById('legalDocModalTitle');
+  const content = document.getElementById('legalDocModalContent');
+  const extLink = document.getElementById('legalDocExternalLink');
+  if (!modal || !content) return;
+
+  const isTerms = (type === 'terms');
+  if (title) title.textContent = isTerms ? "Terms of Service" : "Privacy Policy";
+  if (extLink) {
+    extLink.href = isTerms ? "/terms" : "/privacy";
+    extLink.textContent = isTerms ? "Open terms page ↗" : "Open privacy page ↗";
+  }
+
+  if (isTerms) {
+    content.innerHTML = `
+      <div style="margin-bottom:14px;">
+        <h4 style="margin:0 0 4px;font-size:14px;color:var(--forest);">Agro AI — Terms &amp; Conditions and Subscription Policy</h4>
+        <p class="muted" style="font-size:11.5px;margin:0;">Effective Date: November 17, 2026 · <a href="/terms" target="_blank" style="color:var(--forest);">https://agroai.live/terms</a></p>
+      </div>
+      <div style="margin-bottom:12px;">
+        <strong style="display:block;margin-bottom:2px;">1. Platform Scope &amp; Eligibility</strong>
+        <p style="margin:0;">Agro AI provides agricultural advisory tools, crop disease diagnosis, weather, and APMC mandi price intelligence. Users under the applicable legal age of digital consent require verifiable parental or guardian consent before activating an account.</p>
+      </div>
+      <div style="margin-bottom:12px;">
+        <strong style="display:block;margin-bottom:2px;">2. Subscription Pricing, Taxes &amp; Renewal</strong>
+        <p style="margin:0;">All plan prices, billing intervals (monthly/annual), and applicable taxes (including 18% GST where applicable) are displayed clearly prior to checkout. Agro AI does not charge users without explicit informed confirmation. Paid subscriptions can be upgraded, downgraded, or cancelled directly inside the Plans &amp; Billing section with one click.</p>
+      </div>
+      <div style="margin-bottom:12px;">
+        <strong style="display:block;margin-bottom:2px;">3. Cancellation &amp; Refund Policy</strong>
+        <p style="margin:0;">You may cancel your subscription at any time from the Plans screen. Cancellation stops future billing immediately. Duplicate charges or verified technical billing failures are eligible for full refund review within 7 business days via support.</p>
+      </div>
+      <div style="margin-bottom:8px;">
+        <strong style="display:block;margin-bottom:2px;">4. Grievance &amp; Support</strong>
+        <p style="margin:0;">Support &amp; Grievance Contact: <a href="mailto:vvivekshastrym@gmail.com" style="color:var(--forest);">vvivekshastrym@gmail.com</a></p>
+      </div>
+      <div style="margin-top:16px;text-align:right;">
+        <button type="button" class="btn btn-primary" onclick="closeLegalDocModal()" style="padding:6px 16px;font-size:12px;">Close</button>
+      </div>
+    `;
+  } else {
+    content.innerHTML = `
+      <div style="margin-bottom:14px;">
+        <span class="pill pill-forest" style="font-size:10px;margin-bottom:6px;display:inline-block;">Effective Date: October 17, 2026</span>
+        <h4 style="margin:4px 0 4px;font-size:14px;color:var(--forest);">Agro AI — Privacy Policy</h4>
+        <p class="muted" style="font-size:11.5px;margin:0;">Agro AI protects your personal data, farm data, and children's privacy under the Digital Personal Data Protection Act.</p>
+      </div>
+      <div style="margin-bottom:12px;">
+        <strong style="display:block;margin-bottom:2px;">1. Information We Collect</strong>
+        <p style="margin:0;">Account &amp; Profile Data (name, phone, email), Camera &amp; Crop Images uploaded for leaf diagnosis, Location Data for weather alerts and APMC mandi prices, and Order/Subscription records. We never share your raw farm data without your consent.</p>
+      </div>
+      <div style="margin-bottom:12px;">
+        <strong style="display:block;margin-bottom:2px;">2. How We Use Your Information</strong>
+        <p style="margin:0;">To provide AI crop pathology guidance, local weather alerts, APMC market prices, and connect local farmers with buyers on Agro AI Mart. We do NOT sell your data or use third-party behavioral ad trackers.</p>
+      </div>
+      <div style="margin-bottom:12px;">
+        <strong style="display:block;margin-bottom:2px;">3. Data Sharing &amp; Infrastructure</strong>
+        <p style="margin:0;">Data is processed only by essential infrastructure providers (Supabase Auth/DB, Razorpay Payments, and Gemini/OpenAI vision models for pathology).</p>
+      </div>
+      <div style="margin-bottom:8px;">
+        <strong style="display:block;margin-bottom:2px;">4. Data Deletion &amp; Rights</strong>
+        <p style="margin:0;">You can request complete data export or account deletion anytime in Account Settings or by emailing <a href="mailto:vvivekshastrym@gmail.com" style="color:var(--forest);">vvivekshastrym@gmail.com</a>.</p>
+      </div>
+      <div style="margin-top:16px;text-align:right;">
+        <button type="button" class="btn btn-primary" onclick="closeLegalDocModal()" style="padding:6px 16px;font-size:12px;">Close</button>
+      </div>
+    `;
+  }
+  modal.classList.add('open');
+}
+
+function closeLegalDocModal() {
+  const modal = document.getElementById('legalDocModal');
+  if (modal) modal.classList.remove('open');
+}
+window.openLegalDocModal = openLegalDocModal;
+window.closeLegalDocModal = closeLegalDocModal;
 
 /* ================= LANGUAGE ================= */
 function openLangModal(){

@@ -230,3 +230,24 @@ def test_subscription_cancellation_history_and_invoice_isolation():
     assert can.status_code == 200
     assert can.json()["status"] == "cancelled"
     assert can.json()["cancel_at_period_end"] is True
+
+
+def test_terms_and_privacy_consent_links_and_modals_accessible():
+    """Verifies that Terms of Service and Privacy Policy documents and modal dialogs are fully accessible."""
+    terms_res = client.get("/terms")
+    assert terms_res.status_code == 200
+    assert "Terms" in terms_res.text
+    assert "Agro AI" in terms_res.text
+
+    privacy_res = client.get("/privacy")
+    assert privacy_res.status_code == 200
+    assert "Privacy Policy" in privacy_res.text
+    assert "Agro AI" in privacy_res.text
+
+    idx_html = (ROOT / "index.html").read_text(encoding="utf-8")
+    assert 'href="/terms"' in idx_html
+    assert 'href="/privacy"' in idx_html
+    assert "openLegalDocModal('terms'" in idx_html
+    assert "openLegalDocModal('privacy'" in idx_html
+    assert 'id="legalDocModal"' in idx_html
+    assert 'id="authFinePrint"' in idx_html
