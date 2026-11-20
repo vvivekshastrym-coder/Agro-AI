@@ -6889,7 +6889,23 @@ function openMoreItem(id){
         { label: '🌐 Open PMFBY Portal (pmfby.gov.in)', labelKn: '🌐 PMFBY ಅಧಿಕೃತ ಪೋರ್ಟಲ್ ತೆರೆಯಿರಿ', external: 'https://pmfby.gov.in' }
       ]
     },
-    soildna:   { en: 'Not available yet: this service is not connected.', kn: 'ಇನ್ನೂ ಲಭ್ಯವಿಲ್ಲ: ಈ ಸೇವೆ ಇನ್ನೂ ಸಂಪರ್ಕಗೊಂಡಿಲ್ಲ.' },
+    soildna: {
+      en: 'Soil DNA Kit Details & Access Instructions:\n\n' +
+          '• Kit contents: 3 sterile sample collection vials, sampling spatula, GPS parcel tags, and pre-addressed courier return mailer.\n' +
+          '• Analysis & Recommendations: Metagenomic sequencing identifies beneficial soil microbes (rhizobia, mycorrhizae), nutrient availability, and fungal pathogen presence to recommend targeted biofertilizers.\n' +
+          '• Direct mail-order kits through Agro AI are currently in development.\n' +
+          '• Government Soil Testing: You can obtain a Soil Health Card (SHC) testing for N-P-K, micronutrients, and pH at your nearest Krishi Vigyan Kendra (KVK) or Raitha Samparka Kendra (RSK).',
+      kn: 'ಮಣ್ಣು DNA ಕಿಟ್ ವಿವರಗಳು ಮತ್ತು ಸೇವೆ ಪಡೆಯುವ ವಿಧಾನ:\n\n' +
+          '• ಕಿಟ್‌ನಲ್ಲಿರುವ ವಸ್ತುಗಳು: 3 ಮಾದರಿ ಸಂಗ್ರಹಣಾ ಬಾಟಲಿಗಳು, ಅಳತೆ ಚಮಚ, ಜಮೀನಿನ ಟ್ಯಾಗ್‌ಗಳು ಮತ್ತು ಕೊರಿಯರ್ ಕವರ್.\n' +
+          '• ವಿಶ್ಲೇಷಣೆ ಮತ್ತು ಶಿಫಾರಸು: ಸೂಕ್ಷ್ಮಾಣು ಜೀವಿಗಳು, ರಂಜಕ ಕರಗಿಸುವ ಮತ್ತು ಸಾರಜನಕ ಸ್ಥಿರೀಕರಿಸುವ ಬ್ಯಾಕ್ಟೀರಿಯಾಗಳನ್ನು ಗುರುತಿಸಿ ಸೂಕ್ತ ಜೈವಿಕ ಗೊಬ್ಬರದ ಸಲಹೆ ನೀಡಲಾಗುತ್ತದೆ.\n' +
+          '• ಆಗ್ರೋ AI ನಲ್ಲಿ ನೇರ ಕಿಟ್ ಆರ್ಡರ್ ಮಾಡುವ ಸೌಲಭ್ಯವು ಸದ್ಯ ಅಭಿವೃದ್ಧಿಯಲ್ಲಿದೆ.\n' +
+          '• ಸರ್ಕಾರಿ ಮಣ್ಣು ಪರೀಕ್ಷೆ: ನಿಮ್ಮ ಹತ್ತಿರದ ಕೃಷಿ ವಿಜ್ಞಾನ ಕೇಂದ್ರ (KVK) ಅಥವಾ ರೈತ ಸಂಪರ್ಕ ಕೇಂದ್ರ (RSK) ಮೂಲಕ ಮಣ್ಣು ಆರೋಗ್ಯ ಕಾರ್ಡ್ (Soil Health Card) ಪಡೆಯಬಹುದು.',
+      actions: [
+        { label: '🌱 Ask Agro GPT for Soil Advisory', labelKn: '🌱 Agro GPT ಯಲ್ಲಿ ಮಣ್ಣು/ಗೊಬ್ಬರದ ಸಲಹೆ ಪಡೆಯಿರಿ', action: "go('agrogpt')" },
+        { label: '📋 View Soil Health Schemes', labelKn: '📋 ಮಣ್ಣು ಆರೋಗ್ಯ ಯೋಜನೆಗಳನ್ನು ವೀಕ್ಷಿಸಿ', action: "go('schemes')" },
+        { label: '🌐 Soil Health Card Portal (soilhealth.dac.gov.in)', labelKn: '🌐 ರಾಷ್ಟ್ರೀಯ ಮಣ್ಣು ಆರೋಗ್ಯ ಪೋರ್ಟಲ್', external: 'https://soilhealth.dac.gov.in' }
+      ]
+    },
     passport:  { en: 'Not available yet: this service is not connected.', kn: 'ಇನ್ನೂ ಲಭ್ಯವಿಲ್ಲ: ಈ ಸೇವೆ ಇನ್ನೂ ಸಂಪರ್ಕಗೊಂಡಿಲ್ಲ.' },
     credit:    { en: 'Not available yet: this service is not connected.', kn: 'ಇನ್ನೂ ಲಭ್ಯವಿಲ್ಲ: ಈ ಸೇವೆ ಇನ್ನೂ ಸಂಪರ್ಕಗೊಂಡಿಲ್ಲ.' }
   };
