@@ -4907,6 +4907,10 @@ function applyTranslations(lang){
   if(pestView && pestView.style.display !== 'none'){
     loadPestRadarView();
   }
+  const marketView = document.querySelector('.view[data-view="market"]');
+  if(marketView && marketView.style.display !== 'none'){
+    if(typeof renderMandiMarketCards === 'function') renderMandiMarketCards();
+  }
 
   renderReportsList();
 }
@@ -6604,30 +6608,7 @@ async function loadMandiMarkets(reset = false) {
           localStorage.setItem('agroai_mandi_market', mandiCurrentMarket);
         }
 
-        listEl.innerHTML = mandiLoadedMarkets.map(m => {
-          const isSelected = (m.market_name === mandiCurrentMarket);
-          const activeBorder = isSelected ? 'border:2px solid var(--forest);background:#f0fdf4;' : 'border:1px solid var(--line);background:#fff;';
-          return `
-            <div class="card mandi-card" onclick="selectMandiMarket('${escHtml(m.market_name)}')"
-                 style="cursor:pointer;padding:10px 14px;transition:all 0.2s ease;${activeBorder}">
-              <div style="display:flex;justify-content:space-between;align-items:flex-start;">
-                <div>
-                  <div style="font-weight:700;font-size:14px;color:${isSelected ? 'var(--forest)' : 'var(--ink)'};">
-                    ${isSelected ? '📍 ' : ''}${escHtml(m.market_name)}
-                  </div>
-                  <div class="muted" style="font-size:12px;margin-top:2px;">
-                    ${escHtml(m.district)}, ${escHtml(m.state)}
-                  </div>
-                </div>
-                <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;">
-                  <span class="pill" style="font-size:10px;padding:2px 8px;background:${isSelected ? '#dcfce7' : '#F1EDE1'};color:${isSelected ? '#15803d' : 'var(--ink-soft)'};">
-                    ${escHtml(m.market_type || 'Principal Yard')}
-                  </span>
-                  ${isSelected ? `<span style="font-size:11px;font-weight:700;color:var(--forest);">${isKn ? 'ಆಯ್ಕೆಮಾಡಲಾಗಿದೆ' : (isHi ? 'चयनित' : 'Selected')}</span>` : ''}
-                </div>
-              </div>
-            </div>`;
-        }).join('');
+        renderMandiMarketCards();
       }
     }
 
@@ -6670,6 +6651,40 @@ async function loadMandiMarkets(reset = false) {
   }
 }
 
+function renderMandiMarketCards() {
+  const listEl = document.getElementById('mandiMarketList');
+  if (!listEl || !mandiLoadedMarkets.length) return;
+  const prevScroll = listEl.scrollTop;
+  const isKn = (currentLang === 'kn');
+  const isHi = (currentLang === 'hi');
+
+  listEl.innerHTML = mandiLoadedMarkets.map(m => {
+    const isSelected = (m.market_name === mandiCurrentMarket);
+    const activeBorder = isSelected ? 'border:2px solid var(--forest);background:#f0fdf4;' : 'border:1px solid var(--line);background:#fff;';
+    return `
+      <div class="card mandi-card" data-market-name="${escHtml(m.market_name)}" onclick="selectMandiMarket('${escHtml(m.market_name)}')"
+           style="cursor:pointer;padding:10px 14px;transition:all 0.2s ease;${activeBorder}">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+          <div>
+            <div style="font-weight:700;font-size:14px;color:${isSelected ? 'var(--forest)' : 'var(--ink)'};">
+              ${isSelected ? '📍 ' : ''}${escHtml(m.market_name)}
+            </div>
+            <div class="muted" style="font-size:12px;margin-top:2px;">
+              ${escHtml(m.district)}, ${escHtml(m.state)}
+            </div>
+          </div>
+          <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;">
+            <span class="pill" style="font-size:10px;padding:2px 8px;background:${isSelected ? '#dcfce7' : '#F1EDE1'};color:${isSelected ? '#15803d' : 'var(--ink-soft)'};">
+              ${escHtml(m.market_type || 'Principal Yard')}
+            </span>
+            ${isSelected ? `<span class="mandi-selected-badge" style="font-size:11px;font-weight:700;color:var(--forest);">${isKn ? 'ಆಯ್ಕೆಮಾಡಲಾಗಿದೆ' : (isHi ? 'चयनित' : 'Selected')}</span>` : ''}
+          </div>
+        </div>
+      </div>`;
+  }).join('');
+  if (prevScroll) listEl.scrollTop = prevScroll;
+}
+
 async function loadMoreMandiMarkets() {
   mandiPage++;
   await loadMandiMarkets(false);
@@ -6679,12 +6694,7 @@ function selectMandiMarket(marketName) {
   mandiCurrentMarket = marketName;
   localStorage.setItem('agroai_mandi_market', marketName);
 
-  const cards = document.querySelectorAll('#mandiMarketList .mandi-card');
-  cards.forEach(c => {
-    const isSelected = c.innerText.includes(marketName);
-    c.style.border = isSelected ? '2px solid var(--forest)' : '1px solid var(--line)';
-    c.style.background = isSelected ? '#f0fdf4' : '#fff';
-  });
+  renderMandiMarketCards();
 
   fetchMandiPrice(marketName, mandiCurrentCommodity);
 }
