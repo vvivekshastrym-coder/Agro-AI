@@ -10,6 +10,7 @@ load_dotenv(os.path.join(os.path.dirname(__file__), '..', '..', '..', '.env'))
 
 _env = (os.getenv("VERCEL_ENV") or os.getenv("ENVIRONMENT") or "development").strip().lower()
 _is_prod = _env in ("production", "prod")
+allow_fallback = os.getenv("ALLOW_EPHEMERAL_DB_FALLBACK", "0" if _is_prod else "1").strip().lower() in ("1", "true", "yes")
 
 RAW_DATABASE_URL = (
     os.getenv('DATABASE_URL')
@@ -21,9 +22,10 @@ root_db = '/tmp/kisanai.db' if os.getenv('VERCEL') else os.path.abspath(os.path.
 SQLITE_FALLBACK_URL = f"sqlite:///{root_db.replace(os.sep, '/')}"
 
 if not RAW_DATABASE_URL or '[YOUR-PASSWORD]' in RAW_DATABASE_URL:
-    if _is_prod:
+    if _is_prod and not allow_fallback:
         import logging as _logging
         _logging.getLogger(__name__).critical("Production DATABASE_URL not configured! Ephemeral SQLite fallback in production is strictly prohibited.")
+        raise RuntimeError("Production DATABASE_URL is not configured and ephemeral database fallback is strictly prohibited in production.")
     DATABASE_URL = SQLITE_FALLBACK_URL
 else:
     DATABASE_URL = RAW_DATABASE_URL
@@ -91,14 +93,13 @@ else:
             engine = _pg_engine
         except Exception as _pg_err:
             import logging as _logging
-            allow_fallback = os.getenv("ALLOW_EPHEMERAL_DB_FALLBACK", "1").strip().lower() in ("1", "true", "yes")
             if allow_fallback or not _is_prod:
-                _logging.getLogger(__name__).warning("Vercel Postgres unreachable (%s); using resilient /tmp/kisanai.db so services remain available while Supabase is paused. Set ALLOW_EPHEMERAL_DB_FALLBACK=0 to enforce strict database rejection.", type(_pg_err).__name__)
+                _logging.getLogger(__name__).warning("Vercel Postgres unreachable (%s); using resilient /tmp/kisanai.db so services remain available while Supabase is paused. Ephemeral fallback is allowed by ALLOW_EPHEMERAL_DB_FALLBACK=1.", type(_pg_err).__name__)
                 DATABASE_URL = "sqlite:////tmp/kisanai.db"
                 engine = create_engine(DATABASE_URL, connect_args={'check_same_thread': False, 'timeout': 15})
             else:
-                _logging.getLogger(__name__).critical("Vercel Postgres unreachable (%s) in PRODUCTION. Ephemeral fallback disabled by ALLOW_EPHEMERAL_DB_FALLBACK=0.", type(_pg_err).__name__)
-                engine = _pg_engine
+                _logging.getLogger(__name__).critical("Vercel Postgres unreachable (%s) in PRODUCTION. Ephemeral fallback strictly disabled.", type(_pg_err).__name__)
+                raise RuntimeError(f"Production PostgreSQL is unreachable ({type(_pg_err).__name__}) and ephemeral SQLite fallback is strictly prohibited in production.") from _pg_err
     else:
         engine = create_engine(
             DATABASE_URL,
