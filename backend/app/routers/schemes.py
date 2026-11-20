@@ -87,7 +87,7 @@ REAL_GOVERNMENT_SCHEMES: List[Dict[str, Any]] = [
         "state": None,
         "min_land_acres": 0.5,
         "max_land_acres": None,
-        "eligible_crops": ["Tomato", "Sugarcane", "Cotton", "Maize", "Onion", "Horticulture", "Vegetables", "Fruits"],
+        "eligible_crops": ["Tomato", "Sugarcane", "Cotton", "Maize", "Onion", "Wheat", "Horticulture", "Vegetables", "Fruits"],
         "eligible_farmer_types": ["marginal", "small", "all"],
         "eligible_states": [],
         "application_portal": "https://pmksy.gov.in",
@@ -463,18 +463,38 @@ def evaluate_eligibility(scheme: GovernmentScheme, profile: ProfileCriteria) -> 
         is_crop_match = True
         matched_reasons.append(f"Applicable for all crops including your primary crop ({profile.crop or 'general'})")
     else:
-        # Check if farmer's crop matches any crop keywords
+        # Check if farmer's crop matches any crop keywords directly
         matched_crop_name = next((c for c in scheme_crops if c in p_crop or p_crop in c), None)
+
+        # Check broader categories if present in scheme_crops
+        if not matched_crop_name:
+            vegetable_crops = {"tomato", "onion", "potato", "chilli", "brinjal", "cabbage", "cauliflower", "carrot", "radish", "okra", "bhendi", "garlic", "ginger", "peas", "beans", "capsicum", "cucumber"}
+            fruit_crops = {"banana", "mango", "pomegranate", "papaya", "grapes", "citrus", "guava", "apple", "orange", "lemon", "watermelon"}
+            horticulture_crops = vegetable_crops | fruit_crops | {"coconut", "arecanut", "coffee", "tea", "spices", "turmeric", "pepper", "cardamom"}
+            pulse_crops = {"gram", "chickpea", "tur", "arhar", "pigeon pea", "moong", "urad", "lentil", "pulses"}
+            millet_crops = {"millet", "millets", "ragi", "finger millet", "navane", "foxtail millet", "same", "little millet", "haraka", "kodo millet", "oodalu", "barnyard millet", "baragu", "proso millet", "bajra", "pearl millet", "jowar", "sorghum"}
+
+            if any("vegetable" in sc for sc in scheme_crops) and any(vc in p_crop for vc in vegetable_crops):
+                matched_crop_name = "notified vegetables"
+            elif any("horticulture" in sc for sc in scheme_crops) and any(hc in p_crop for hc in horticulture_crops):
+                matched_crop_name = "notified horticulture crops"
+            elif any("fruit" in sc for sc in scheme_crops) and any(fc in p_crop for fc in fruit_crops):
+                matched_crop_name = "notified fruit crops"
+            elif any("pulse" in sc for sc in scheme_crops) and any(pc in p_crop for pc in pulse_crops):
+                matched_crop_name = "notified pulses"
+            elif any("millet" in sc for sc in scheme_crops) and any(mc in p_crop for mc in millet_crops):
+                matched_crop_name = "notified millets"
+            elif scheme.slug == "pmfby-crop-insurance" and any(gc in p_crop for gc in (vegetable_crops | horticulture_crops | pulse_crops | millet_crops | {"cotton", "wheat", "rice", "paddy", "sugarcane", "maize", "soybean"})):
+                matched_crop_name = "notified agricultural crops under PMFBY"
+
         if matched_crop_name:
             is_crop_match = True
-            matched_reasons.append(f"Notified crop match: {profile.crop} is explicitly eligible for this subsidy")
+            matched_reasons.append(f"Notified crop match: {profile.crop} is covered ({matched_crop_name})")
         else:
-            # Check for general crops in PMFBY
-            if "tomato" in p_crop or "wheat" in p_crop or "rice" in p_crop or "cotton" in p_crop or "maize" in p_crop or "onion" in p_crop:
-                is_crop_match = True
-                matched_reasons.append(f"Covered under notified agricultural crops ({profile.crop})")
+            if scheme.slug == "karnataka-raitha-siri":
+                unmet_reasons.append(f"Requires cultivation of notified minor millets (Ragi, Navane, Same, Haraka, Oodalu, Baragu). Your active crop is {profile.crop or 'Tomato'}.")
             else:
-                unmet_reasons.append(f"Targeted primarily for: {', '.join(scheme.eligible_crops[:4])}")
+                unmet_reasons.append(f"Targeted primarily for: {', '.join(scheme.eligible_crops[:4])}. Your active crop is {profile.crop or 'not specified'}.")
 
     # Determine overall status
     if is_state_match and is_land_match and is_crop_match:

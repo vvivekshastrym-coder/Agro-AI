@@ -57,14 +57,32 @@ def test_karnataka_farmer_eligibility_matching():
     assert pm_kisan["eligibility"]["status"] == "eligible"
     assert pm_kisan["eligibility"]["score"] >= 90
 
-    # Karnataka schemes must be eligible
+    # Karnataka schemes: Krishi Bhagya is open to all crops, so eligible
     krishi_bhagya = schemes_by_slug["karnataka-krishi-bhagya"]
     assert krishi_bhagya["eligibility"]["status"] == "eligible"
+
+    # Karnataka Raitha Siri is specifically for minor millets; Tomato is NOT eligible
+    raitha_siri = schemes_by_slug["karnataka-raitha-siri"]
+    assert raitha_siri["eligibility"]["status"] != "eligible"
+    assert any("millet" in r.lower() for r in raitha_siri["eligibility"]["unmet_reasons"])
+    assert not any("Covered under notified agricultural crops (Tomato)" in r for r in raitha_siri["eligibility"]["matched_reasons"])
 
     # Maharashtra scheme must NOT be eligible for a Karnataka farmer
     mh_scheme = schemes_by_slug["maharashtra-namo-shetkari"]
     assert mh_scheme["eligibility"]["status"] == "not_eligible"
     assert any("Restricted to Maharashtra" in reason for reason in mh_scheme["eligibility"]["unmet_reasons"])
+
+
+def test_karnataka_raitha_siri_millet_farmer_eligible():
+    """Karnataka farmer growing millets/ragi is fully eligible for Raitha Siri Scheme."""
+    res = client.get("/api/schemes/my-eligibility?state=Karnataka&land_acres=3.5&crop=Ragi")
+    assert res.status_code == 200
+    data = res.json()
+    schemes_by_slug = {s["slug"]: s for s in data["schemes"]}
+    raitha_siri = schemes_by_slug["karnataka-raitha-siri"]
+    assert raitha_siri["eligibility"]["status"] == "eligible"
+    assert raitha_siri["eligibility"]["badge"] == "Eligible"
+    assert any("Ragi" in r for r in raitha_siri["eligibility"]["matched_reasons"])
 
 
 def test_maharashtra_farmer_eligibility_matching():
