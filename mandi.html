@@ -6261,6 +6261,10 @@ async function loadRealWeather(forceRefresh = false){
     }
 
     let adv = data.spray_advisory || '';
+    if (adv && condRaw && adv.includes('Optimal Spray Window') && adv.includes('Clear skies') && !condRaw.toLowerCase().includes('clear')) {
+      const skyEn = condRaw.charAt(0).toUpperCase() + condRaw.slice(1);
+      adv = adv.replace('Clear skies', skyEn);
+    }
     if(isKn){
       if((data.rain_1h || 0) > 0.5){
         adv = "❌ ಇಂದು ಸಿಂಪಡಿಸಬೇಡಿ: ಮಳೆ ಬಂದಿದೆ / ಮಳೆ ನಿರೀಕ್ಷಿಸಲಾಗಿದೆ. ಔಷಧಿ ಕೊಚ್ಚಿಹೋಗುತ್ತದೆ.";
@@ -6269,7 +6273,8 @@ async function loadRealWeather(forceRefresh = false){
       } else if((data.humidity || 0) > 85){
         adv = `⚠️ ಅಧಿಕ ತೇವಾಂಶ (${data.humidity}%): ಎಲೆ ಒಣಗುವುದು ತಡವಾಗುತ್ತದೆ. ಮುಂಜಾನೆ ಇಬ್ಬನಿ ಇಳಿದ ನಂತರ ಸಿಂಪಡಿಸಿ.`;
       } else {
-        adv = "✅ ಸೂಕ್ತ ಸಿಂಪಡಣಾ ಸಮಯ: ಸ್ಪಷ್ಟ ಆಕಾಶ ಮತ್ತು ಶಾಂತ ಗಾಳಿ. ಮುಂಜಾನೆ (6:30 - 9:00 AM) ಅಥವಾ ಸಂಜೆ ಸಿಂಪಡಿಸಿ.";
+        const skyKn = condDisp || 'ಸ್ಪಷ್ಟ ಆಕಾಶ';
+        adv = `✅ ಸೂಕ್ತ ಸಿಂಪಡಣಾ ಸಮಯ: ${skyKn} ಮತ್ತು ಶಾಂತ ಗಾಳಿ. ಮುಂಜಾನೆ (6:30 - 9:00 AM) ಅಥವಾ ಸಂಜೆ ಸಿಂಪಡಿಸಿ.`;
       }
     } else if(isHi){
       if((data.rain_1h || 0) > 0.5){
@@ -6279,7 +6284,19 @@ async function loadRealWeather(forceRefresh = false){
       } else if((data.humidity || 0) > 85){
         adv = `⚠️ अधिक नमी (${data.humidity}%): पत्तियों को सूखने में समय लगेगा। ओस उतरने के बाद ही छिड़काव करें।`;
       } else {
-        adv = "✅ अनुकूल छिड़काव समय: साफ आसमान और शांत हवा। सुबह (6:30 - 9:00 AM) या शाम को छिड़काव करें।";
+        const skyHi = condDisp || 'साफ आसमान';
+        adv = `✅ अनुकूल छिड़काव समय: ${skyHi} और शांत हवा। सुबह (6:30 - 9:00 AM) या शाम को छिड़काव करें।`;
+      }
+    } else if(!adv){
+      const skyEn = condDisp ? (condDisp.charAt(0).toUpperCase() + condDisp.slice(1)) : 'Clear skies';
+      if((data.rain_1h || 0) > 0.5){
+        adv = "❌ Do NOT Spray Today: Rain has been detected. Chemical will wash off.";
+      } else if((data.wind_speed || 0) > 18){
+        adv = `⚠️ High Wind (${data.wind_speed} km/h): Risk of spray drift to adjacent crops. Delay until wind calms.`;
+      } else if((data.humidity || 0) > 85){
+        adv = `⚠️ High Humidity (${data.humidity}%): Leaf drying will be delayed. Spray during early morning after dew clears.`;
+      } else {
+        adv = `✅ Optimal Spray Window: ${skyEn} and calm wind. Spray early morning (6:30 - 9:00 AM) or late afternoon.`;
       }
     }
     set('homeAdvisoryText', adv);

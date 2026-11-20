@@ -259,6 +259,30 @@ def _format_tz_label(tz_offset_sec: Optional[int], country: Optional[str] = None
     return f"GMT{sign}{hours}:{mins:02d}"
 
 
+def _format_sky_condition(condition: Optional[str]) -> str:
+    """Formats the sky condition to align with displayed weather condition in spray advisories."""
+    if not condition or not condition.strip():
+        return "Clear skies"
+    cond = condition.strip().lower()
+    if cond in ("clear", "clear sky"):
+        return "Clear skies"
+    if cond in ("mainly clear", "mostly clear"):
+        return "Mainly clear skies"
+    if cond == "partly cloudy":
+        return "Partly cloudy skies"
+    if cond in ("overcast", "overcast clouds"):
+        return "Overcast clouds"
+    if cond in ("broken clouds", "scattered clouds", "few clouds"):
+        return cond[:1].upper() + cond[1:]
+    if cond == "haze":
+        return "Hazy skies"
+    if cond in ("fog", "foggy"):
+        return "Foggy conditions"
+    if cond == "mist":
+        return "Misty conditions"
+    return condition.strip()[:1].upper() + condition.strip()[1:]
+
+
 def _validate_coords(lat: Optional[float], lon: Optional[float]) -> None:
     if lat is not None and (math.isnan(lat) or lat < -90.0 or lat > 90.0):
         raise HTTPException(status_code=400, detail="Latitude must be between -90 and 90 degrees.")
@@ -775,7 +799,8 @@ async def fetch_open_meteo_current(target_lat: float, target_lon: float, city_na
                 spray_advice = f"⚠️ High Humidity ({humidity}%): Leaf drying will be delayed. Spray during early morning after dew clears."
                 spray_favorable = True
             else:
-                spray_advice = "✅ Optimal Spray Window: Clear skies and calm wind. Spray early morning (6:30 - 9:00 AM) or late afternoon."
+                sky_desc = _format_sky_condition(cond_desc)
+                spray_advice = f"✅ Optimal Spray Window: {sky_desc} and calm wind. Spray early morning (6:30 - 9:00 AM) or late afternoon."
                 spray_favorable = True
 
             return {
@@ -955,6 +980,7 @@ async def get_current_weather(
                     pressure = main_block.get("pressure")
                     rain_1h = data.get("rain", {}).get("1h") if isinstance(data.get("rain"), dict) else None
 
+                    cond_desc = weather_block.get("description") or weather_block.get("main")
                     if (rain_1h or 0.0) > 0.5:
                         spray_advice = "❌ Do NOT Spray Today: Rain has been detected. Chemical will wash off."
                         spray_favorable = False
@@ -965,7 +991,8 @@ async def get_current_weather(
                         spray_advice = f"⚠️ High Humidity ({humidity}%): Leaf drying will be delayed. Spray during early morning after dew clears."
                         spray_favorable = True
                     else:
-                        spray_advice = "✅ Optimal Spray Window: Clear skies and calm wind. Spray early morning (6:30 - 9:00 AM) or late afternoon."
+                        sky_desc = _format_sky_condition(cond_desc)
+                        spray_advice = f"✅ Optimal Spray Window: {sky_desc} and calm wind. Spray early morning (6:30 - 9:00 AM) or late afternoon."
                         spray_favorable = True
 
                     sr_ts = sys_block.get("sunrise")

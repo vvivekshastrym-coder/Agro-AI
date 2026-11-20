@@ -949,3 +949,34 @@ def test_30_unauthorized_user_denied_access_to_private_location_and_trip():
     ).status_code == 403
     # Public tracking without valid share token is rejected
     assert client.get(f"/api/logistics/trips/{trip_id}/track?token=invalid_token").status_code == 404
+
+
+def test_31_spray_advisory_aligns_with_cloudy_weather_condition(monkeypatch):
+    """
+    Scenario 31: When weather condition is broken clouds, live spray advisory
+    accurately describes broken clouds instead of claiming clear skies.
+    """
+    class _BrokenCloudsClient:
+        def __init__(self, *a, **k): pass
+        async def __aenter__(self): return self
+        async def __aexit__(self, *a): return False
+        async def get(self, url):
+            return _MockHttpResponse(200, {
+                "coord": {"lat": 37.7749, "lon": -122.4194},
+                "main": {"temp": 16.0, "feels_like": 15.0, "temp_min": 13.0, "temp_max": 18.0, "humidity": 65, "pressure": 1015},
+                "wind": {"speed": 2.5, "deg": 280},
+                "weather": [{"main": "Clouds", "description": "broken clouds", "icon": "04d"}],
+                "sys": {"country": "US", "sunrise": 1729903800, "sunset": 1729945800},
+                "name": "San Francisco",
+            })
+
+    monkeypatch.setattr(weather, "get_openweather_key", lambda: "test_owm_key")
+    monkeypatch.setattr(weather.httpx, "AsyncClient", _BrokenCloudsClient)
+
+    res = client.get("/api/weather/current?lat=37.7749&lon=-122.4194&refresh=true")
+    assert res.status_code == 200
+    body = res.json()
+    assert body["condition"] == "broken clouds"
+    assert body["spray_favorable"] is True
+    assert "Broken clouds" in body["spray_advisory"]
+    assert "Clear skies" not in body["spray_advisory"]
