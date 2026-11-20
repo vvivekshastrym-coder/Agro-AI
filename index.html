@@ -1468,6 +1468,7 @@
       <div class="stub-banner" id="stubBanner"></div>
       <div class="card">
         <div class="muted" id="stubBody"></div>
+        <div id="stubActionArea" style="margin-top:16px;"></div>
       </div>
     </section>
 
@@ -6972,10 +6973,31 @@ function openMoreItem(id){
   const NOT_CONNECTED = {
     satellite: {
       en: 'Not available yet: no satellite imagery provider or registered field boundary is connected. No imagery or NDVI is shown until one is. You can add your land area manually in your Farmer Profile in the meantime.',
-      kn: 'ಇನ್ನೂ ಲಭ್ಯವಿಲ್ಲ: ಉಪಗ್ರಹ ಚಿತ್ರ ಸೇವೆ ಅಥವಾ ನೋಂದಾಯಿತ ಹೊಲದ ಗಡಿ ಸಂಪರ್ಕಗೊಂಡಿಲ್ಲ. ಅದು ಸಂಪರ್ಕವಾಗುವವರೆಗೆ ಯಾವುದೇ ಚಿತ್ರ ಅಥವಾ NDVI ತೋರಿಸಲಾಗುವುದಿಲ್ಲ. ಈ ಮಧ್ಯೆ ನಿಮ್ಮ ರೈತ ಪ್ರೊಫೈಲ್‌ನಲ್ಲಿ ಜಮೀನಿನ ವಿಸ್ತೀರ್ಣವನ್ನು ಕೈಯಾರೆ ಸೇರಿಸಬಹುದು.'
+      kn: 'ಇನ್ನೂ ಲಭ್ಯವಿಲ್ಲ: ಉಪಗ್ರಹ ಚಿತ್ರ ಸೇವೆ ಅಥವಾ ನೋಂದಾಯಿತ ಹೊಲದ ಗಡಿ ಸಂಪರ್ಕಗೊಂಡಿಲ್ಲ. ಅದು ಸಂಪರ್ಕವಾಗುವವರೆಗೆ ಯಾವುದೇ ಚಿತ್ರ ಅಥವಾ NDVI ತೋರಿಸಲಾಗುವುದಿಲ್ಲ. ಈ ಮಧ್ಯೆ ನಿಮ್ಮ ರೈತ ಪ್ರೊಫೈಲ್‌ನಲ್ಲಿ ಜಮೀನಿನ ವಿಸ್ತೀರ್ಣವನ್ನು ಕೈಯಾರೆ ಸೇರಿಸಬಹುದು.',
+      actions: [
+        { label: '✏️ Update Land Area in Profile', labelKn: '✏️ ಪ್ರೊಫೈಲ್‌ನಲ್ಲಿ ಜಮೀನು ನವೀಕರಿಸಿ', action: "go('account')" }
+      ]
     },
-    carbon:    { en: 'Not available yet: Carbon tracking and credit income estimates require an enrolled farmland boundary and certified sustainable farming records. This service is currently in development and not connected yet.', kn: 'ಇನ್ನೂ ಲಭ್ಯವಿಲ್ಲ: ಕಾರ್ಬನ್ ಟ್ರ್ಯಾಕಿಂಗ್ ಮತ್ತು ಆದಾಯದ ಅಂದಾಜಿಗೆ ನೋಂದಾಯಿತ ಹೊಲದ ಗಡಿ ಮತ್ತು ಪ್ರಮಾಣೀಕೃತ ಕೃಷಿ ದಾಖಲೆಗಳ ಅಗತ್ಯವಿದೆ. ಈ ಸೇವೆ ಸದ್ಯ ಅಭಿವೃದ್ಧಿಯಲ್ಲಿದೆ ಮತ್ತು ಇನ್ನೂ ಸಂಪರ್ಕಗೊಂಡಿಲ್ಲ.' },
-    insurance: { en: 'Not available yet: this service is not connected.', kn: 'ಇನ್ನೂ ಲಭ್ಯವಿಲ್ಲ: ಈ ಸೇವೆ ಇನ್ನೂ ಸಂಪರ್ಕಗೊಂಡಿಲ್ಲ.' },
+    carbon: {
+      en: 'Not available yet: Carbon tracking and credit income estimates require an enrolled farmland boundary and certified sustainable farming records. This service is currently in development and not connected yet.',
+      kn: 'ಇನ್ನೂ ಲಭ್ಯವಿಲ್ಲ: ಕಾರ್ಬನ್ ಟ್ರ್ಯಾಕಿಂಗ್ ಮತ್ತು ಆದಾಯದ ಅಂದಾಜಿಗೆ ನೋಂದಾಯಿತ ಹೊಲದ ಗಡಿ ಮತ್ತು ಪ್ರಮಾಣೀಕೃತ ಕೃಷಿ ದಾಖಲೆಗಳ ಅಗತ್ಯವಿದೆ. ಈ ಸೇವೆ ಸದ್ಯ ಅಭಿವೃದ್ಧಿಯಲ್ಲಿದೆ ಮತ್ತು ಇನ್ನೂ ಸಂಪರ್ಕಗೊಂಡಿಲ್ಲ.'
+    },
+    insurance: {
+      en: 'How to obtain crop insurance:\n\n' +
+          '• Weather-index insurance triggers payouts automatically when local IMD rainfall deficits, heatwaves, or unseasonal downpours exceed policy thresholds.\n' +
+          '• To obtain coverage, enroll before seasonal deadlines (Kharif / Rabi) with your land record (RTC / Pahani) and bank details.\n' +
+          '• You can enroll through your local Raitha Samparka Kendra (RSK), Common Service Center (CSC), or the national PMFBY portal (pmfby.gov.in).\n' +
+          '• Direct in-app automated underwriting in Agro AI is currently in development.',
+      kn: 'ಬೆಳೆ ವಿಮೆ ಪಡೆಯುವ ವಿಧಾನ:\n\n' +
+          '• ಸ್ಥಳೀಯ ಹವಾಮಾನ ಕೇಂದ್ರದ ಮಳೆ ಕೊರತೆ, ತೀವ್ರ ಬಿಸಿಲು ಅಥವಾ ಅಕಾಲಿಕ ಮಳೆಯ ಮಿತಿ ಮೀರಿದಾಗ ಸ್ವಯಂಚಾಲಿತ ಪರಿಹಾರ ಪಾವತಿಯಾಗುತ್ತದೆ.\n' +
+          '• ವಿಮೆ ಪಡೆಯಲು, ಬೆಳೆ ಋತುವಿನ (ಖಾರಿಫ್ / ರಬಿ) ಕೊನೆಯ ದಿನಾಂಕದೊಳಗೆ ನಿಮ್ಮ ಪಹಣಿ (RTC) ಮತ್ತು ಬ್ಯಾಂಕ್ ಖಾತೆ ವಿವರಗಳೊಂದಿಗೆ ನೋಂದಾಯಿಸಿ.\n' +
+          '• ನಿಮ್ಮ ಹತ್ತಿರದ ರೈತ ಸಂಪರ್ಕ ಕೇಂದ್ರ (RSK), ಸಿಎಸ್‌ಸಿ (CSC) ಅಥವಾ ರಾಷ್ಟ್ರೀಯ PMFBY ಪೋರ್ಟಲ್ ಮೂಲಕ ಅರ್ಜಿ ಸಲ್ಲಿಸಬಹುದು.\n' +
+          '• ಆಗ್ರೋ AI ನಲ್ಲಿ ನೇರ ಸ್ವಯಂಚಾಲಿತ ವಿಮಾ ಸೌಲಭ್ಯವು ಸದ್ಯ ಅಭಿವೃದ್ಧಿಯಲ್ಲಿದೆ.',
+      actions: [
+        { label: '📋 View Crop Insurance Schemes', labelKn: '📋 ಬೆಳೆ ವಿಮೆ ಯೋಜನೆಗಳನ್ನು ವೀಕ್ಷಿಸಿ', action: "go('schemes')" },
+        { label: '🌐 Open PMFBY Portal (pmfby.gov.in)', labelKn: '🌐 PMFBY ಅಧಿಕೃತ ಪೋರ್ಟಲ್ ತೆರೆಯಿರಿ', external: 'https://pmfby.gov.in' }
+      ]
+    },
     soildna:   { en: 'Not available yet: this service is not connected.', kn: 'ಇನ್ನೂ ಲಭ್ಯವಿಲ್ಲ: ಈ ಸೇವೆ ಇನ್ನೂ ಸಂಪರ್ಕಗೊಂಡಿಲ್ಲ.' },
     passport:  { en: 'Not available yet: this service is not connected.', kn: 'ಇನ್ನೂ ಲಭ್ಯವಿಲ್ಲ: ಈ ಸೇವೆ ಇನ್ನೂ ಸಂಪರ್ಕಗೊಂಡಿಲ್ಲ.' },
     credit:    { en: 'Not available yet: this service is not connected.', kn: 'ಇನ್ನೂ ಲಭ್ಯವಿಲ್ಲ: ಈ ಸೇವೆ ಇನ್ನೂ ಸಂಪರ್ಕಗೊಂಡಿಲ್ಲ.' }
@@ -6989,6 +7011,24 @@ function openMoreItem(id){
   } else {
     document.getElementById('stubBanner').textContent = isKn ? 'ನೇರ ಸೇವಾ ಸಂಯೋಜನೆ · ಆಗ್ರೋ AI API ಮೂಲಕ' : 'Live Service Integration · Powered by Agro AI APIs';
     document.getElementById('stubBody').textContent = item.body;
+  }
+  const actArea = document.getElementById('stubActionArea');
+  if(actArea){
+    if(nc && Array.isArray(nc.actions) && nc.actions.length > 0){
+      actArea.style.display = 'flex';
+      actArea.style.flexDirection = 'column';
+      actArea.style.gap = '8px';
+      actArea.innerHTML = nc.actions.map(a => {
+        const lbl = isKn ? (a.labelKn || a.label) : a.label;
+        if(a.external){
+          return `<a href="${a.external}" target="_blank" rel="noopener noreferrer" class="btn btn-outline btn-block" style="text-align:center;padding:10px;text-decoration:none;display:block;">${lbl} ↗</a>`;
+        }
+        return `<button type="button" class="btn btn-primary btn-block" style="padding:10px;" onclick="${a.action}">${lbl}</button>`;
+      }).join('');
+    } else {
+      actArea.innerHTML = '';
+      actArea.style.display = 'none';
+    }
   }
   go('stub');
 }
