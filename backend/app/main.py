@@ -29,20 +29,19 @@ _deployment_environment = (
     os.getenv("VERCEL_ENV") or os.getenv("ENVIRONMENT") or os.getenv("APP_ENV") or os.getenv("NODE_ENV") or ""
 ).strip().lower()
 _is_production_env = _deployment_environment in {"production", "prod"}
-if _ACTIVE_DB_URL.startswith("sqlite") and not os.getenv("VERCEL"):
-    try:
-        Base.metadata.create_all(bind=engine)
-        from .database.schema_sync import sync_missing_columns
-        sync_missing_columns(engine, Base.metadata)
-    except Exception as _e:  # never block startup on transient DB/schema-sync issues
-        logger.error("Schema sync failed: %s", _e)
-elif _ACTIVE_DB_URL.startswith("sqlite"):
-    try:
-        Base.metadata.create_all(bind=engine)
-    except Exception:
-        pass
-else:
-    logger.info("Automatic schema mutation is disabled for %s; apply reviewed migrations before startup.", _deployment_environment or "production")
+_allow_sync = os.getenv("ALLOW_SCHEMA_SYNC", "true").strip().lower() in {"true", "1", "yes"}
+
+try:
+    from .database import models  # noqa: F401
+    Base.metadata.create_all(bind=engine)
+    if _allow_sync or _ACTIVE_DB_URL.startswith("sqlite"):
+        try:
+            from .database.schema_sync import sync_missing_columns
+            sync_missing_columns(engine, Base.metadata)
+        except Exception as _sync_err:
+            logger.warning("Schema column sync warning: %s", _sync_err)
+except Exception as _e:
+    logger.error("Schema table initialization failed: %s", _e)
 
 # ─── Rate Limiter ─────────────────────────────────────────────
 limiter = Limiter(key_func=get_remote_address)

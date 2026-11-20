@@ -27,7 +27,18 @@ class MandiMarketService:
     @classmethod
     def ensure_seed_data(cls, db: Session) -> int:
         """Seeds verified benchmark prices for initial Karnataka APMC markets if empty."""
-        count = db.query(MandiPriceRecord).count()
+        try:
+            count = db.query(MandiPriceRecord).count()
+        except Exception:
+            db.rollback()
+            try:
+                from ...database.connection import Base, engine
+                Base.metadata.create_all(bind=engine)
+                count = db.query(MandiPriceRecord).count()
+            except Exception as _e:
+                logger.error("Failed to ensure mandi_prices table or seed data: %s", _e)
+                return 0
+
         if count == 0:
             logger.info("Initializing mandi_prices table with verified initial APMC market benchmarks...")
             records = get_verified_reference_records()
