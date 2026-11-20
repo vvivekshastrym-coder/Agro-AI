@@ -5,7 +5,7 @@ import jwt
 from fastapi import APIRouter, Depends, HTTPException, status, Request
 from sqlalchemy.orm import Session
 from pydantic import BaseModel, Field
-from typing import Optional
+from typing import Optional, Dict, List, Any
 
 from ..database.connection import get_db
 from ..database.models import User, UserRole, PhoneOtpRecord
@@ -115,7 +115,6 @@ import hmac
 import hashlib
 import secrets
 import re as _re
-from typing import Optional, Dict, Any
 from ..services.sms_service import send_sms_otp, normalize_indian_phone
 
 def generate_otp() -> str:
