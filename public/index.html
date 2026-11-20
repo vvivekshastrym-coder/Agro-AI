@@ -7032,24 +7032,27 @@ async function loadDroneOperators(){
   const area = document.getElementById('droneOperatorsArea');
   if(!area) return;
   const isKn = currentLang === 'kn';
+  const isHi = currentLang === 'hi';
   const dict = I18N[currentLang] || I18N.en;
   const acres = parseFloat(document.getElementById('droneAcresSel')?.value || '5');
+  const totalLabel = isKn ? 'ಒಟ್ಟು ಅಂದಾಜು ದರ' : (isHi ? 'कुल अनुमानित दर' : 'Estimated Total');
+  const acreUnit = isKn ? 'ಎಕರೆ' : (isHi ? 'एकड़' : (acres === 1 ? 'acre' : 'acres'));
 
   area.innerHTML = '<div class="card"><div class="skeleton" style="width:60%;height:24px;margin-bottom:8px;"></div><div class="skeleton" style="width:100%;"></div></div>';
 
   try {
     const res = await fetch(`/api/drone/operators?acres=${acres}`);
     if(!res.ok){
-      area.innerHTML = `<div class="card" style="border-color:var(--danger);"><div class="muted">${isKn ? 'ಡ್ರೋನ್ ಸೇವೆ ಪ್ರಸ್ತುತ ಲಭ್ಯವಿಲ್ಲ.' : 'Drone service is currently unavailable.'}</div></div>`;
+      area.innerHTML = `<div class="card" style="border-color:var(--danger);"><div class="muted">${isKn ? 'ಡ್ರೋನ್ ಸೇವೆ ಪ್ರಸ್ತುತ ಲಭ್ಯವಿಲ್ಲ.' : (isHi ? 'ड्रोन सेवा वर्तमान में उपलब्ध नहीं है।' : 'Drone service is currently unavailable.')}</div></div>`;
       return;
     }
     const data = await res.json();
     if(!data.available || !data.operators || !data.operators.length){
       area.innerHTML = `
         <div class="card">
-          <div style="font-weight:700;margin-bottom:6px;">${isKn ? 'ನಿಮ್ಮ ಪ್ರದೇಶದಲ್ಲಿ ನೇರ ಡ್ರೋನ್ ಸೇವೆ ಸದ್ಯಕ್ಕೆ ಲಭ್ಯವಿಲ್ಲ' : 'No drone operators available in your area'}</div>
-          <p class="muted" style="font-size:13px;margin-bottom:12px;">${isKn ? 'ನಿಮ್ಮ ಗ್ರಾಮಕ್ಕೆ ಪರಿಶೀಲಿಸಿದ DGCA ಡ್ರೋನ್ ಪೈಲಟ್‌ಗಳನ್ನು ನಿಯೋಜಿಸಲು ವಿನಂತಿ ಸಲ್ಲಿಸಿ.' : 'Request DGCA-verified drone spraying for your farm to be scheduled.'}</p>
-          <button class="btn btn-primary btn-block" onclick="showToast('${isKn ? 'ಡ್ರೋನ್ ವಿನಂತಿಯನ್ನು ಸ್ವೀಕರಿಸಲಾಗಿದೆ! ನಮ್ಮ ತಂಡ ಸಂಪರ್ಕಿಸುತ್ತದೆ.' : 'Drone request submitted! Our team will contact you.'}')">${isKn ? 'ಡ್ರೋನ್ ಸೇವೆ ವಿನಂತಿಸಿ' : 'Request Drone Booking'}</button>
+          <div style="font-weight:700;margin-bottom:6px;">${isKn ? 'ನಿಮ್ಮ ಪ್ರದೇಶದಲ್ಲಿ ನೇರ ಡ್ರೋನ್ ಸೇವೆ ಸದ್ಯಕ್ಕೆ ಲಭ್ಯವಿಲ್ಲ' : (isHi ? 'आपके क्षेत्र में कोई ड्रोन ऑपरेटर उपलब्ध नहीं है' : 'No drone operators available in your area')}</div>
+          <p class="muted" style="font-size:13px;margin-bottom:12px;">${isKn ? 'ನಿಮ್ಮ ಗ್ರಾಮಕ್ಕೆ ಪರಿಶೀಲಿಸಿದ DGCA ಡ್ರೋನ್ ಪೈಲಟ್‌ಗಳನ್ನು ನಿಯೋಜಿಸಲು ವಿನಂತಿ ಸಲ್ಲಿಸಿ.' : (isHi ? 'अपने खेत के लिए डीजीसीए-सत्यापित ड्रोन छिड़काव का अनुरोध करें।' : 'Request DGCA-verified drone spraying for your farm to be scheduled.')}</p>
+          <button class="btn btn-primary btn-block" onclick="showToast('${isKn ? 'ಡ್ರೋನ್ ವಿನಂತಿಯನ್ನು ಸ್ವೀಕರಿಸಲಾಗಿದೆ! ನಮ್ಮ ತಂಡ ಸಂಪರ್ಕಿಸುತ್ತದೆ.' : (isHi ? 'ड्रोन अनुरोध सबमिट हो गया! हमारी टीम संपर्क करेगी।' : 'Drone request submitted! Our team will contact you.')}')">${isKn ? 'ಡ್ರೋನ್ ಸೇವೆ ವಿನಂತಿಸಿ' : (isHi ? 'ड्रोन सेवा अनुरोध करें' : 'Request Drone Booking')}</button>
         </div>`;
       return;
     }
@@ -7063,20 +7066,20 @@ async function loadDroneOperators(){
           <span class="pill pill-forest">⭐ ${op.rating || 4.8}</span>
         </div>
         <div style="font-size:13px;margin:8px 0;">
-          <div>🛸 <strong>${isKn ? 'ಡ್ರೋನ್ ಮಾದರಿ' : 'Drone model'}:</strong> ${escHtml(op.drone_model || 'DGCA Sprayer')}</div>
-          <div>💰 <strong>${isKn ? 'ಎಕರೆ ದರ' : 'Rate/acre'}:</strong> ₹${op.rate_per_acre}</div>
-          <div>📍 <strong>${isKn ? 'ದೂರ' : 'Distance'}:</strong> ${op.distance_km || '—'} km</div>
+          <div>🛸 <strong>${isKn ? 'ಡ್ರೋನ್ ಮಾದರಿ' : (isHi ? 'ड्रोन मॉडल' : 'Drone model')}:</strong> ${escHtml(op.drone_model || 'DGCA Sprayer')}</div>
+          <div>💰 <strong>${isKn ? 'ಎಕರೆ ದರ' : (isHi ? 'दर/एकड़' : 'Rate/acre')}:</strong> ₹${op.rate_per_acre}</div>
+          <div>📍 <strong>${isKn ? 'ದೂರ' : (isHi ? 'दूरी' : 'Distance')}:</strong> ${op.distance_km || '—'} km</div>
         </div>
         <div style="background:#F4F1EA;padding:10px;border-radius:8px;margin-bottom:10px;display:flex;justify-content:space-between;align-items:center;">
-          <span style="font-size:13px;">${isKn ? 'ಒಟ್ಟು ಅಂದಾಜು ದರ' : 'Estimated Total'} (${acres} ${isKn ? 'ಎಕರೆ' : 'acres'})</span>
+          <span style="font-size:13px;">${totalLabel} (${acres} ${acreUnit})</span>
           <span style="font-weight:700;color:var(--forest);font-size:16px;">₹${(op.cost_breakdown?.estimated_total || (acres * op.rate_per_acre)).toLocaleString('en-IN')}</span>
         </div>
-        <button class="btn btn-primary btn-block" onclick="showToast('${isKn ? 'ಡ್ರೋನ್ ಬುಕಿಂಗ್ ದೃಢಪಟ್ಟಿದೆ! ಪೈಲಟ್ ಕರೆ ಮಾಡುತ್ತಾರೆ.' : 'Drone booking confirmed! The operator will call you.'}')">${dict.drone_book_btn || (isKn ? 'ಡ್ರೋನ್ ಬುಕ್ ಮಾಡಿ' : 'Book operator')}</button>
+        <button class="btn btn-primary btn-block" onclick="showToast('${isKn ? 'ಡ್ರೋನ್ ಬುಕಿಂಗ್ ದೃಢಪಟ್ಟಿದೆ! ಪೈಲಟ್ ಕರೆ ಮಾಡುತ್ತಾರೆ.' : (isHi ? 'ड्रोन बुकिंग की पुष्टि हो गई! ऑपरेटर आपसे संपर्क करेगा।' : 'Drone booking confirmed! The operator will call you.')}')">${dict.drone_book_btn || (isKn ? 'ಡ್ರೋನ್ ಬುಕ್ ಮಾಡಿ' : (isHi ? 'ऑपरेटर बुक करें' : 'Book operator'))}</button>
       </div>
     `).join('');
   } catch(e){
     console.warn('Drone fetch failed:', e);
-    area.innerHTML = `<div class="card"><div class="muted">${isKn ? 'ಡ್ರೋನ್ ಸೇವೆಯನ್ನು ತಲುಪಲಾಗಲಿಲ್ಲ.' : 'Could not reach drone service.'}</div></div>`;
+    area.innerHTML = `<div class="card"><div class="muted">${isKn ? 'ಡ್ರೋನ್ ಸೇವೆಯನ್ನು ತಲುಪಲಾಗಲಿಲ್ಲ.' : (isHi ? 'ड्रोन सेवा से संपर्क नहीं हो सका।' : 'Could not reach drone service.')}</div></div>`;
   }
 }
 
