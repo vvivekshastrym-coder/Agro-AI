@@ -100,6 +100,10 @@
     {
       "source": "/admin/:path*",
       "destination": "/admin/index.html"
+    },
+    {
+      "source": "/auth/callback",
+      "destination": "/index.html"
     }
   ]
 }

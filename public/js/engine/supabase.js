@@ -27,7 +27,14 @@
   function initSupabase() {
     if (window.supabase && typeof window.supabase.createClient === 'function') {
       try {
-        client = window.supabase.createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
+        client = window.supabase.createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
+          auth: {
+            detectSessionInUrl: true,
+            persistSession: true,
+            autoRefreshToken: true,
+            flowType: 'pkce'
+          }
+        });
         window.supabaseClient = client;
         console.log('⚡ Supabase Client initialized successfully');
 
@@ -198,52 +205,33 @@
     });
   }
 
-  // Fallback OAuth redirect flow
+  // Supabase OAuth redirect flow
   async function fallbackToOAuthRedirect() {
     if (!client) initSupabase();
     if (!client) {
-      throw new Error('Supabase client is still loading. Please check your connection.');
+      throw new Error('Authentication service is still loading. Please check your connection and try again.');
     }
 
-    const redirectUrl = window.location.origin + window.location.pathname;
+    const redirectUrl = `${window.location.origin}/auth/callback`;
     const { data, error } = await client.auth.signInWithOAuth({
       provider: 'google',
       options: {
         redirectTo: redirectUrl,
         queryParams: {
-          access_type: 'offline',
-          prompt: 'consent'
+          prompt: 'select_account'
         }
       }
     });
 
     if (error) {
-      console.error('[Supabase Google Sign-In Error]:', error);
+      console.error('[Supabase Google OAuth Error]:', error);
       throw error;
     }
     return data;
   }
 
-  // Trigger Google Sign-In: prefers GIS popup/prompt, falls back to OAuth redirect
+  // Trigger Google Sign-In directly via Supabase OAuth
   async function signInWithGoogle() {
-    if (window.google && window.google.accounts && window.google.accounts.id) {
-      if (!gsiInitialized) {
-        initGoogleIdentity();
-      }
-      try {
-        window.google.accounts.id.prompt((notification) => {
-          if (notification.isNotDisplayed() || notification.isSkippedMoment()) {
-            const reason = notification.getNotDisplayedReason?.() || notification.getSkippedReason?.() || 'prompt_suppressed';
-            console.log('GIS One Tap prompt suppressed (' + reason + '), falling back to OAuth redirect');
-            fallbackToOAuthRedirect().catch((err) => console.warn('OAuth redirect fallback error:', err));
-          }
-        });
-        return { method: 'gis_prompt' };
-      } catch (err) {
-        console.warn('GIS prompt exception:', err);
-      }
-    }
-
     return await fallbackToOAuthRedirect();
   }
 
@@ -280,5 +268,4 @@
 
   // Start init
   initSupabase();
-  initGoogleIdentity();
 })();

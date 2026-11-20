@@ -1,30 +1,195 @@
-import { useEffect, useState } from "react";
+import React, { createContext, useContext, useEffect, useState } from "react";
 import type { Session, User } from "@supabase/supabase-js";
-import { supabase } from "./supabaseClient";
+import { supabase, isSupabaseConfigured } from "./supabaseClient";
 
-export function useAuth() {
+interface AuthContextValue {
+  session: Session | null;
+  loading: boolean;
+  user: User | null;
+  isPhoneVerified: boolean;
+}
+
+const AuthContext = createContext<AuthContextValue | null>(null);
+
+function syncLocalAuthStorage(session: Session | null) {
+  try {
+    if (session?.user && session.access_token) {
+      localStorage.setItem("kisanToken", session.access_token);
+      localStorage.setItem("kisanAuth", "true");
+      localStorage.setItem(
+        "kisanUser",
+        JSON.stringify({
+          id: session.user.id,
+          email: session.user.email ?? "",
+          phone: session.user.phone ?? "",
+          name:
+            session.user.user_metadata?.full_name ||
+            session.user.user_metadata?.name ||
+            session.user.email?.split("@")[0] ||
+            "Farmer",
+          avatar: session.user.user_metadata?.avatar_url || "",
+        })
+      );
+    }
+  } catch {
+    // Ignore storage quota / private mode errors
+  }
+}
+
+function clearLocalAuthStorage() {
+  try {
+    localStorage.removeItem("kisanToken");
+    localStorage.removeItem("kisanAuth");
+    localStorage.removeItem("kisanUser");
+  } catch {
+    // Ignore storage errors
+  }
+}
+
+export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => {
-      setSession(data.session);
+    let mounted = true;
+
+    if (!isSupabaseConfigured) {
       setLoading(false);
+      return;
+    }
+
+    supabase.auth
+      .getSession()
+      .then(({ data, error }) => {
+        if (!mounted) return;
+        if (error) {
+          console.error("Failed to restore auth session:", error.message);
+        }
+        const currentSession = data?.session ?? null;
+        setSession(currentSession);
+        if (currentSession) {
+          syncLocalAuthStorage(currentSession);
+        }
+        setLoading(false);
+      })
+      .catch((err) => {
+        if (!mounted) return;
+        console.error("Unexpected auth session error:", err);
+        setLoading(false);
+      });
+
+    const { data: sub } = supabase.auth.onAuthStateChange((event, nextSession) => {
+      if (!mounted) return;
+      setSession(nextSession);
+      setLoading(false);
+      if (event === "SIGNED_OUT") {
+        clearLocalAuthStorage();
+      } else if (nextSession) {
+        syncLocalAuthStorage(nextSession);
+      }
     });
-    const { data: sub } = supabase.auth.onAuthStateChange((_event, s) => {
-      setSession(s);
-    });
-    return () => sub.subscription.unsubscribe();
+
+    return () => {
+      mounted = false;
+      sub.subscription.unsubscribe();
+    };
   }, []);
 
-  const isPhoneVerified = Boolean(session?.user?.phone_confirmed_at);
+  const value: AuthContextValue = {
+    session,
+    loading,
+    user: session?.user ?? null,
+    isPhoneVerified: Boolean(session?.user?.phone_confirmed_at),
+  };
+
+  return React.createElement(AuthContext.Provider, { value }, children);
+}
+
+export function useAuth(): AuthContextValue {
+  const ctx = useContext(AuthContext);
+  if (ctx) return ctx;
+
+  // Fallback for standalone usage outside AuthProvider
+  const [session, setSession] = useState<Session | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let mounted = true;
+    supabase.auth
+      .getSession()
+      .then(({ data }) => {
+        if (!mounted) return;
+        setSession(data?.session ?? null);
+        setLoading(false);
+      })
+      .catch(() => {
+        if (!mounted) return;
+        setLoading(false);
+      });
+    const { data: sub } = supabase.auth.onAuthStateChange((_event, s) => {
+      if (!mounted) return;
+      setSession(s);
+    });
+    return () => {
+      mounted = false;
+      sub.subscription.unsubscribe();
+    };
+  }, []);
 
   return {
     session,
     loading,
     user: session?.user ?? null,
-    isPhoneVerified
+    isPhoneVerified: Boolean(session?.user?.phone_confirmed_at),
   };
+}
+
+export function formatOAuthError(error: unknown, description?: string | null): string {
+  const rawMessage =
+    typeof error === "string"
+      ? error
+      : error instanceof Error
+        ? error.message
+        : (error as { message?: string } | null)?.message || "";
+  const combined = `${rawMessage} ${description || ""}`.toLowerCase();
+
+  if (
+    combined.includes("access_denied") ||
+    combined.includes("cancel") ||
+    combined.includes("denied")
+  ) {
+    return "Google sign-in was cancelled. You can try again or log in with Phone OTP or Email.";
+  }
+  if (
+    combined.includes("provider is not enabled") ||
+    combined.includes("unsupported provider")
+  ) {
+    return "Google sign-in is currently disabled. Please log in with Phone OTP or Email.";
+  }
+  if (
+    combined.includes("invalid_client") ||
+    combined.includes("client_id") ||
+    combined.includes("unauthorized_client")
+  ) {
+    return "Google sign-in configuration is invalid. Please contact support or use Phone OTP.";
+  }
+  if (combined.includes("redirect_uri_mismatch") || combined.includes("redirect")) {
+    return "Sign-in redirect URL mismatch. Please try again later or use Phone OTP.";
+  }
+  if (
+    combined.includes("fetch") ||
+    combined.includes("network") ||
+    combined.includes("timeout")
+  ) {
+    return "Network connection error. Please check your internet connection and try again.";
+  }
+  if (combined.includes("supabase") && combined.includes("env")) {
+    return "Authentication service is temporarily unavailable. Please try again later.";
+  }
+  if (description && !description.toLowerCase().includes("secret")) {
+    return description;
+  }
+  return rawMessage || "Unable to complete Google sign-in. Please try again.";
 }
 
 export function formatE164Phone(raw: string): string {
@@ -125,7 +290,9 @@ export async function verifyPhoneOtp(
     }
 
     if (res.status === 400 || res.status === 401 || res.status === 429) {
-      const errMsg = data.detail?.error?.message || (typeof data.detail === "string" ? data.detail : "Incorrect verification code.");
+      const errMsg =
+        data.detail?.error?.message ||
+        (typeof data.detail === "string" ? data.detail : "Incorrect verification code.");
       return { session: null, user: null, error: errMsg };
     }
 
@@ -174,11 +341,12 @@ export async function checkUserOnboardingStatus(userId: string): Promise<"comple
 export async function signInWithEmail(email: string) {
   const { error } = await supabase.auth.signInWithOtp({
     email,
-    options: { emailRedirectTo: window.location.origin }
+    options: { emailRedirectTo: `${window.location.origin}/auth/callback` },
   });
   if (error) throw error;
 }
 
 export async function signOut() {
+  clearLocalAuthStorage();
   await supabase.auth.signOut();
 }

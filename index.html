@@ -3864,52 +3864,76 @@ async function triggerGoogleSignIn(){
   }
 
   try {
-    // 1. Ensure Firebase module is loaded
-    if (!window.AgroFirebase) {
-      try {
-        await import('./js/engine/firebase.js');
-      } catch (_) {}
+    if (window.AgroSupabase && typeof window.AgroSupabase.signInWithGoogle === 'function') {
+      await window.AgroSupabase.signInWithGoogle();
+      return;
     }
 
-    // 2. Primary native Google Sign-In via Firebase Authentication
-    if (window.AgroFirebase && typeof window.AgroFirebase.signInWithGoogleFirebase === 'function') {
-      try {
-        const session = await window.AgroFirebase.signInWithGoogleFirebase();
-        if (session) {
-          if (btn) {
-            btn.disabled = false;
-            btn.style.opacity = '1';
+    if (window.supabaseClient && window.supabaseClient.auth) {
+      const { error } = await window.supabaseClient.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: `${window.location.origin}/auth/callback`,
+          queryParams: {
+            prompt: 'select_account'
           }
-          return;
         }
-      } catch (fbErr) {
-        console.warn('Firebase Google Auth note:', fbErr);
-        // User closed the popup window or cancelled: re-enable button cleanly without an error modal
-        if (fbErr.code === 'auth/popup-closed-by-user' || fbErr.code === 'auth/cancelled-popup-request') {
-          if (btn) {
-            btn.disabled = false;
-            btn.style.opacity = '1';
-          }
-          return;
-        }
-        // If popup was blocked and redirect was initiated, return gracefully
-        if (fbErr.code === 'auth/popup-blocked') {
-          return;
-        }
-        throw fbErr;
-      }
-    } else {
-      throw new Error('Authentication service is initializing. Please tap again in a moment.');
+      });
+      if (error) throw error;
+      return;
     }
+
+    throw new Error('Authentication service is initializing. Please tap again in a moment.');
   } catch(err){
     if (btn) {
       btn.disabled = false;
       btn.style.opacity = '1';
     }
-    console.warn('Google sign-in exception:', err);
+    console.error('Google OAuth error:', err);
     showGoogleAuthErrorModal(err);
   }
 }
+
+// Handle /auth/callback return from Supabase Google OAuth
+(function handleSupabaseAuthCallback(){
+  if (window.location.pathname === '/auth/callback' || window.location.search.includes('code=') || window.location.search.includes('error=')) {
+    const params = new URLSearchParams(window.location.search);
+    const oauthError = params.get('error');
+    const oauthErrorDesc = params.get('error_description');
+    if (oauthError) {
+      window.history.replaceState({}, document.title, '/');
+      window.addEventListener('DOMContentLoaded', () => {
+        showGoogleAuthErrorModal(new Error(oauthErrorDesc || oauthError));
+      });
+      return;
+    }
+
+    const waitForSupabaseSession = async (attempts = 0) => {
+      if (window.supabaseClient?.auth) {
+        try {
+          const { data, error } = await window.supabaseClient.auth.getSession();
+          if (error) throw error;
+          if (data?.session?.user) {
+            window.history.replaceState({}, document.title, '/');
+            window.dispatchEvent(new CustomEvent('agro:signed-in', { detail: data.session }));
+            return;
+          }
+        } catch (err) {
+          console.error('Auth callback session error:', err);
+          window.history.replaceState({}, document.title, '/');
+          showGoogleAuthErrorModal(err);
+          return;
+        }
+      }
+      if (attempts < 25) {
+        setTimeout(() => waitForSupabaseSession(attempts + 1), 200);
+      } else {
+        window.history.replaceState({}, document.title, '/');
+      }
+    };
+    waitForSupabaseSession();
+  }
+})();
 
 function showGoogleAuthErrorModal(err = null){
   let m = document.getElementById('googleAuthErrorModal');

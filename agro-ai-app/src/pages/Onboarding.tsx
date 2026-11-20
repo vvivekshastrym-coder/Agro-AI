@@ -76,7 +76,12 @@ export default function Onboarding() {
         ]);
 
         if (profile) {
-          if (profile.full_name) setFullName(profile.full_name);
+          if (profile.full_name) {
+            setFullName(profile.full_name);
+          } else {
+            const metaName = user.user_metadata?.full_name || user.user_metadata?.name;
+            if (metaName) setFullName(String(metaName));
+          }
           if (profile.language) {
             setPrefLang(profile.language);
             setLanguage(profile.language);
@@ -91,6 +96,9 @@ export default function Onboarding() {
             navigate("/", { replace: true });
             return;
           }
+        } else {
+          const metaName = user.user_metadata?.full_name || user.user_metadata?.name;
+          if (metaName) setFullName(String(metaName));
         }
 
         if (loadedFarms && loadedFarms.length > 0) {

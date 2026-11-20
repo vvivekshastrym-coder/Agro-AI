@@ -1,8 +1,9 @@
 import { Navigate, Route, Routes } from "react-router-dom";
 import { AppProvider } from "./lib/AppContext";
-import { useAuth } from "./lib/useAuth";
+import { AuthProvider, useAuth } from "./lib/useAuth";
 import { DesktopHeader, Sidebar, TopBar, BottomNav } from "./components/Shell";
 import Login from "./pages/Login";
+import AuthCallback from "./pages/AuthCallback";
 import Onboarding from "./pages/Onboarding";
 import FarmerProfile from "./pages/FarmerProfile";
 import Home from "./pages/Home";
@@ -30,6 +31,7 @@ function MainLayout() {
             <Route path="/pest-radar" element={<PestRadar />} />
             <Route path="/more" element={<More />} />
             <Route path="/profile" element={<FarmerProfile />} />
+            <Route path="/login" element={<Navigate to="/" replace />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </main>
@@ -42,13 +44,14 @@ function MainLayout() {
 function AuthenticatedRoutes() {
   return (
     <Routes>
+      <Route path="/auth/callback" element={<AuthCallback />} />
       <Route path="/onboarding" element={<Onboarding />} />
       <Route path="/*" element={<MainLayout />} />
     </Routes>
   );
 }
 
-export default function App() {
+function AppRouter() {
   const { session, loading } = useAuth();
 
   if (loading) {
@@ -64,6 +67,8 @@ export default function App() {
     return (
       <AppProvider>
         <Routes>
+          <Route path="/auth/callback" element={<AuthCallback />} />
+          <Route path="/login" element={<Login />} />
           <Route path="*" element={<Login />} />
         </Routes>
       </AppProvider>
@@ -74,5 +79,13 @@ export default function App() {
     <AppProvider>
       <AuthenticatedRoutes />
     </AppProvider>
+  );
+}
+
+export default function App() {
+  return (
+    <AuthProvider>
+      <AppRouter />
+    </AuthProvider>
   );
 }
