@@ -488,10 +488,20 @@ async def serve_delete_account_page():
 
 
 @app.api_route("/api/{unmatched_path:path}", methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS", "HEAD"], include_in_schema=False)
-async def handle_unmatched_api_route(unmatched_path: str):
+async def handle_unmatched_api_route(request: Request, unmatched_path: str):
     return JSONResponse(
         status_code=404,
-        content={"detail": {"error": {"code": "NOT_FOUND", "message": f"API route /api/{unmatched_path} not found."}}}
+        content={
+            "error": {
+                "code": "NOT_FOUND",
+                "message": f"API route /api/{unmatched_path} not found.",
+                "unmatched_path": unmatched_path,
+                "scope_path": request.scope.get("path"),
+                "query": str(request.query_params),
+                "x_matched_path": request.headers.get("x-matched-path"),
+                "x_forwarded_uri": request.headers.get("x-forwarded-uri"),
+            }
+        }
     )
 
 
