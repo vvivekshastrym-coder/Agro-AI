@@ -1,0 +1,65 @@
+# Agro AI — Production Robots Configuration
+# Canonical Host: https://www.agroai.live
+
+User-agent: *
+Allow: /
+Allow: /diagnose
+Allow: /agrogpt
+Allow: /weather
+Allow: /mandi
+Allow: /schemes
+Allow: /my-land
+Allow: /plans
+Allow: /about
+Allow: /contact
+Allow: /guides
+Allow: /guides/
+Allow: /privacy
+Allow: /terms
+Allow: /cookies
+Allow: /css/
+Allow: /js/
+Allow: /fonts/
+Allow: /icons/
+
+# Disallow administrative, backend API, internal and private routes
+Disallow: /admin
+Disallow: /admin/
+Disallow: /admin-console
+Disallow: /api/
+Disallow: /delete-account
+Disallow: /docs
+Disallow: /redoc
+Disallow: /scratch/
+Disallow: /releases/
+
+# Explicit search engine crawler allowances
+User-agent: Googlebot
+Allow: /
+
+User-agent: Googlebot-Image
+Allow: /icons/
+Allow: /favicon.ico
+Allow: /favicon.png
+
+User-agent: Bingbot
+Allow: /
+
+User-agent: Slurp
+Allow: /
+
+User-agent: DuckDuckBot
+Allow: /
+
+User-agent: Baiduspider
+Allow: /
+
+User-agent: YandexBot
+Allow: /
+
+User-agent: Applebot
+Allow: /
+
+# Canonical XML Sitemap
+Sitemap: https://www.agroai.live/sitemap.xml
+Sitemap: https://agroai.live/sitemap.xml

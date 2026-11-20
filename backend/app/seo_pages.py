@@ -393,7 +393,8 @@ def build_sitemap_xml(project_root: str) -> str:
 
 def write_dist_seo_pages(project_root: str, dist_dir: str) -> None:
     """Materializes static SEO routes & sitemap into dist/ and project_root."""
-    targets = [dist_dir, project_root] if os.path.isdir(dist_dir) else [project_root]
+    pub_dir = os.path.join(project_root, "public")
+    targets = [d for d in [dist_dir, pub_dir, project_root] if os.path.isdir(d) or d == project_root]
 
     guides_html = render_guides_index_html()
     sm = build_sitemap_xml(project_root)
