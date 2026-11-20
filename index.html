@@ -6924,9 +6924,28 @@ function openMoreItem(id){
   const item = MORE_ITEMS.find(m=>m.id===id);
   if(!item) return;
   const isKn = currentLang === 'kn';
+  // These services have no connected provider yet: say so plainly instead of claiming a live integration.
+  const NOT_CONNECTED = {
+    satellite: {
+      en: 'Not available yet: no satellite imagery provider or registered field boundary is connected. No imagery or NDVI is shown until one is. You can add your land area manually in your Farmer Profile in the meantime.',
+      kn: 'ಇನ್ನೂ ಲಭ್ಯವಿಲ್ಲ: ಉಪಗ್ರಹ ಚಿತ್ರ ಸೇವೆ ಅಥವಾ ನೋಂದಾಯಿತ ಹೊಲದ ಗಡಿ ಸಂಪರ್ಕಗೊಂಡಿಲ್ಲ. ಅದು ಸಂಪರ್ಕವಾಗುವವರೆಗೆ ಯಾವುದೇ ಚಿತ್ರ ಅಥವಾ NDVI ತೋರಿಸಲಾಗುವುದಿಲ್ಲ. ಈ ಮಧ್ಯೆ ನಿಮ್ಮ ರೈತ ಪ್ರೊಫೈಲ್‌ನಲ್ಲಿ ಜಮೀನಿನ ವಿಸ್ತೀರ್ಣವನ್ನು ಕೈಯಾರೆ ಸೇರಿಸಬಹುದು.'
+    },
+    carbon:    { en: 'Not available yet: this service is not connected.', kn: 'ಇನ್ನೂ ಲಭ್ಯವಿಲ್ಲ: ಈ ಸೇವೆ ಇನ್ನೂ ಸಂಪರ್ಕಗೊಂಡಿಲ್ಲ.' },
+    insurance: { en: 'Not available yet: this service is not connected.', kn: 'ಇನ್ನೂ ಲಭ್ಯವಿಲ್ಲ: ಈ ಸೇವೆ ಇನ್ನೂ ಸಂಪರ್ಕಗೊಂಡಿಲ್ಲ.' },
+    soildna:   { en: 'Not available yet: this service is not connected.', kn: 'ಇನ್ನೂ ಲಭ್ಯವಿಲ್ಲ: ಈ ಸೇವೆ ಇನ್ನೂ ಸಂಪರ್ಕಗೊಂಡಿಲ್ಲ.' },
+    passport:  { en: 'Not available yet: this service is not connected.', kn: 'ಇನ್ನೂ ಲಭ್ಯವಿಲ್ಲ: ಈ ಸೇವೆ ಇನ್ನೂ ಸಂಪರ್ಕಗೊಂಡಿಲ್ಲ.' },
+    credit:    { en: 'Not available yet: this service is not connected.', kn: 'ಇನ್ನೂ ಲಭ್ಯವಿಲ್ಲ: ಈ ಸೇವೆ ಇನ್ನೂ ಸಂಪರ್ಕಗೊಂಡಿಲ್ಲ.' }
+  };
+  const nc = NOT_CONNECTED[id];
   document.getElementById('stubTitle').textContent = item.emoji + '  ' + item.t;
-  document.getElementById('stubBanner').textContent = isKn ? 'ನೇರ ಸೇವಾ ಸಂಯೋಜನೆ · ಆಗ್ರೋ AI API ಮೂಲಕ' : 'Live Service Integration · Powered by Agro AI APIs';
-  document.getElementById('stubBody').textContent = item.body;
+  if(nc){
+    document.getElementById('stubBanner').textContent = isKn ? 'ಶೀಘ್ರದಲ್ಲಿ ಬರಲಿದೆ · ಇನ್ನೂ ಸಂಪರ್ಕಗೊಂಡಿಲ್ಲ' : 'Coming soon · Not connected yet';
+    document.getElementById('stubBody').textContent = item.body + '\n\n' + (isKn ? nc.kn : nc.en);
+    document.getElementById('stubBody').style.whiteSpace = 'pre-line';
+  } else {
+    document.getElementById('stubBanner').textContent = isKn ? 'ನೇರ ಸೇವಾ ಸಂಯೋಜನೆ · ಆಗ್ರೋ AI API ಮೂಲಕ' : 'Live Service Integration · Powered by Agro AI APIs';
+    document.getElementById('stubBody').textContent = item.body;
+  }
   go('stub');
 }
 
