@@ -201,18 +201,44 @@ async def get_current_user(
     uid = claims["sub"]
 
     user = db.query(User).filter(User.id == uid).first()
-    if user is None:
-        meta = claims.get("user_metadata") or {}
-        email = claims.get("email") or None
+    meta = claims.get("user_metadata") or {}
+    email = claims.get("email") or None
+    phone = claims.get("phone") or None
+
+    if user is None and email:
+        user = db.query(User).filter(User.email == email).first()
+    if user is None and phone:
+        user = db.query(User).filter(User.phone == phone).first()
+
+    if user is not None:
+        # Existing account found; link and sync profile details if missing
+        updated = False
+        full_name = meta.get("full_name") or meta.get("name")
+        if not user.full_name and full_name:
+            user.full_name = full_name
+            updated = True
+        if not user.avatar_url and meta.get("avatar_url"):
+            user.avatar_url = meta.get("avatar_url")
+            updated = True
+        if not user.is_verified and (email or phone):
+            user.is_verified = True
+            updated = True
+        if updated:
+            try:
+                db.commit()
+                db.refresh(user)
+            except Exception:
+                db.rollback()
+    else:
         # Role is never taken from the client; new accounts are farmers.
         user = User(
             id=uid,
             email=email,
-            phone=claims.get("phone") or None,
+            phone=phone,
             full_name=meta.get("full_name") or meta.get("name"),
             avatar_url=meta.get("avatar_url"),
             role=UserRole.farmer,
-            is_verified=bool(claims.get("email") or claims.get("phone")),
+            is_verified=bool(email or phone),
         )
         db.add(user)
         try:
@@ -220,6 +246,8 @@ async def get_current_user(
         except Exception:
             db.rollback()  # concurrent first-login race: reload
             user = db.query(User).filter(User.id == uid).first()
+            if user is None and email:
+                user = db.query(User).filter(User.email == email).first()
             if user is None:
                 raise
         else:

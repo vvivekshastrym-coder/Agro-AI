@@ -14,5 +14,19 @@
         "destination": "/index.html"
       }
     ]
+  },
+  "auth": {
+    "providers": {
+      "googleSignIn": {
+        "oAuthBrandDisplayName": "Agro AI",
+        "supportEmail": "vvivekshastrym@gmail.com",
+        "authorizedRedirectUris": [
+          "https://gen-lang-client-0224945015.firebaseapp.com/__/auth/handler",
+          "https://gen-lang-client-0224945015.web.app/__/auth/handler",
+          "https://agroai.live/__/auth/handler",
+          "https://www.agroai.live/__/auth/handler"
+        ]
+      }
+    }
   }
 }

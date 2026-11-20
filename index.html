@@ -3858,93 +3858,115 @@ async function continueAsGuest(){
 
 async function triggerGoogleSignIn(){
   const btn = document.getElementById('googleBtn');
-  if (btn) btn.disabled = true;
+  if (btn) {
+    btn.disabled = true;
+    btn.style.opacity = '0.7';
+  }
 
   try {
-    // 1. First attempt: Firebase Authentication (Native Google Provider)
+    // 1. Ensure Firebase module is loaded
+    if (!window.AgroFirebase) {
+      try {
+        await import('./js/engine/firebase.js');
+      } catch (_) {}
+    }
+
+    // 2. Primary native Google Sign-In via Firebase Authentication
     if (window.AgroFirebase && typeof window.AgroFirebase.signInWithGoogleFirebase === 'function') {
       try {
         const session = await window.AgroFirebase.signInWithGoogleFirebase();
         if (session) {
-          if (btn) btn.disabled = false;
+          if (btn) {
+            btn.disabled = false;
+            btn.style.opacity = '1';
+          }
           return;
         }
       } catch (fbErr) {
         console.warn('Firebase Google Auth note:', fbErr);
-        if (fbErr.code === 'auth/popup-closed-by-user') {
-          if (btn) btn.disabled = false;
+        // User closed the popup window or cancelled: re-enable button cleanly without an error modal
+        if (fbErr.code === 'auth/popup-closed-by-user' || fbErr.code === 'auth/cancelled-popup-request') {
+          if (btn) {
+            btn.disabled = false;
+            btn.style.opacity = '1';
+          }
           return;
         }
-      }
-    }
-
-    // 2. Second attempt: Google Identity Services (GIS) / Supabase
-    if (window.AgroSupabase && typeof window.AgroSupabase.signInWithGoogle === 'function') {
-      try {
-        const res = await window.AgroSupabase.signInWithGoogle();
-        if (res && res.method === 'gis_prompt') {
-          setTimeout(() => { if (btn) btn.disabled = false; }, 3000);
+        // If popup was blocked and redirect was initiated, return gracefully
+        if (fbErr.code === 'auth/popup-blocked') {
           return;
         }
-      } catch (supaErr) {
-        console.warn('Supabase/GIS note:', supaErr);
+        throw fbErr;
       }
+    } else {
+      throw new Error('Authentication service is initializing. Please tap again in a moment.');
     }
-
-    if (btn) btn.disabled = false;
-    showGoogleAuthHelpModal();
   } catch(err){
-    if (btn) btn.disabled = false;
+    if (btn) {
+      btn.disabled = false;
+      btn.style.opacity = '1';
+    }
     console.warn('Google sign-in exception:', err);
-    showGoogleAuthHelpModal(err.message);
+    showGoogleAuthErrorModal(err);
   }
 }
 
-function showGoogleAuthHelpModal(errorMsg = ''){
-  let m = document.getElementById('googleAuthHelpModal');
+function showGoogleAuthErrorModal(err = null){
+  let m = document.getElementById('googleAuthErrorModal');
   if(!m){
     m = document.createElement('div');
-    m.id = 'googleAuthHelpModal';
+    m.id = 'googleAuthErrorModal';
     m.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.65);backdrop-filter:blur(6px);z-index:99999;display:flex;align-items:center;justify-content:center;padding:20px;';
     document.body.appendChild(m);
   }
+
+  const isKn = (typeof currentLang !== 'undefined' && currentLang === 'kn');
+  const title = isKn ? 'ಗೂಗಲ್ ಸೈನ್-ಇನ್ ಸೂಚನೆ' : 'Google Sign-In Notice';
+  
+  let desc = isKn 
+    ? 'ಗೂಗಲ್ ಮೂಲಕ ಸೈನ್-ಇನ್ ಪೂರ್ಣಗೊಳಿಸಲು ಸಾಧ್ಯವಾಗುತ್ತಿಲ್ಲ. ನಿಮ್ಮ ಇಂಟರ್ನೆಟ್ ಸಂಪರ್ಕವನ್ನು ಪರಿಶೀಲಿಸಿ ಅಥವಾ ಫೋನ್ OTP ಬಳಸಿ ತಕ್ಷಣ ಲಾಗಿನ್ ಆಗಿ.'
+    : 'Unable to complete sign-in with Google. Please check your internet connection or log in instantly using Phone OTP.';
+
+  if (err && err.code === 'auth/network-request-failed') {
+    desc = isKn
+      ? 'ನೆಟ್‌ವರ್ಕ್ ಸಂಪರ್ಕ ದೋಷ ಕಂಡುಬಂದಿದೆ. ದಯವಿಟ್ಟು ನಿಮ್ಮ ಇಂಟರ್ನೆಟ್ ಪರಿಶೀಲಿಸಿ ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ.'
+      : 'Network connection issue detected. Please check your internet connection and retry.';
+  }
+
   m.innerHTML = `
     <div style="background:#fff;border-radius:24px;max-width:400px;width:100%;padding:28px 24px;box-shadow:0 20px 48px rgba(0,0,0,0.3);text-align:center;color:var(--ink);animation:popIn 0.25s ease-out;">
-      <div style="width:64px;height:64px;background:#FDF2E9;border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 16px;font-size:32px;">
-        🔑
+      <div style="width:64px;height:64px;background:#F0FDF4;border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 16px;font-size:32px;">
+        🌾
       </div>
       <h3 style="font-size:19px;font-weight:700;color:var(--forest);margin-bottom:8px;">
-        Google Sign-In Notice
+        ${title}
       </h3>
-      <p style="font-size:13px;color:var(--ink-soft);line-height:1.55;margin-bottom:18px;">
-        The Google OAuth Client for project <strong style="color:var(--forest);">gen-lang-client-0224945015</strong> was recently deleted or is awaiting one-click activation in Firebase Console.
+      <p style="font-size:13px;color:var(--ink-soft);line-height:1.55;margin-bottom:20px;">
+        ${desc}
       </p>
       
-      <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:18px;">
-        <button class="btn btn-primary btn-block" style="font-weight:700;padding:12px;display:flex;align-items:center;justify-content:center;gap:8px;" onclick="closeGoogleAuthHelpModal(); continueAsGuest();">
-          <span>🌾</span> <span>Explore as Guest Farmer (Instant)</span>
+      <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:14px;">
+        <button class="btn btn-primary btn-block" style="font-weight:700;padding:12px;display:flex;align-items:center;justify-content:center;gap:8px;" onclick="closeGoogleAuthErrorModal(); triggerGoogleSignIn();">
+          <span>🔄</span> <span>${isKn ? 'ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ' : 'Retry Google Sign-In'}</span>
         </button>
-        <button class="btn btn-outline btn-block" style="font-weight:600;padding:12px;border:1.5px solid var(--forest);color:var(--forest);display:flex;align-items:center;justify-content:center;gap:8px;" onclick="closeGoogleAuthHelpModal(); goAuth('auth-welcome');">
-          <span>📱</span> <span>Log In with Phone SMS OTP</span>
+        <button class="btn btn-outline btn-block" style="font-weight:600;padding:12px;border:1.5px solid var(--forest);color:var(--forest);display:flex;align-items:center;justify-content:center;gap:8px;" onclick="closeGoogleAuthErrorModal(); goAuth('auth-welcome');">
+          <span>📱</span> <span>${isKn ? 'ಫೋನ್ OTP ಮೂಲಕ ಲಾಗಿನ್' : 'Log In with Phone OTP'}</span>
+        </button>
+        <button class="btn btn-outline btn-block" style="font-weight:600;padding:12px;border:1px solid #E5E7EB;color:var(--ink-soft);display:flex;align-items:center;justify-content:center;gap:8px;" onclick="closeGoogleAuthErrorModal(); continueAsGuest();">
+          <span>🌱</span> <span>${isKn ? 'ಅತಿಥಿ ರೈತರಾಗಿ ಮುಂದುವರಿಯಿರಿ' : 'Explore as Guest Farmer'}</span>
         </button>
       </div>
 
-      <div style="background:#F6F8F6;border-radius:12px;padding:12px;font-size:11.5px;color:var(--ink-soft);text-align:left;line-height:1.45;margin-bottom:16px;">
-        <div style="font-weight:700;color:var(--forest);margin-bottom:4px;">To activate Google Sign-In permanently:</div>
-        1. Open <a href="https://console.firebase.google.com/project/gen-lang-client-0224945015/authentication/providers" target="_blank" style="color:#2D6A4F;font-weight:600;text-decoration:underline;">Firebase Authentication</a><br>
-        2. Click <strong>Get Started</strong> &gt; enable <strong>Google</strong> &gt; Save.
-      </div>
-
-      <button class="btn btn-outline btn-block" style="border:none;color:#888;font-size:13px;padding:6px;" onclick="closeGoogleAuthHelpModal();">
-        Dismiss
+      <button class="btn btn-outline btn-block" style="border:none;color:#888;font-size:13px;padding:6px;" onclick="closeGoogleAuthErrorModal();">
+        ${isKn ? 'ರದ್ದುಮಾಡಿ' : 'Dismiss'}
       </button>
     </div>
   `;
   m.style.display = 'flex';
 }
 
-function closeGoogleAuthHelpModal(){
-  const m = document.getElementById('googleAuthHelpModal');
+function closeGoogleAuthErrorModal(){
+  const m = document.getElementById('googleAuthErrorModal');
   if(m) m.style.display = 'none';
 }
 
@@ -6805,6 +6827,15 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   verifyStoredSession();
+
+  // Process any pending Google OAuth redirect completion
+  const checkGoogleRedirect = () => {
+    if (window.AgroFirebase && typeof window.AgroFirebase.checkRedirectResult === 'function') {
+      window.AgroFirebase.checkRedirectResult().catch(err => console.warn('Redirect sign-in notice:', err));
+    }
+  };
+  checkGoogleRedirect();
+  setTimeout(checkGoogleRedirect, 1200);
 
   // Register service worker & clear any stale caches so latest Auth UI and logos are always shown
   if('caches' in window){
