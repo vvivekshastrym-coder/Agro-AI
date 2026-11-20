@@ -3787,10 +3787,18 @@ async function triggerGoogleSignIn(){
 
 // Handle /auth/callback return from Supabase Google OAuth
 (function handleSupabaseAuthCallback(){
-  if (window.location.pathname === '/auth/callback' || window.location.search.includes('code=') || window.location.search.includes('error=')) {
-    const params = new URLSearchParams(window.location.search);
-    const oauthError = params.get('error');
-    const oauthErrorDesc = params.get('error_description');
+  const hasOAuthParams =
+    window.location.pathname === '/auth/callback' ||
+    window.location.search.includes('code=') ||
+    window.location.search.includes('error=') ||
+    window.location.hash.includes('access_token=') ||
+    window.location.hash.includes('error=');
+
+  if (hasOAuthParams) {
+    const searchParams = new URLSearchParams(window.location.search);
+    const hashParams = new URLSearchParams(window.location.hash.startsWith('#') ? window.location.hash.slice(1) : window.location.hash);
+    const oauthError = searchParams.get('error') || hashParams.get('error');
+    const oauthErrorDesc = searchParams.get('error_description') || hashParams.get('error_description');
     if (oauthError) {
       window.history.replaceState({}, document.title, '/');
       window.addEventListener('DOMContentLoaded', () => {
@@ -3816,7 +3824,7 @@ async function triggerGoogleSignIn(){
           return;
         }
       }
-      if (attempts < 25) {
+      if (attempts < 35) {
         setTimeout(() => waitForSupabaseSession(attempts + 1), 200);
       } else {
         window.history.replaceState({}, document.title, '/');
@@ -3885,10 +3893,14 @@ function closeGoogleAuthErrorModal(){
   if(m) m.style.display = 'none';
 }
 
+let _completingLogin = false;
 async function completeLogin(supaSession){
   if(!supaSession || !supaSession.user) return;
   const u = supaSession.user;
   if(session.signedIn && !session.isGuest && session.userId === u.id && session.token) return;
+  if(_completingLogin) return;
+  _completingLogin = true;
+  try {
   const meta = u.user_metadata || {};
   const userName = meta.full_name || meta.name || (u.email ? u.email.split('@')[0] : 'Farmer');
 
@@ -3940,6 +3952,9 @@ async function completeLogin(supaSession){
     showToast(currentLang === 'kn' ? 'ಸ್ವಾಗತ ' + userName : 'Signed in as ' + userName);
   } else {
     enterProfileSetup();
+  }
+  } finally {
+    _completingLogin = false;
   }
 }
 window.addEventListener('agro:signed-in', e => { completeLogin(e.detail).catch(err => console.warn('login completion failed', err)); });

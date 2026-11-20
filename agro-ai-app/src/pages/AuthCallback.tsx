@@ -1,20 +1,51 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import type { Session } from "@supabase/supabase-js";
 import { supabase, isSupabaseConfigured } from "../lib/supabaseClient";
 import { checkUserOnboardingStatus, formatOAuthError } from "../lib/useAuth";
 
 export default function AuthCallback() {
   const navigate = useNavigate();
-  const processedRef = useRef(false);
+  const completedRef = useRef(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   useEffect(() => {
-    if (processedRef.current) return;
-    processedRef.current = true;
-
     let active = true;
+    let subscription: { unsubscribe: () => void } | null = null;
+    let timeoutId: ReturnType<typeof setTimeout> | null = null;
 
-    async function completeAuth() {
+    const cleanCallbackUrl = () => {
+      if (window.location.search || window.location.hash) {
+        window.history.replaceState({}, document.title, "/auth/callback");
+      }
+    };
+
+    const finalizeSession = async (session: Session) => {
+      if (completedRef.current || !active) return;
+      completedRef.current = true;
+      subscription?.unsubscribe();
+      if (timeoutId) clearTimeout(timeoutId);
+
+      // Safe to strip authorization code/tokens from URL now that session is established
+      cleanCallbackUrl();
+
+      try {
+        const onboardingStatus = await checkUserOnboardingStatus(session.user.id);
+        if (!active) return;
+        if (onboardingStatus === "complete") {
+          navigate("/", { replace: true });
+        } else {
+          navigate("/onboarding", { replace: true });
+        }
+      } catch (err) {
+        console.error("Onboarding status lookup error:", err);
+        if (active) {
+          navigate("/onboarding", { replace: true });
+        }
+      }
+    };
+
+    async function processCallback() {
       if (!isSupabaseConfigured) {
         if (active) {
           setErrorMessage("Authentication service is not configured. Please contact support.");
@@ -31,14 +62,9 @@ export default function AuthCallback() {
       const oauthError = searchParams.get("error") || hashParams.get("error");
       const oauthErrorDesc =
         searchParams.get("error_description") || hashParams.get("error_description");
-      const authCode = searchParams.get("code");
-
-      // Immediately clean any OAuth query/hash tokens from the browser URL bar
-      if (window.location.search || window.location.hash) {
-        window.history.replaceState({}, document.title, "/auth/callback");
-      }
 
       if (oauthError) {
+        cleanCallbackUrl();
         console.error("OAuth callback error:", oauthError);
         if (active) {
           setErrorMessage(formatOAuthError(oauthError, oauthErrorDesc));
@@ -46,60 +72,68 @@ export default function AuthCallback() {
         return;
       }
 
-      try {
-        // 1. Check if Supabase's detectSessionInUrl already hydrated the session
-        let { data, error: sessionErr } = await supabase.auth.getSession();
+      // Listen for Supabase's automatic detectSessionInUrl completion
+      const { data: authListener } = supabase.auth.onAuthStateChange((event, nextSession) => {
+        if (!active || completedRef.current) return;
+        if ((event === "SIGNED_IN" || event === "INITIAL_SESSION") && nextSession?.user) {
+          void finalizeSession(nextSession);
+        }
+      });
+      subscription = authListener.subscription;
 
+      try {
+        // Check if Supabase already hydrated the session from the URL
+        const { data, error: sessionErr } = await supabase.auth.getSession();
         if (sessionErr) {
           throw sessionErr;
         }
-
-        // 2. If PKCE ?code= was present and session is not yet ready, exchange it explicitly
-        if (!data.session && authCode) {
-          const { data: exchangeData, error: exchangeErr } =
-            await supabase.auth.exchangeCodeForSession(authCode);
-          if (exchangeErr) {
-            // Re-check getSession in case detectSessionInUrl finished concurrently
-            const retry = await supabase.auth.getSession();
-            if (retry.data.session) {
-              data = retry.data;
-            } else {
-              throw exchangeErr;
-            }
-          } else {
-            data = { session: exchangeData.session };
-          }
+        if (data.session?.user) {
+          await finalizeSession(data.session);
+          return;
         }
 
-        if (!data.session?.user) {
-          if (active) {
+        // Wait up to 10s for automatic PKCE exchange to finish if ?code= or #access_token= is present
+        const hasAuthPayload =
+          searchParams.has("code") ||
+          hashParams.has("access_token") ||
+          hashParams.has("refresh_token");
+
+        if (!hasAuthPayload) {
+          if (active && !completedRef.current) {
+            cleanCallbackUrl();
             setErrorMessage(
-              "Your sign-in session could not be verified or has expired. Please try logging in again."
+              "No active sign-in session was found. Please try signing in with Google again."
             );
           }
           return;
         }
 
-        const onboardingStatus = await checkUserOnboardingStatus(data.session.user.id);
-        if (!active) return;
-
-        if (onboardingStatus === "complete") {
-          navigate("/", { replace: true });
-        } else {
-          navigate("/onboarding", { replace: true });
-        }
+        timeoutId = setTimeout(() => {
+          if (!active || completedRef.current) return;
+          completedRef.current = true;
+          subscription?.unsubscribe();
+          cleanCallbackUrl();
+          setErrorMessage(
+            "Sign-in timed out while verifying your Google session. Please try again."
+          );
+        }, 10000);
       } catch (err) {
-        console.error("Auth callback processing failed:", err);
-        if (active) {
+        console.error("Auth callback session error:", err);
+        if (active && !completedRef.current) {
+          completedRef.current = true;
+          subscription?.unsubscribe();
+          cleanCallbackUrl();
           setErrorMessage(formatOAuthError(err));
         }
       }
     }
 
-    completeAuth();
+    void processCallback();
 
     return () => {
       active = false;
+      subscription?.unsubscribe();
+      if (timeoutId) clearTimeout(timeoutId);
     };
   }, [navigate]);
 
