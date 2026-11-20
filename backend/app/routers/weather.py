@@ -810,7 +810,7 @@ async def fetch_open_meteo_forecast(target_lat: float, target_lon: float, city_n
         f"https://api.open-meteo.com/v1/forecast"
         f"?latitude={target_lat}&longitude={target_lon}"
         f"&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_sum,precipitation_probability_max,wind_speed_10m_max,sunrise,sunset"
-        f"&timezone=auto"
+        f"&timezone=auto&forecast_days=7"
     )
     async with httpx.AsyncClient(timeout=4.5) as client:
         try:
@@ -1056,7 +1056,14 @@ async def get_weather_forecast(
             res_copy["metadata"]["cache_hit"] = True
             return res_copy
 
-    # 1. Try OpenWeatherMap if API key is provided
+    # 0. Prefer Open-Meteo: it returns a genuine 7-day daily forecast. The free OpenWeatherMap
+    #    5-day/3-hour endpoint only spans ~6 calendar dates, which under-fills a "7-day forecast".
+    meteo_primary = await fetch_open_meteo_forecast(target_lat, target_lon, city_name, state_name)
+    if meteo_primary and len(meteo_primary.get("daily", [])) >= 7:
+        _FORECAST_CACHE[cache_key] = (meteo_primary, now_ts + _FORECAST_TTL)
+        return meteo_primary
+
+    # 1. Try OpenWeatherMap if API key is provided (fallback; fewer than 7 days)
     if api_key:
         if lat is not None and lon is not None:
             url = f"{OPENWEATHER_BASE}/forecast?lat={target_lat}&lon={target_lon}&appid={api_key}&units=metric"
