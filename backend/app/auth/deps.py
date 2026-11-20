@@ -270,3 +270,45 @@ async def get_optional_current_user(
         return db.query(User).filter(User.id == uid).first()
     except Exception:
         return None
+
+
+async def get_authenticated_user(
+    request: Request,
+    authorization: Optional[str] = Header(None),
+    db: Session = Depends(get_db),
+) -> User:
+    """Dependency that strictly requires an authenticated, non-guest user.
+    
+    Rejects missing tokens, expired tokens, guest sessions, and unverified guest accounts
+    with HTTP 401 Unauthorized (code: GUEST_ACCESS_DENIED or MISSING_TOKEN).
+    Used to protect AgroGPT and other member-only features.
+    """
+    if not authorization or not authorization.lower().startswith("bearer "):
+        raise _unauthorized("MISSING_TOKEN", "Authentication required. Please log in to access AgroGPT.")
+
+    token = authorization[7:].strip()
+    claims = verify_supabase_token(token)
+
+    # 1. Reject guest tokens via JWT claims
+    iss = claims.get("iss", "")
+    meta = claims.get("user_metadata") or {}
+    if iss == "agro-ai-local" or meta.get("is_guest") is True or claims.get("is_guest") is True:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail={"error": {"code": "GUEST_ACCESS_DENIED", "message": "AgroGPT is available only to authenticated users. Please log in to continue."}},
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    # 2. Retrieve user model
+    user = await get_current_user(request=request, authorization=authorization, db=db)
+
+    # 3. Reject unverified guest accounts (no phone, no email, not verified)
+    if not user.email and not user.phone and not user.is_verified:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail={"error": {"code": "GUEST_ACCESS_DENIED", "message": "AgroGPT is available only to authenticated users. Please log in to continue."}},
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    return user
+

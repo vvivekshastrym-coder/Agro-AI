@@ -931,66 +931,104 @@
 
     <!-- ============ AGRO GPT ============ -->
     <section class="view" data-view="kisangpt" style="display:none;">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin:4px 0 10px;gap:8px;">
-        <div style="display:flex;align-items:center;gap:8px;">
-          <button class="btn btn-outline" style="padding:5px 10px;font-size:12px;" onclick="toggleAgroGptHistoryDrawer()" title="Chat History">☰ <span id="gptHistoryToggleLbl">History</span></button>
-          <h2 class="display" style="font-size:20px;margin:0;" id="gptTitle">Agro GPT</h2>
+      <!-- Dedicated Guest Access Gate (Mandatory Authentication Screen) -->
+      <div id="agroGptGuestGate" style="display:none;background:#FFFFFF;border:1.5px solid var(--line);border-radius:24px;padding:36px 22px;text-align:center;box-shadow:0 8px 30px rgba(31,77,43,0.08);margin:16px auto;max-width:520px;">
+        <!-- Friendly AI Farming Assistant Illustration & Robot Icon -->
+        <div style="position:relative;width:88px;height:88px;margin:0 auto 18px;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg, #E8F5E9 0%, #C8E6C9 100%);border-radius:50%;box-shadow:0 8px 24px rgba(31,77,43,0.15);border:2px solid #A5D6A7;">
+          <span style="font-size:44px;line-height:1;" role="img" aria-label="AI Farming Assistant">🤖🌱</span>
+          <span style="position:absolute;bottom:-2px;right:-2px;background:var(--forest);color:#fff;border-radius:50%;width:28px;height:28px;display:flex;align-items:center;justify-content:center;font-size:14px;border:2px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,0.18);">🔒</span>
         </div>
-        <div style="display:flex;align-items:center;gap:6px;">
-          <button class="btn" style="background:var(--forest);color:#fff;padding:6px 12px;border-radius:999px;font-size:12px;font-weight:600;border:none;cursor:pointer;" id="gptNewChatTopBtn" onclick="startNewAgroGptChat()">+ New chat</button>
+
+        <!-- Continuous Login Reminder Banner -->
+        <div id="agroGptLoginBanner" style="display:none;background:#FEF3C7;border:1.5px solid #F59E0B;border-radius:12px;padding:11px 14px;color:#92400E;font-size:13px;font-weight:600;margin-bottom:18px;line-height:1.45;text-align:left;">
+          🔒 Please log in to continue using AgroGPT. Your AI farming assistant is available after signing in.
         </div>
+
+        <h2 class="display" style="font-size:24px;font-weight:700;color:var(--forest);margin:0 0 12px;line-height:1.3;" id="agroGptGateHeading">
+          Your AI Farming Assistant Awaits!
+        </h2>
+
+        <p style="font-size:14px;color:var(--ink-soft);line-height:1.6;margin:0 auto 24px;max-width:440px;" id="agroGptGateDesc">
+          Log in to Agro AI to access AgroGPT, your intelligent farming assistant. Get personalized crop advice, farming guidance, disease solutions, and answers to your agricultural questions.
+        </p>
+
+        <div style="display:flex;flex-direction:column;gap:12px;max-width:320px;margin:0 auto 20px;">
+          <button class="btn btn-primary btn-block" style="background:var(--forest);color:#fff;padding:13px 20px;font-size:15px;font-weight:700;border-radius:999px;border:none;box-shadow:0 4px 14px rgba(31,77,43,0.22);cursor:pointer;" onclick="openAgroGptAuth('login')">
+            Login to Access AgroGPT
+          </button>
+          <button class="btn btn-outline btn-block" style="padding:12px 20px;font-size:14.5px;font-weight:600;border-radius:999px;border:1.5px solid var(--forest);color:var(--forest);background:transparent;cursor:pointer;" onclick="openAgroGptAuth('signup')">
+            Create Free Account
+          </button>
+        </div>
+
+        <p style="font-size:12.5px;color:var(--forest);font-weight:600;margin:0;letter-spacing:0.01em;" id="agroGptGateSubtext">
+          Join Agro AI and get smarter farming assistance in your language.
+        </p>
       </div>
 
-      <div class="pillbar" id="gptLangBar" style="margin-bottom:10px;"></div>
-
-      <div style="display:flex;gap:12px;align-items:stretch;position:relative;">
-        <!-- Collapsible Chat History Sidebar -->
-        <aside id="agroGptSidebar" style="display:none;width:210px;flex-shrink:0;background:#fff;border:1px solid var(--line);border-radius:14px;padding:12px;flex-direction:column;justify-content:space-between;max-height:520px;">
-          <div>
-            <button class="btn btn-block" style="background:var(--forest);color:#fff;border-radius:999px;padding:9px 12px;font-size:13px;font-weight:600;border:none;cursor:pointer;margin-bottom:10px;" id="gptSidebarNewChatBtn" onclick="startNewAgroGptChat()">+ New chat</button>
-            <div id="agroGptConvList" style="display:flex;flex-direction:column;gap:4px;max-height:360px;overflow-y:auto;padding-right:2px;"></div>
+      <!-- Authenticated User AgroGPT Container -->
+      <div id="agroGptChatContainer" style="display:block;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin:4px 0 10px;gap:8px;">
+          <div style="display:flex;align-items:center;gap:8px;">
+            <button class="btn btn-outline" style="padding:5px 10px;font-size:12px;" onclick="toggleAgroGptHistoryDrawer()" title="Chat History">☰ <span id="gptHistoryToggleLbl">History</span></button>
+            <h2 class="display" style="font-size:20px;margin:0;" id="gptTitle">Agro GPT</h2>
           </div>
-          <div style="border-top:1px solid var(--line);padding-top:10px;margin-top:10px;display:flex;flex-direction:column;gap:8px;font-size:12.5px;">
-            <a href="javascript:void(0)" onclick="go('account')" style="color:var(--ink);text-decoration:none;display:flex;align-items:center;gap:6px;font-weight:600;" id="gptSideProfile">👤 Profile &amp; farm</a>
-            <a href="javascript:void(0)" onclick="signOut()" style="color:var(--ink-soft);text-decoration:none;" id="gptSideSignOut">Sign out</a>
+          <div style="display:flex;align-items:center;gap:6px;">
+            <button class="btn" style="background:var(--forest);color:#fff;padding:6px 12px;border-radius:999px;font-size:12px;font-weight:600;border:none;cursor:pointer;" id="gptNewChatTopBtn" onclick="startNewAgroGptChat()">+ New chat</button>
           </div>
-        </aside>
+        </div>
 
-        <!-- Main Agro GPT Panel -->
-        <div style="flex:1;min-width:0;display:flex;flex-direction:column;">
-          <!-- Welcome Hero (Always says Agro GPT) -->
-          <div id="agroGptWelcomeHero" style="text-align:center;padding:14px 10px 12px;">
-            <div style="width:46px;height:46px;border-radius:13px;background:var(--forest);color:#fff;display:inline-flex;align-items:center;justify-content:center;font-size:22px;margin-bottom:8px;">🌱</div>
-            <h3 class="display" style="font-size:24px;margin:0 0 6px;color:var(--ink);" id="gptHeroGreeting">Namaste! I'm Agro GPT.</h3>
-            <p class="muted" style="font-size:13px;max-width:420px;margin:0 auto;line-height:1.45;" id="gptHeroSubtitle">The central AI brain of Agro AI. I read your farm's weather, location, crop, and history before every answer.</p>
-          </div>
+        <div class="pillbar" id="gptLangBar" style="margin-bottom:10px;"></div>
 
-          <!-- Active Chat Scroll -->
-          <div class="chat-scroll" id="chatScroll" style="min-height:120px;max-height:280px;margin-bottom:10px;"></div>
-
-          <!-- Main Input Box Card -->
-          <div style="background:#fff;border:1.5px solid var(--line);border-radius:16px;padding:12px 14px;box-shadow:0 3px 12px rgba(0,0,0,0.03);margin-bottom:12px;">
-            <textarea id="chatInput" rows="2" placeholder="Ask about crops, weather, mandi prices, schemes..." style="width:100%;border:none;outline:none;resize:none;font-family:inherit;font-size:14px;color:var(--ink);background:transparent;margin-bottom:8px;" onkeydown="if(event.key==='Enter' && !event.shiftKey){event.preventDefault();sendChat();}"></textarea>
-            <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;">
-              <button id="micBtn" onclick="toggleMic()" style="background:#F7F4EB;border:1px solid #E6E1D2;color:var(--ink);padding:7px 14px;border-radius:999px;font-size:12.5px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:6px;">
-                <span>🎙️</span> <span id="gptSpeakInsteadTxt">Speak instead</span>
-              </button>
-              <button id="askAgroGptBtn" onclick="sendChat()" style="background:var(--forest);color:#fff;border:none;padding:8px 18px;border-radius:999px;font-size:12.5px;font-weight:600;cursor:pointer;">
-                Ask Agro GPT
-              </button>
+        <div style="display:flex;gap:12px;align-items:stretch;position:relative;">
+          <!-- Collapsible Chat History Sidebar -->
+          <aside id="agroGptSidebar" style="display:none;width:210px;flex-shrink:0;background:#fff;border:1px solid var(--line);border-radius:14px;padding:12px;flex-direction:column;justify-content:space-between;max-height:520px;">
+            <div>
+              <button class="btn btn-block" style="background:var(--forest);color:#fff;border-radius:999px;padding:9px 12px;font-size:13px;font-weight:600;border:none;cursor:pointer;margin-bottom:10px;" id="gptSidebarNewChatBtn" onclick="startNewAgroGptChat()">+ New chat</button>
+              <div id="agroGptConvList" style="display:flex;flex-direction:column;gap:4px;max-height:360px;overflow-y:auto;padding-right:2px;"></div>
             </div>
-          </div>
+            <div style="border-top:1px solid var(--line);padding-top:10px;margin-top:10px;display:flex;flex-direction:column;gap:8px;font-size:12.5px;">
+              <a href="javascript:void(0)" onclick="go('account')" style="color:var(--ink);text-decoration:none;display:flex;align-items:center;gap:6px;font-weight:600;" id="gptSideProfile">👤 Profile &amp; farm</a>
+              <a href="javascript:void(0)" onclick="signOut()" style="color:var(--ink-soft);text-decoration:none;" id="gptSideSignOut">Sign out</a>
+            </div>
+          </aside>
 
-          <!-- Prominent Voice Button (12 Indian Languages) -->
-          <div style="text-align:center;margin-bottom:12px;">
-            <button id="talkAgroGptBtn" onclick="toggleMic()" style="background:#3B873E;color:#fff;border:none;padding:10px 22px;border-radius:999px;font-size:13px;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;gap:8px;box-shadow:0 3px 10px rgba(59,135,62,0.22);">
-              <span>🎙️</span> <span id="talkAgroGptBtnTxt">Talk to Agro GPT — 12 Indian languages</span>
-            </button>
-            <div class="muted" style="font-size:11.5px;margin-top:6px;" id="talkAgroGptWakeTxt">Say “Hi Agro AI” to wake it, then ask in Hindi, Kannada, Tamil, Telugu, Marathi and more.</div>
-          </div>
+          <!-- Main Agro GPT Panel -->
+          <div style="flex:1;min-width:0;display:flex;flex-direction:column;">
+            <!-- Welcome Hero (Always says Agro GPT) -->
+            <div id="agroGptWelcomeHero" style="text-align:center;padding:14px 10px 12px;">
+              <div style="width:46px;height:46px;border-radius:13px;background:var(--forest);color:#fff;display:inline-flex;align-items:center;justify-content:center;font-size:22px;margin-bottom:8px;">🌱</div>
+              <h3 class="display" style="font-size:24px;margin:0 0 6px;color:var(--ink);" id="gptHeroGreeting">Namaste! I'm Agro GPT.</h3>
+              <p class="muted" style="font-size:13px;max-width:420px;margin:0 auto;line-height:1.45;" id="gptHeroSubtitle">The central AI brain of Agro AI. I read your farm's weather, location, crop, and history before every answer.</p>
+            </div>
 
-          <!-- Suggestion Chips -->
-          <div id="suggestChips" style="display:flex;flex-wrap:wrap;justify-content:center;gap:8px;"></div>
+            <!-- Active Chat Scroll -->
+            <div class="chat-scroll" id="chatScroll" style="min-height:120px;max-height:280px;margin-bottom:10px;"></div>
+
+            <!-- Main Input Box Card -->
+            <div style="background:#fff;border:1.5px solid var(--line);border-radius:16px;padding:12px 14px;box-shadow:0 3px 12px rgba(0,0,0,0.03);margin-bottom:12px;">
+              <textarea id="chatInput" rows="2" placeholder="Ask about crops, weather, mandi prices, schemes..." style="width:100%;border:none;outline:none;resize:none;font-family:inherit;font-size:14px;color:var(--ink);background:transparent;margin-bottom:8px;" onfocus="if(!isRegisteredFarmer()){this.blur();showAgroGptLoginNotice();}" onkeydown="if(event.key==='Enter' && !event.shiftKey){event.preventDefault();sendChat();}"></textarea>
+              <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;">
+                <button id="micBtn" onclick="toggleMic()" style="background:#F7F4EB;border:1px solid #E6E1D2;color:var(--ink);padding:7px 14px;border-radius:999px;font-size:12.5px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:6px;">
+                  <span>🎙️</span> <span id="gptSpeakInsteadTxt">Speak instead</span>
+                </button>
+                <button id="askAgroGptBtn" onclick="sendChat()" style="background:var(--forest);color:#fff;border:none;padding:8px 18px;border-radius:999px;font-size:12.5px;font-weight:600;cursor:pointer;">
+                  Ask Agro GPT
+                </button>
+              </div>
+            </div>
+
+            <!-- Prominent Voice Button (12 Indian Languages) -->
+            <div style="text-align:center;margin-bottom:12px;">
+              <button id="talkAgroGptBtn" onclick="toggleMic()" style="background:#3B873E;color:#fff;border:none;padding:10px 22px;border-radius:999px;font-size:13px;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;gap:8px;box-shadow:0 3px 10px rgba(59,135,62,0.22);">
+                <span>🎙️</span> <span id="talkAgroGptBtnTxt">Talk to Agro GPT — 12 Indian languages</span>
+              </button>
+              <div class="muted" style="font-size:11.5px;margin-top:6px;" id="talkAgroGptWakeTxt">Say “Hi Agro AI” to wake it, then ask in Hindi, Kannada, Tamil, Telugu, Marathi and more.</div>
+            </div>
+
+            <!-- Suggestion Chips -->
+            <div id="suggestChips" style="display:flex;flex-wrap:wrap;justify-content:center;gap:8px;"></div>
+          </div>
         </div>
       </div>
     </section>
@@ -2857,7 +2895,14 @@ function go(view){
   // 4. Trigger contextual data loaders
   if(view === 'more') renderMoreList();
   if(view === 'account') renderAccount();
-  if(view === 'kisangpt') { renderChat(); renderAgroGptHistory(); renderSuggestChips(); }
+  if(view === 'kisangpt') {
+    if (typeof updateAgroGptAccessUI === 'function') updateAgroGptAccessUI();
+    if (typeof isRegisteredFarmer === 'function' && isRegisteredFarmer()) {
+      renderChat();
+      renderAgroGptHistory();
+      renderSuggestChips();
+    }
+  }
   if(view === 'weather') loadRealWeather();
   if(view === 'market') initMandiMarketView();
   if(view === 'home') { loadRealWeather(); loadDailyFarmReport(); renderReportsList(); loadHomeBroadcasts(); loadHomePlansCard(); }
@@ -3445,6 +3490,10 @@ function renderSchemesList(schemes, filter) {
 
 function askKisanGptAboutScheme(title) {
   go('kisangpt');
+  if (typeof isRegisteredFarmer === 'function' && !isRegisteredFarmer()) {
+    if (typeof showAgroGptLoginNotice === 'function') showAgroGptLoginNotice();
+    return;
+  }
   const chatInput = document.getElementById('chatInput');
   if (chatInput) {
     chatInput.value = `Tell me about ${title}: how to apply, eligibility rules, and required documents.`;
@@ -3574,6 +3623,12 @@ window.fetch = async function(input, init){
   }
   // If an API request gets 401, attempt to transparently refresh the backend session token once instead of logging out
   if(isApi && res.status === 401 && !rawUrl.includes('/api/auth/')){
+    if(rawUrl.includes('/api/agro-gpt/')){
+      if(!session || !session.signedIn || session.isGuest){
+        if(typeof updateAgroGptAccessUI === 'function') updateAgroGptAccessUI();
+        return res;
+      }
+    }
     try {
       let newTok = null;
       if(session && session.signedIn && !session.isGuest && (session.google || session.phone || session.userId)){
@@ -3593,7 +3648,7 @@ window.fetch = async function(input, init){
           }
         }
       }
-      if(!newTok && (!session || !session.signedIn || session.isGuest)){
+      if(!newTok && (!session || !session.signedIn || session.isGuest) && !rawUrl.includes('/api/agro-gpt/')){
         const guestRes = await _origFetch(_resolveBackendUrl('/api/auth/guest-session'), { method: 'POST' });
         if(guestRes.ok){
           const guestData = await guestRes.json();
@@ -3820,7 +3875,13 @@ async function completeLogin(supaSession){
     document.querySelectorAll('.auth-view').forEach(v => { v.classList.remove('active'); v.style.display = 'none'; });
     document.body.classList.remove('authing');
     applyProfile();
-    go('home');
+    const authRedirect = sessionStorage.getItem('authRedirect');
+    if(authRedirect){
+      sessionStorage.removeItem('authRedirect');
+      go(authRedirect);
+    } else {
+      go('home');
+    }
     showToast(currentLang === 'kn' ? 'ಸ್ವಾಗತ ' + userName : 'Signed in as ' + userName);
   } else {
     enterProfileSetup();
@@ -3874,6 +3935,39 @@ function showRegisteredFarmerModal(featureName = 'Logistics'){
 function closeRegisteredFarmerModal(){
   const m = document.getElementById('registeredFarmerModal');
   if(m) m.style.display = 'none';
+}
+
+function updateAgroGptAccessUI(){
+  const isAuthed = isRegisteredFarmer();
+  const gate = document.getElementById('agroGptGuestGate');
+  const chat = document.getElementById('agroGptChatContainer');
+  if(gate) gate.style.display = isAuthed ? 'none' : 'block';
+  if(chat) chat.style.display = isAuthed ? 'block' : 'none';
+  if(!isAuthed){
+    const banner = document.getElementById('agroGptLoginBanner');
+    if(banner) banner.style.display = 'none';
+  }
+}
+
+function showAgroGptLoginNotice(){
+  updateAgroGptAccessUI();
+  const banner = document.getElementById('agroGptLoginBanner');
+  if(banner){
+    banner.style.display = 'block';
+    banner.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }
+  showToast('🔒 Please log in to continue using AgroGPT. Your AI farming assistant is available after signing in.');
+}
+
+function openAgroGptAuth(mode){
+  try {
+    sessionStorage.setItem('authRedirect', 'kisangpt');
+  } catch(e){}
+  goAuth('auth-welcome');
+  if(mode === 'signup'){
+    const phoneInput = document.getElementById('phoneInput');
+    if(phoneInput) setTimeout(() => phoneInput.focus(), 250);
+  }
 }
 
 async function sendOtp(){
@@ -4036,7 +4130,7 @@ async function verifyOtp(){
     });
     document.body.classList.remove('authing');
 
-    // Routing: New users go to profile onboarding, existing users go to home
+    // Routing: New users go to profile onboarding, existing users go to home or redirected feature
     if(data.is_new_user || !farmerProfile || !farmerProfile.name){
       if(!farmerProfile){
         farmerProfile = {
@@ -4051,7 +4145,13 @@ async function verifyOtp(){
       showToast('Number verified! Please complete your farmer profile.');
     } else {
       applyProfile();
-      go('home');
+      const authRedirect = sessionStorage.getItem('authRedirect');
+      if(authRedirect){
+        sessionStorage.removeItem('authRedirect');
+        go(authRedirect);
+      } else {
+        go('home');
+      }
       showToast('Verified — Welcome to Agro AI!');
     }
   } catch(e){
@@ -4118,7 +4218,13 @@ function completeProfile(skip){
   });
   document.body.classList.remove('authing');
   applyProfile();
-  go('home');
+  const authRedirect = sessionStorage.getItem('authRedirect');
+  if(authRedirect){
+    sessionStorage.removeItem('authRedirect');
+    go(authRedirect);
+  } else {
+    go('home');
+  }
   showToast(`Welcome, ${farmerProfile.name.split(' ')[0]}!`);
 }
 
@@ -4154,9 +4260,15 @@ function signOut(){
   farmerProfile = null;
   localStorage.removeItem('agroAiSession');
   localStorage.removeItem('agroAiProfile');
+  localStorage.removeItem('kisanToken');
+  localStorage.removeItem('kisanAuth');
+  localStorage.removeItem('kisanUser');
+  localStorage.removeItem('agroai_gpt_sessions');
+  agroGptSessions = [];
   chatHistory = [];
   document.getElementById('phoneInput').value = '';
   document.getElementById('otpInput').value = '';
+  if (typeof updateAgroGptAccessUI === 'function') updateAgroGptAccessUI();
   document.body.classList.add('authing');
   goAuth('auth-welcome');
 }
@@ -4783,6 +4895,10 @@ try {
 } catch (e) { agroGptSessions = []; }
 
 function toggleAgroGptHistoryDrawer() {
+  if (!isRegisteredFarmer()) {
+    showAgroGptLoginNotice();
+    return;
+  }
   const sb = document.getElementById('agroGptSidebar');
   if (!sb) return;
   const isHidden = sb.style.display === 'none' || !sb.style.display;
@@ -4791,6 +4907,10 @@ function toggleAgroGptHistoryDrawer() {
 }
 
 function startNewAgroGptChat() {
+  if (!isRegisteredFarmer()) {
+    showAgroGptLoginNotice();
+    return;
+  }
   conversationId = 'conv_' + Date.now();
   chatHistory = [];
   const hero = document.getElementById('agroGptWelcomeHero');
@@ -4802,6 +4922,10 @@ function startNewAgroGptChat() {
 }
 
 function selectAgroGptConversation(id) {
+  if (!isRegisteredFarmer()) {
+    showAgroGptLoginNotice();
+    return;
+  }
   const found = agroGptSessions.find(s => s.id === id);
   if (!found) return;
   conversationId = found.id;
@@ -4810,7 +4934,32 @@ function selectAgroGptConversation(id) {
   renderAgroGptHistory();
 }
 
+async function deleteAgroGptConversationUi(id) {
+  if (!isRegisteredFarmer()) {
+    showAgroGptLoginNotice();
+    return;
+  }
+  if (!confirm('Delete this conversation?')) return;
+  try {
+    const tok = session?.token || localStorage.getItem('kisanToken') || '';
+    if (tok) {
+      await fetch(`/api/agro-gpt/conversations/${encodeURIComponent(id)}`, {
+        method: 'DELETE',
+        headers: { 'Authorization': 'Bearer ' + tok }
+      });
+    }
+  } catch(e) { console.warn('Delete conversation remote notice:', e); }
+  agroGptSessions = agroGptSessions.filter(s => s.id !== id);
+  try { localStorage.setItem('agroai_gpt_sessions', JSON.stringify(agroGptSessions)); } catch(e){}
+  if (conversationId === id) {
+    startNewAgroGptChat();
+  } else {
+    renderAgroGptHistory();
+  }
+}
+
 function saveCurrentConversationToHistory(firstTitle, isVoice = false) {
+  if (!isRegisteredFarmer()) return;
   let existing = agroGptSessions.find(s => s.id === conversationId);
   if (!existing) {
     existing = {
@@ -4832,6 +4981,10 @@ function saveCurrentConversationToHistory(firstTitle, isVoice = false) {
 function renderAgroGptHistory() {
   const listEl = document.getElementById('agroGptConvList');
   if (!listEl) return;
+  if (!isRegisteredFarmer()) {
+    listEl.innerHTML = '';
+    return;
+  }
   if (!agroGptSessions.length) {
     listEl.innerHTML = `<div class="muted" style="font-size:12px;padding:8px;">No past chats yet</div>`;
     return;
@@ -4840,16 +4993,20 @@ function renderAgroGptHistory() {
     const active = s.id === conversationId;
     const icon = s.isVoice ? '🎙️' : '💬';
     return `
-      <button onclick="selectAgroGptConversation('${escHtml(s.id)}')"
-              style="width:100%;text-align:left;background:${active ? '#EBF5EC' : 'transparent'};border:none;padding:8px 10px;border-radius:8px;font-size:12.5px;color:var(--ink);cursor:pointer;display:flex;align-items:center;gap:8px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:${active ? '700' : '500'};">
-        <span style="font-size:12px;flex-shrink:0;">${icon}</span>
-        <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escHtml(s.title)}</span>
-      </button>
+      <div style="display:flex;align-items:center;justify-content:space-between;background:${active ? '#EBF5EC' : 'transparent'};border-radius:8px;padding-right:4px;">
+        <button onclick="selectAgroGptConversation('${escHtml(s.id)}')"
+                style="flex:1;text-align:left;background:transparent;border:none;padding:8px 8px;font-size:12.5px;color:var(--ink);cursor:pointer;display:flex;align-items:center;gap:8px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:${active ? '700' : '500'};">
+          <span style="font-size:12px;flex-shrink:0;">${icon}</span>
+          <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escHtml(s.title)}</span>
+        </button>
+        <button onclick="deleteAgroGptConversationUi('${escHtml(s.id)}')" title="Delete chat" style="background:transparent;border:none;cursor:pointer;color:#999;font-size:12px;padding:4px;" onmouseover="this.style.color='#c00'" onmouseout="this.style.color='#999'">✕</button>
+      </div>
     `;
   }).join('');
 }
 
 function renderChat(){
+  if (!isRegisteredFarmer()) return;
   const scroll = document.getElementById('chatScroll');
   if(!scroll) return;
   scroll.innerHTML = chatHistory.map(m=>`<div class="bubble ${m.role==='user'?'bubble-user':'bubble-ai'}" style="white-space:pre-line;">${m.text}</div>`).join('');
@@ -4863,6 +5020,10 @@ function renderSuggestChips(){
 }
 
 async function sendChat(preset, isVoice = false){
+  if (!isRegisteredFarmer()) {
+    showAgroGptLoginNotice();
+    return;
+  }
   const input = document.getElementById('chatInput');
   const msg = preset || (input ? input.value.trim() : '');
   if(!msg) return;
@@ -4896,6 +5057,15 @@ async function sendChat(preset, isVoice = false){
         }
       })
     });
+    if(res.status === 401) {
+      document.getElementById('typingIndicator')?.remove();
+      chatHistory.pop();
+      renderChat();
+      showToast('🔒 Please log in to continue using AgroGPT. Your AI farming assistant is available after signing in.');
+      updateAgroGptAccessUI();
+      showAgroGptLoginNotice();
+      return;
+    }
     if(res.ok) {
       const data = await res.json();
       document.getElementById('typingIndicator')?.remove();
@@ -4909,12 +5079,14 @@ async function sendChat(preset, isVoice = false){
     console.warn('Backend agro-gpt chat error:', e);
   }
 
-  setTimeout(()=>{
-    document.getElementById('typingIndicator')?.remove();
-    chatHistory.push({role:'ai', text: pickFallbackReply(msg)});
-    renderChat();
-    saveCurrentConversationToHistory(msg, isVoice);
-  }, 550);
+  if (isRegisteredFarmer()) {
+    setTimeout(()=>{
+      document.getElementById('typingIndicator')?.remove();
+      chatHistory.push({role:'ai', text: pickFallbackReply(msg)});
+      renderChat();
+      saveCurrentConversationToHistory(msg, isVoice);
+    }, 550);
+  }
 }
 
 function pickFallbackReply(msg){
@@ -5057,6 +5229,11 @@ let micRecording = false;
 let recognition = null;
 
 function toggleMic(){
+  const activeView = document.querySelector('.view.active')?.dataset.view;
+  if(activeView === 'kisangpt' && typeof isRegisteredFarmer === 'function' && !isRegisteredFarmer()){
+    if(typeof showAgroGptLoginNotice === 'function') showAgroGptLoginNotice();
+    return;
+  }
   const btn = document.getElementById('micBtn');
   if(!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)){
     micRecording = !micRecording;
@@ -8979,10 +9156,12 @@ async function updateSellerOrderStatus(orderId, newStatus) {
     '/contact':  'contact',
   };
   const target = pathMap[(window.location.pathname || '/').replace(/\/+$/, '') || '/'];
-  if (!target) return;
   const activate = () => {
-    document.body.classList.remove('authing');
-    go(target);
+    if (target) {
+      document.body.classList.remove('authing');
+      go(target);
+    }
+    if (typeof updateAgroGptAccessUI === 'function') updateAgroGptAccessUI();
   };
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', activate);
@@ -8990,6 +9169,16 @@ async function updateSellerOrderStatus(orderId, newStatus) {
     setTimeout(activate, 50);
   }
 })();
+
+// Cross-tab synchronization for immediate AgroGPT lock/unlock
+window.addEventListener('storage', function(e) {
+  if (e.key === 'agroAiSession' || e.key === 'kisanAuth' || e.key === 'kisanToken') {
+    try {
+      session = JSON.parse(localStorage.getItem('agroAiSession')) || { signedIn:false, role:'farmer', method:null, phone:null, google:null, token:null };
+    } catch(err) {}
+    if (typeof updateAgroGptAccessUI === 'function') updateAgroGptAccessUI();
+  }
+});
 </script>
 </body>
 </html>

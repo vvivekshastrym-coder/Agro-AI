@@ -9,7 +9,7 @@ import logging
 from ..database.connection import get_db
 from ..database.models import AgroGPTConversation, AgroGPTMessage, AIContext, DiagnosisReport, User, Farm, FarmCrop
 from ..services.ai_service import generate_agro_gpt_response, stream_agro_gpt_response
-from ..auth.deps import get_current_user, get_optional_current_user
+from ..auth.deps import get_current_user, get_optional_current_user, get_authenticated_user
 from ..auth.entitlements import check_and_consume_entitlement
 
 logger = logging.getLogger(__name__)
@@ -28,7 +28,7 @@ class ChatRequest(BaseModel):
     context: Optional[Dict[str, Any]] = None
 
 @router.post("/context/diagnosis")
-async def attach_diagnosis_context(req: DiagnosisContextRequest, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+async def attach_diagnosis_context(req: DiagnosisContextRequest, db: Session = Depends(get_db), user: User = Depends(get_authenticated_user)):
     """
     POST /api/agro-gpt/context/diagnosis
     Stores a diagnosis report as active context for Agro GPT.
@@ -50,7 +50,7 @@ async def attach_diagnosis_context(req: DiagnosisContextRequest, db: Session = D
     return {"status": "success", "message": "Diagnosis context attached to Agro GPT", "report_id": report.id}
 
 @router.post("/chat")
-async def agro_gpt_chat(req: ChatRequest, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+async def agro_gpt_chat(req: ChatRequest, db: Session = Depends(get_db), user: User = Depends(get_authenticated_user)):
     """
     POST /api/agro-gpt/chat
     Main Agro GPT chat endpoint with full farmer DB context retrieval.
@@ -133,7 +133,7 @@ async def agro_gpt_chat(req: ChatRequest, db: Session = Depends(get_db), user: U
     }
 
 @router.post("/chat/stream")
-async def agro_gpt_chat_stream(req: ChatRequest, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+async def agro_gpt_chat_stream(req: ChatRequest, db: Session = Depends(get_db), user: User = Depends(get_authenticated_user)):
     """
     POST /api/agro-gpt/chat/stream
     Streams Agro GPT response via SSE (Server-Sent Events).
@@ -224,7 +224,7 @@ async def get_daily_digest(
     farmer_id: Optional[str] = None,
     language: str = "en",
     db: Session = Depends(get_db),
-    user: User = Depends(get_current_user)
+    user: User = Depends(get_authenticated_user)
 ):
     """
     GET /api/agro-gpt/daily-digest
@@ -287,7 +287,7 @@ Guidelines:
 @router.get("/conversations")
 async def list_agro_gpt_conversations(
     db: Session = Depends(get_db),
-    user: User = Depends(get_current_user)
+    user: User = Depends(get_authenticated_user)
 ):
     """
     GET /api/agro-gpt/conversations
@@ -322,7 +322,7 @@ async def list_agro_gpt_conversations(
 async def get_agro_gpt_conversation_messages(
     conversation_id: str,
     db: Session = Depends(get_db),
-    user: User = Depends(get_current_user)
+    user: User = Depends(get_authenticated_user)
 ):
     """
     GET /api/agro-gpt/conversations/{conversation_id}
@@ -351,6 +351,32 @@ async def get_agro_gpt_conversation_messages(
             }
             for m in msgs
         ]
+    }
+
+
+@router.delete("/conversations/{conversation_id}")
+async def delete_agro_gpt_conversation(
+    conversation_id: str,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_authenticated_user)
+):
+    """
+    DELETE /api/agro-gpt/conversations/{conversation_id}
+    Deletes an Agro GPT conversation and all associated messages for the authenticated owner.
+    """
+    conv = db.query(AgroGPTConversation).filter(AgroGPTConversation.id == conversation_id).first()
+    if not conv:
+        raise HTTPException(status_code=404, detail="Conversation not found")
+    if conv.farmer_id != user.id:
+        raise HTTPException(status_code=403, detail={"error": {"code": "FORBIDDEN", "message": "Not permitted."}})
+
+    db.query(AgroGPTMessage).filter(AgroGPTMessage.conversation_id == conversation_id).delete()
+    db.delete(conv)
+    db.commit()
+    return {
+        "status": "success",
+        "message": "Conversation deleted successfully",
+        "conversation_id": conversation_id
     }
 
 
