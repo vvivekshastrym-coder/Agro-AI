@@ -5,6 +5,11 @@
   "outputDirectory": "dist",
   "cleanUrls": true,
   "trailingSlash": false,
+  "functions": {
+    "api/index.py": {
+      "maxDuration": 30
+    }
+  },
   "headers": [
     {
       "source": "/(.*)",
@@ -86,8 +91,16 @@
       "destination": "/admin/index.html"
     },
     {
-      "source": "/api/(.*)",
-      "destination": "/api"
+      "source": "/health",
+      "destination": "/api/index.py?path=health"
+    },
+    {
+      "source": "/api",
+      "destination": "/api/index.py?path=health"
+    },
+    {
+      "source": "/api/:path*",
+      "destination": "/api/index.py?path=:path*"
     }
   ]
 }

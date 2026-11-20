@@ -24,7 +24,11 @@ try:
             if not restored:
                 path_param = request.query_params.get("path")
                 if path_param:
-                    request.scope["path"] = f"/api/{path_param.lstrip('/')}".split("?")[0]
+                    clean = path_param.lstrip("/")
+                    if clean.startswith("api/"):
+                        request.scope["path"] = f"/{clean}".split("?")[0]
+                    else:
+                        request.scope["path"] = f"/api/{clean}".split("?")[0]
         return await call_next(request)
 except Exception as _init_err:
     _err_msg = "".join(traceback.format_exception(_init_err))

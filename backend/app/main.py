@@ -205,6 +205,7 @@ async def redirect_docs():
     return RedirectResponse('/api/docs')
 
 # ─── Health & Honest Status ────────────────────────────────────
+@app.get('/health', tags=['Health'])
 @app.get('/api/health', tags=['Health'])
 async def health_check():
     from .database.connection import SessionLocal
