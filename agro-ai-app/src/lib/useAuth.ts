@@ -51,19 +51,35 @@ export async function signInWithPhone(rawPhone: string): Promise<{ error?: strin
   const phone = formatE164Phone(cleaned);
 
   try {
-    const { error } = await supabase.auth.signInWithOtp({
-      phone,
-      options: {
-        channel: "sms"
-      }
+    // 1. Primary: Agro AI FastAPI Production Backend Endpoint
+    const apiBase = (typeof import.meta !== "undefined" && import.meta.env?.VITE_API_BASE_URL) || "";
+    const res = await fetch(`${apiBase}/api/auth/phone-otp/send`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ phone, role: "farmer" }),
     });
 
-    if (error) {
-      const msg = error.message?.toLowerCase() || "";
-      if (msg.includes("rate") || msg.includes("too many") || error.status === 429) {
+    const data = await res.json().catch(() => ({}));
+    if (res.ok) {
+      return {};
+    }
+
+    if (data.detail?.error?.message || typeof data.detail === "string") {
+      const errMsg = data.detail?.error?.message || data.detail;
+      return { error: errMsg };
+    }
+
+    // 2. Secondary fallback: Supabase Auth if backend endpoint is unavailable
+    const { error: supaErr } = await supabase.auth.signInWithOtp({
+      phone,
+      options: { channel: "sms" },
+    });
+
+    if (supaErr) {
+      const msg = supaErr.message?.toLowerCase() || "";
+      if (msg.includes("rate") || msg.includes("too many") || supaErr.status === 429) {
         return { error: "Too many OTP requests. Please wait a few minutes before trying again." };
       }
-      // Never reveal whether a number is registered; return generic safe message
       return { error: "Unable to send verification code right now. Please try again." };
     }
 
@@ -76,7 +92,7 @@ export async function signInWithPhone(rawPhone: string): Promise<{ error?: strin
 export async function verifyPhoneOtp(
   rawPhone: string,
   token: string
-): Promise<{ session: Session | null; user: User | null; error?: string }> {
+): Promise<{ session: Session | any | null; user: User | any | null; error?: string }> {
   const phone = formatE164Phone(rawPhone);
   const cleanToken = token.trim();
 
@@ -85,27 +101,56 @@ export async function verifyPhoneOtp(
   }
 
   try {
-    const { data, error } = await supabase.auth.verifyOtp({
-      phone,
-      token: cleanToken,
-      type: "sms"
+    // 1. Primary: Agro AI FastAPI Production Backend Endpoint
+    const apiBase = (typeof import.meta !== "undefined" && import.meta.env?.VITE_API_BASE_URL) || "";
+    const res = await fetch(`${apiBase}/api/auth/phone-otp/verify`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ phone, token: cleanToken, role: "farmer" }),
     });
 
-    if (error) {
-      const msg = error.message?.toLowerCase() || "";
+    const data = await res.json().catch(() => ({}));
+    if (res.ok && data.access_token) {
+      localStorage.setItem("kisanToken", data.access_token);
+      localStorage.setItem("kisanAuth", "true");
+      if (data.user) {
+        localStorage.setItem("kisanUser", JSON.stringify(data.user));
+      }
+      const sessionObj = {
+        access_token: data.access_token,
+        token_type: data.token_type || "bearer",
+        user: data.user,
+      };
+      return { session: sessionObj, user: data.user };
+    }
+
+    if (res.status === 400 || res.status === 401 || res.status === 429) {
+      const errMsg = data.detail?.error?.message || (typeof data.detail === "string" ? data.detail : "Incorrect verification code.");
+      return { session: null, user: null, error: errMsg };
+    }
+
+    // 2. Secondary fallback: Supabase Auth
+    const { data: supaData, error: supaErr } = await supabase.auth.verifyOtp({
+      phone,
+      token: cleanToken,
+      type: "sms",
+    });
+
+    if (supaErr) {
+      const msg = supaErr.message?.toLowerCase() || "";
       if (msg.includes("expired")) {
         return { session: null, user: null, error: "This OTP has expired. Please request a new code." };
       }
       if (msg.includes("invalid") || msg.includes("token")) {
         return { session: null, user: null, error: "Incorrect verification code. Please check and try again." };
       }
-      if (msg.includes("rate") || error.status === 429) {
+      if (msg.includes("rate") || supaErr.status === 429) {
         return { session: null, user: null, error: "Too many failed attempts. Please wait a few minutes." };
       }
       return { session: null, user: null, error: "Verification failed. Please check the code and try again." };
     }
 
-    return { session: data.session, user: data.user };
+    return { session: supaData.session, user: supaData.user };
   } catch {
     return { session: null, user: null, error: "Network error during verification. Please try again." };
   }

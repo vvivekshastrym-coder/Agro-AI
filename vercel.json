@@ -86,12 +86,12 @@
   },
   "rewrites": [
     {
-      "source": "/api/(.*)",
-      "destination": "/api/index.py"
+      "source": "/api/:path*",
+      "destination": "/api/index.py?path=:path*"
     },
     {
       "source": "/health",
-      "destination": "/api/index.py"
+      "destination": "/api/index.py?path=health"
     },
     {
       "source": "/admin/:path*",

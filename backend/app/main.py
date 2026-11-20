@@ -487,6 +487,14 @@ async def serve_delete_account_page():
     raise HTTPException(status_code=404, detail="Account deletion page not found")
 
 
+@app.api_route("/api/{unmatched_path:path}", methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS", "HEAD"], include_in_schema=False)
+async def handle_unmatched_api_route(unmatched_path: str):
+    return JSONResponse(
+        status_code=404,
+        content={"detail": {"error": {"code": "NOT_FOUND", "message": f"API route /api/{unmatched_path} not found."}}}
+    )
+
+
 public_dir = os.path.join(project_root, "public")
 if os.path.exists(public_dir):
     app.mount("/", StaticFiles(directory=public_dir, html=True), name="frontend")
