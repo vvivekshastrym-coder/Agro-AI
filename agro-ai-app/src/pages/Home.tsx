@@ -15,6 +15,7 @@ export default function Home() {
 
   const completion = calculateProfileCompletion(profile, farms);
   const isProfileIncomplete = !profile || profile.onboarding_status !== "complete";
+  const hasSatelliteMeasurement = farms.some((f) => f.measurement_method === "satellite");
 
   return (
     <div className="flex flex-col gap-4 p-4 lg:grid lg:grid-cols-4 lg:gap-6 lg:p-8">
@@ -34,6 +35,26 @@ export default function Home() {
             className="px-3 py-1.5 bg-forest text-sand font-bold text-xs rounded-xl shadow hover:bg-forest-light active:scale-95 transition-all whitespace-nowrap ml-2"
           >
             Setup →
+          </button>
+        </div>
+      )}
+
+      {/* Optional Satellite Boundary Suggestion */}
+      {!isProfileIncomplete && !hasSatelliteMeasurement && (
+        <div className="p-3.5 rounded-2xl bg-emerald-50 border border-emerald-200 flex items-center justify-between shadow-sm lg:col-span-4">
+          <div>
+            <p className="text-xs font-bold text-emerald-950">
+              🛰️ Enhance your farm insights
+            </p>
+            <p className="text-[11px] text-emerald-800">
+              Add your farm boundary using satellite detection to unlock more personalized farm insights.
+            </p>
+          </div>
+          <button
+            onClick={() => navigate("/profile")}
+            className="px-3 py-1.5 bg-forest text-sand font-bold text-xs rounded-xl shadow hover:bg-forest-light active:scale-95 transition-all whitespace-nowrap ml-2"
+          >
+            Add Boundary
           </button>
         </div>
       )}

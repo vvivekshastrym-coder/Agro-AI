@@ -11,6 +11,7 @@ import {
 } from "../lib/useAuth";
 import { getDictionary, SUPPORTED_LANGUAGES, type LanguageCode } from "../lib/i18n";
 import { useApp } from "../lib/AppContext";
+import { AgroLogo } from "../components/AgroLogo";
 
 export default function Login() {
   const navigate = useNavigate();
@@ -157,12 +158,18 @@ export default function Login() {
       return;
     }
 
-    // After verification: if the user has no completed profile, go to onboarding; otherwise go to Home.
+    // After verification: if the user has no completed profile, go to onboarding; otherwise go to returnTo or Home.
     const status = await checkUserOnboardingStatus(user.id);
     if (status === "complete") {
-      navigate("/");
+      const returnTo = sessionStorage.getItem("agro_return_to");
+      if (returnTo) {
+        sessionStorage.removeItem("agro_return_to");
+        navigate(returnTo, { replace: true });
+      } else {
+        navigate("/", { replace: true });
+      }
     } else {
-      navigate("/onboarding");
+      navigate("/onboarding", { replace: true });
     }
   }
 
@@ -270,8 +277,8 @@ export default function Login() {
           <div>
             {/* Logo and Tagline */}
             <div className="text-center mb-6">
-              <div className="w-20 h-20 mx-auto mb-4 rounded-full bg-white border-2 border-forest flex items-center justify-center shadow-md">
-                <span className="text-3xl">🌾</span>
+              <div className="w-20 h-20 mx-auto mb-4 rounded-full bg-white border-2 border-forest flex items-center justify-center shadow-md overflow-hidden">
+                <AgroLogo className="w-full h-full object-cover" textClassName="text-sm font-bold text-forest" />
               </div>
               <h1 className="font-display text-2xl font-bold text-forest tracking-tight">Agro AI</h1>
               <p className="text-ink-soft text-sm mt-2 px-4 leading-relaxed font-medium">{t.tagline}</p>

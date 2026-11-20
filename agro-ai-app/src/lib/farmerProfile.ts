@@ -25,11 +25,27 @@ export interface Farm {
   user_id?: string;
   name: string;
   farming_types: string[];
-  area_value: number | "";
-  area_unit: "acres" | "hectares" | "guntas";
+  area_value: number | null | "";
+  area_unit: "acres" | "hectares" | "guntas" | "sqft";
+  measurement_method?: "satellite" | "manual" | "skipped";
   ownership: "own" | "leased" | "tenant";
   irrigation: string[];
   created_at?: string;
+}
+
+export function convertToAcres(value: number | null | "", unit: Farm["area_unit"]): number | null {
+  if (typeof value !== "number" || Number.isNaN(value) || value <= 0) return null;
+  switch (unit) {
+    case "guntas":
+      return Number((value / 40).toFixed(2));
+    case "hectares":
+      return Number((value * 2.47105).toFixed(2));
+    case "sqft":
+      return Number((value / 43560).toFixed(4));
+    case "acres":
+    default:
+      return Number(value.toFixed(2));
+  }
 }
 
 export interface FarmCrop {

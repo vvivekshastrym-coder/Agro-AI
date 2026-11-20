@@ -33,7 +33,17 @@ export default function AuthCallback() {
         const onboardingStatus = await checkUserOnboardingStatus(session.user.id);
         if (!active) return;
         if (onboardingStatus === "complete") {
-          navigate("/", { replace: true });
+          let returnTo = "/";
+          try {
+            const saved = sessionStorage.getItem("agro_return_to");
+            if (saved) {
+              sessionStorage.removeItem("agro_return_to");
+              returnTo = saved;
+            }
+          } catch {
+            // ignore
+          }
+          navigate(returnTo, { replace: true });
         } else {
           navigate("/onboarding", { replace: true });
         }
@@ -151,7 +161,7 @@ export default function AuthCallback() {
             onClick={() => navigate("/login", { replace: true })}
             className="mt-6 w-full rounded-full bg-forest py-3.5 text-sm font-bold text-white shadow-md hover:bg-forest-deep transition-colors"
           >
-            Back to Login
+            Try again
           </button>
         </div>
       </div>

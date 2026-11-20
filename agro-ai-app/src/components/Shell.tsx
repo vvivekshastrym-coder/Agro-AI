@@ -1,6 +1,7 @@
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import { useApp } from "../lib/AppContext";
 import { signOut } from "../lib/useAuth";
+import { AgroLogo } from "./AgroLogo";
 
 const LANGS = [
   { code: "kn", label: "ಕನ್ನಡ" },
@@ -21,7 +22,7 @@ export function TopBar() {
           onClick={() => navigate("/")}
           className="flex items-center gap-2 cursor-pointer"
         >
-          <span className="text-xl">🌾</span>
+          <AgroLogo className="w-7 h-7 rounded-full object-cover border border-white/30" textClassName="text-xs font-bold text-white" />
           <span className="font-display font-bold text-lg tracking-tight">Agro AI</span>
         </div>
 
@@ -81,7 +82,10 @@ const DESKTOP_LINKS = [
 export function Sidebar() {
   return (
     <aside className="sticky top-0 hidden h-screen flex-col bg-forest-deep p-4 text-white lg:flex">
-      <NavLink to="/" className="px-3 pb-7 pt-2 font-display text-xl font-bold">🌾 Agro AI</NavLink>
+      <NavLink to="/" className="flex items-center gap-2.5 px-3 pb-7 pt-2 font-display text-xl font-bold">
+        <AgroLogo className="w-8 h-8 rounded-full object-cover border border-white/25" textClassName="text-xs font-bold text-white" />
+        <span>Agro AI</span>
+      </NavLink>
       <nav aria-label="Main navigation" className="flex flex-col gap-1">
         {DESKTOP_LINKS.map((item) => (
           <NavLink

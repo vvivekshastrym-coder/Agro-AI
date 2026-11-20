@@ -499,14 +499,16 @@ export default function FarmerProfile() {
                 <div className="flex gap-2">
                   <input
                     type="number"
-                    step="0.1"
+                    step="0.01"
                     min="0"
-                    value={farms[selectedFarmIdx].area_value}
+                    value={farms[selectedFarmIdx].area_value ?? ""}
                     onChange={(e) =>
                       updateFarm(selectedFarmIdx, {
-                        area_value: e.target.value === "" ? "" : parseFloat(e.target.value)
+                        area_value: e.target.value === "" ? "" : parseFloat(e.target.value),
+                        measurement_method: "manual"
                       })
                     }
+                    placeholder="Optional"
                     className="flex-1 h-10 px-3 rounded-xl border border-forest/20 text-xs text-ink font-medium"
                   />
                   <select
@@ -519,6 +521,7 @@ export default function FarmerProfile() {
                     <option value="acres">Acres</option>
                     <option value="guntas">Guntas</option>
                     <option value="hectares">Hectares</option>
+                    <option value="sqft">Sq. ft.</option>
                   </select>
                 </div>
               </div>

@@ -725,7 +725,7 @@
   <div id="splashScreen" onclick="hideSplash()">
     <div class="splash-content">
       <div class="splash-logo-wrap">
-        <img id="appLogoImg" class="splash-logo-img" src="icons/agro-ai-logo.png" alt="Agro AI Logo" onerror="this.onerror=null;this.src='icons/icon-512x512.png';">
+        <img id="appLogoImg" class="splash-logo-img" src="/icons/agro-ai-logo.png" alt="Agro AI" onerror="if(!this.dataset.triedFallback){this.dataset.triedFallback='1';this.src='/icons/icon-512x512.png';}else{this.style.display='none';this.parentNode.innerHTML='<span style=\'font-weight:800;font-size:20px;color:#1F4D2B;\'>Agro AI</span>';}">
       </div>
       <div class="splash-brand-title" id="splashTitle">Agro AI</div>
       <div class="splash-brand-sub" id="splashSub">The AI Operating System for your Farm</div>
@@ -736,18 +736,60 @@
     </div>
   </div>
   <script>
-    /* Failsafe: the splash must never block the app, even if a later script fails to load or errors. */
+    /* Show splash only once per browser session for signed-out visitors; skip immediately for OAuth callbacks and authenticated sessions. */
     (function(){
+      var s = document.getElementById('splashScreen');
       function forceHide(){
-        var s = document.getElementById('splashScreen');
+        try { sessionStorage.setItem('agro_splash_shown', '1'); } catch(e){}
         if(s && !s.classList.contains('splash-hide')){
           s.classList.add('splash-hide');
           setTimeout(function(){ s.style.display = 'none'; }, 650);
         }
       }
       if(typeof window.hideSplash !== 'function') window.hideSplash = forceHide;
-      document.getElementById('splashScreen').addEventListener('click', forceHide);
-      setTimeout(forceHide, 3000);
+
+      var isOAuthReturn =
+        window.location.pathname === '/auth/callback' ||
+        window.location.search.indexOf('code=') !== -1 ||
+        window.location.search.indexOf('error=') !== -1 ||
+        window.location.hash.indexOf('access_token=') !== -1 ||
+        window.location.hash.indexOf('error_description=') !== -1;
+
+      var hasStoredAuth = false;
+      var splashAlreadyShown = false;
+      try {
+        splashAlreadyShown = sessionStorage.getItem('agro_splash_shown') === '1';
+        var rawSess = localStorage.getItem('agroAiSession');
+        if (rawSess) {
+          var parsed = JSON.parse(rawSess);
+          if (parsed && parsed.signedIn && !parsed.isGuest) {
+            hasStoredAuth = true;
+          }
+        }
+        if (!hasStoredAuth) {
+          for (var i = 0; i < localStorage.length; i++) {
+            var k = localStorage.key(i);
+            if (k && k.indexOf('sb-') === 0 && k.indexOf('-auth-token') !== -1 && localStorage.getItem(k)) {
+              hasStoredAuth = true;
+              break;
+            }
+          }
+        }
+      } catch(e){}
+
+      if (isOAuthReturn || hasStoredAuth || splashAlreadyShown) {
+        if (s) {
+          s.classList.add('splash-hide');
+          s.style.display = 'none';
+        }
+        if (hasStoredAuth) {
+          document.body.classList.remove('authing');
+        }
+      } else {
+        try { sessionStorage.setItem('agro_splash_shown', '1'); } catch(e){}
+        if (s) s.addEventListener('click', forceHide);
+        setTimeout(forceHide, 1500);
+      }
     })();
   </script>
 
@@ -757,7 +799,7 @@
   <div class="topbar">
     <div class="brand" onclick="go('home')">
       <div class="brand-mark" id="topBrandMark">
-        <img id="topLogoImg" src="icons/agro-ai-logo.png" alt="Agro AI Logo" style="width:100%;height:100%;object-fit:cover;border-radius:50%;display:block;" onerror="this.onerror=null;this.src='icons/icon-512x512.png';">
+        <img id="topLogoImg" src="/icons/agro-ai-logo.png" alt="Agro AI" style="width:100%;height:100%;object-fit:cover;border-radius:50%;display:block;" onerror="if(!this.dataset.triedFallback){this.dataset.triedFallback='1';this.src='/icons/icon-512x512.png';}else{this.style.display='none';this.parentNode.innerHTML='<span style=\'font-weight:800;font-size:11px;color:#1F4D2B;\'>Agro AI</span>';}">
       </div>
       <div class="brand-name" id="topBrandName">Agro AI</div>
     </div>
@@ -774,7 +816,7 @@
     <!-- ============ AUTH: WELCOME ============ -->
     <section class="auth-view active" data-view="auth-welcome">
       <div class="auth-logo" id="authLogoMark">
-        <img id="authLogoImg" src="icons/agro-ai-logo.png" alt="Agro AI Logo" style="width:100%;height:100%;object-fit:cover;border-radius:50%;display:block;" onerror="this.onerror=null;this.src='icons/icon-512x512.png';">
+        <img id="authLogoImg" src="/icons/agro-ai-logo.png" alt="Agro AI" style="width:100%;height:100%;object-fit:cover;border-radius:50%;display:block;" onerror="if(!this.dataset.triedFallback){this.dataset.triedFallback='1';this.src='/icons/icon-512x512.png';}else{this.style.display='none';this.parentNode.innerHTML='<span style=\'font-weight:800;font-size:11px;color:#1F4D2B;\'>Agro AI</span>';}">
       </div>
       <h1 class="auth-title display" id="authWelcomeTitle">Agro AI</h1>
       <p class="auth-sub" id="authWelcomeSub">The AI operating system for your farm — weather, mandi prices, crop diagnosis and more, in your language.</p>
@@ -809,7 +851,7 @@
     <section class="auth-view" data-view="auth-otp">
       <button class="backlink" onclick="goAuth('auth-welcome')" id="otpBackBtn" style="margin:0 0 16px;">← Change number</button>
       <div class="auth-logo" style="width:68px;height:68px;margin:0 auto 16px;">
-        <img src="icons/agro-ai-logo.png" alt="Agro AI Logo" style="width:100%;height:100%;object-fit:cover;border-radius:50%;display:block;" onerror="this.onerror=null;this.src='icons/icon-512x512.png';">
+        <img src="/icons/agro-ai-logo.png" alt="Agro AI" style="width:100%;height:100%;object-fit:cover;border-radius:50%;display:block;" onerror="if(!this.dataset.triedFallback){this.dataset.triedFallback='1';this.src='/icons/icon-512x512.png';}else{this.style.display='none';this.parentNode.innerHTML='<span style=\'font-weight:800;font-size:11px;color:#1F4D2B;\'>Agro AI</span>';}">
       </div>
       <h1 class="auth-title display" style="font-size:21px;" id="otpTitle">Verify your number</h1>
       <p class="auth-sub" id="otpSubText">Enter the 6-digit code sent via SMS to your mobile number.</p>
@@ -822,7 +864,7 @@
     <!-- ============ AUTH: PROFILE SETUP ============ -->
     <section class="auth-view" data-view="auth-profile">
       <div class="auth-logo" style="width:68px;height:68px;margin:0 auto 16px;">
-        <img src="icons/agro-ai-logo.png" alt="Agro AI Logo" style="width:100%;height:100%;object-fit:cover;border-radius:50%;display:block;" onerror="this.onerror=null;this.src='icons/icon-512x512.png';">
+        <img src="/icons/agro-ai-logo.png" alt="Agro AI" style="width:100%;height:100%;object-fit:cover;border-radius:50%;display:block;" onerror="if(!this.dataset.triedFallback){this.dataset.triedFallback='1';this.src='/icons/icon-512x512.png';}else{this.style.display='none';this.parentNode.innerHTML='<span style=\'font-weight:800;font-size:11px;color:#1F4D2B;\'>Agro AI</span>';}">
       </div>
       <h1 class="auth-title display" style="font-size:21px;" id="profTitle">Set up your profile</h1>
       <p class="auth-sub" id="profSub">Takes 30 seconds — this helps Agro GPT give advice that's actually relevant to your farm.</p>
@@ -865,7 +907,7 @@
           </div>
         </div>
         <div class="hero-logo-badge" style="width:62px;height:62px;border-radius:50%;background:#ffffff;box-shadow:0 4px 14px rgba(0,0,0,0.14), 0 0 0 2.5px var(--forest);overflow:hidden;flex-shrink:0;">
-          <img src="icons/agro-ai-logo.png" alt="Agro AI Logo" style="width:100%;height:100%;object-fit:cover;border-radius:50%;display:block;" onerror="this.onerror=null;this.src='icons/icon-512x512.png';">
+          <img src="/icons/agro-ai-logo.png" alt="Agro AI" style="width:100%;height:100%;object-fit:cover;border-radius:50%;display:block;" onerror="if(!this.dataset.triedFallback){this.dataset.triedFallback='1';this.src='/icons/icon-512x512.png';}else{this.style.display='none';this.parentNode.innerHTML='<span style=\'font-weight:800;font-size:11px;color:#1F4D2B;\'>Agro AI</span>';}">
         </div>
       </div>
 
@@ -4010,12 +4052,14 @@ async function completeLogin(supaSession){
   if(_completingLogin) return;
   _completingLogin = true;
   try {
+  if(typeof hideSplash === 'function') hideSplash();
   const meta = u.user_metadata || {};
   const userName = meta.full_name || meta.name || (u.email ? u.email.split('@')[0] : 'Farmer');
 
   // Exchange / register session with Agro AI backend so server-signed JWT is guaranteed valid
   let backendToken = supaSession.access_token || null;
   let backendUserId = u.id;
+  let serverUser = null;
   try {
     const syncRes = await _origFetch(_resolveBackendUrl('/api/auth/google-session'), {
       method: 'POST',
@@ -4031,7 +4075,10 @@ async function completeLogin(supaSession){
     if(syncRes.ok){
       const syncData = await syncRes.json();
       if(syncData.access_token) backendToken = syncData.access_token;
-      if(syncData.user && syncData.user.farmer_id) backendUserId = syncData.user.farmer_id;
+      if(syncData.user){
+        serverUser = syncData.user;
+        if(syncData.user.farmer_id) backendUserId = syncData.user.farmer_id;
+      }
     }
   } catch(e){
     console.warn('Backend Google session sync notice:', e);
@@ -4046,6 +4093,19 @@ async function completeLogin(supaSession){
   session.phone = u.phone || session.phone;
   localStorage.setItem('agroAiSession', JSON.stringify(session));
   if(backendToken) localStorage.setItem('kisanToken', backendToken);
+
+  // Hydrate farmerProfile from backend if user already completed onboarding previously
+  if(!farmerProfile && serverUser && (serverUser.village || serverUser.onboarding_complete)){
+    farmerProfile = {
+      name: serverUser.full_name || userName,
+      village: serverUser.village || 'Mandya',
+      state: serverUser.state || 'Karnataka',
+      land: serverUser.land_acres || 5,
+      crop: serverUser.primary_crop || 'Tomato',
+      lang: serverUser.language || currentLang
+    };
+    localStorage.setItem('agroAiProfile', JSON.stringify(farmerProfile));
+  }
 
   if(farmerProfile){
     document.querySelectorAll('.auth-view').forEach(v => { v.classList.remove('active'); v.style.display = 'none'; });
@@ -6861,8 +6921,14 @@ document.addEventListener('DOMContentLoaded', () => {
   renderDayStrip();
   initChat();
 
+  const isOAuthCallback =
+    window.location.pathname === '/auth/callback' ||
+    window.location.search.includes('code=') ||
+    window.location.hash.includes('access_token=');
+
   // If user is already signed in and profile exists, go directly to Home and hide all auth views!
   if(session && session.signedIn && farmerProfile){
+    hideSplash();
     document.querySelectorAll('.auth-view').forEach(v => {
       v.classList.remove('active');
       v.style.display = 'none';
@@ -6870,6 +6936,11 @@ document.addEventListener('DOMContentLoaded', () => {
     document.body.classList.remove('authing');
     applyProfile();
     go('home');
+  } else if(session && session.signedIn && !farmerProfile){
+    hideSplash();
+    enterProfileSetup();
+  } else if(isOAuthCallback){
+    hideSplash();
   } else {
     document.body.classList.add('authing');
     goAuth('auth-welcome');

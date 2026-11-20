@@ -14,6 +14,7 @@ import {
   IRRIGATION_SOURCES,
   LAND_OWNERSHIP_OPTIONS,
   calculateProfileCompletion,
+  convertToAcres,
   getFarmerProfile,
   getFarmerFarms,
   getFarmCrops,
@@ -62,6 +63,9 @@ export default function Onboarding() {
   });
   const [cropSearch, setCropSearch] = useState("");
   const [customCropName, setCustomCropName] = useState("");
+  const [landInputMode, setLandInputMode] = useState<"manual" | "satellite">("manual");
+  const [satLoading, setSatLoading] = useState(false);
+  const [satNotice, setSatNotice] = useState<string | null>(null);
 
   const t = getDictionary(prefLang);
 
@@ -232,11 +236,11 @@ export default function Onboarding() {
     return true;
   };
 
-  // Step 3 Validation
+  // Step 3 Validation: Land area and satellite detection are optional
   const validateStep3 = () => {
     const mainFarm = farms[0];
-    if (!mainFarm || mainFarm.area_value === "" || Number(mainFarm.area_value) <= 0) {
-      setErrorMessage("Please enter land area for at least one farm (ಜಮೀನಿನ ವಿಸ್ತೀರ್ಣ ನಮೂದಿಸಿ).");
+    if (mainFarm && typeof mainFarm.area_value === "number" && mainFarm.area_value < 0) {
+      setErrorMessage("Land area cannot be negative.");
       return false;
     }
     setErrorMessage(null);
@@ -650,34 +654,185 @@ export default function Onboarding() {
                   />
                 </div>
 
-                {/* Land Area and Unit */}
-                <div>
-                  <label className="block text-xs font-bold text-ink mb-1">{t.landAreaLabel}</label>
-                  <div className="flex gap-2">
-                    <input
-                      type="number"
-                      step="0.1"
-                      min="0"
-                      value={farms[currentFarmIdx].area_value}
-                      onChange={(e) =>
+                {/* Land Area (Optional: Satellite Detection, Manual Entry, or Skip) */}
+                <div className="rounded-2xl border border-forest/15 bg-cream/60 p-4 space-y-3">
+                  <div className="flex items-center justify-between gap-2">
+                    <div>
+                      <span className="text-xs font-bold text-ink">{t.landAreaLabel}</span>
+                      <span className="ml-2 rounded-full bg-forest/10 px-2 py-0.5 text-[10px] font-semibold text-forest">
+                        Optional
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
                         updateFarm(currentFarmIdx, {
-                          area_value: e.target.value === "" ? "" : parseFloat(e.target.value)
-                        })
-                      }
-                      placeholder="e.g. 3.5"
-                      className="flex-1 h-12 px-4 rounded-xl border border-forest/20 text-sm font-medium text-ink focus:outline-none focus:ring-2 focus:ring-forest"
-                    />
-                    <select
-                      value={farms[currentFarmIdx].area_unit}
-                      onChange={(e) =>
-                        updateFarm(currentFarmIdx, { area_unit: e.target.value as any })
-                      }
-                      className="w-32 h-12 px-3 rounded-xl border border-forest/20 bg-forest/5 text-forest text-xs font-bold focus:outline-none focus:ring-2 focus:ring-forest"
+                          area_value: null,
+                          measurement_method: "skipped"
+                        });
+                        setSatNotice(null);
+                        setErrorMessage(null);
+                        setStep(4);
+                      }}
+                      className="text-xs font-semibold text-forest underline hover:text-forest-deep"
                     >
-                      <option value="acres">Acres (ಎಕರೆ)</option>
-                      <option value="guntas">Guntas (ಗುಂಟೆ)</option>
-                      <option value="hectares">Hectares (ಹೆಕ್ಟೇರ್)</option>
-                    </select>
+                      Skip for now →
+                    </button>
+                  </div>
+
+                  {/* Two independent choices */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setLandInputMode("satellite");
+                        setSatNotice(null);
+                      }}
+                      className={`text-left rounded-xl border p-3 transition-all ${
+                        landInputMode === "satellite"
+                          ? "border-forest bg-white shadow-sm ring-1 ring-forest"
+                          : "border-line bg-white/80 hover:border-forest/40"
+                      }`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-bold text-forest">🛰️ Satellite Land Detection</span>
+                        <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-bold text-emerald-800">
+                          Recommended
+                        </span>
+                      </div>
+                      <p className="mt-1 text-[11px] text-ink-soft leading-snug">
+                        Detect your farmland using satellite imagery for an estimated acreage and better farm insights.
+                      </p>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setLandInputMode("manual");
+                        setSatNotice(null);
+                      }}
+                      className={`text-left rounded-xl border p-3 transition-all ${
+                        landInputMode === "manual"
+                          ? "border-forest bg-white shadow-sm ring-1 ring-forest"
+                          : "border-line bg-white/80 hover:border-forest/40"
+                      }`}
+                    >
+                      <span className="text-xs font-bold text-forest">✍️ Enter Land Area Manually</span>
+                      <p className="mt-1 text-[11px] text-ink-soft leading-snug">
+                        Enter the land area you already know in Acres, Guntas, Hectares, or Sq. ft.
+                      </p>
+                    </button>
+                  </div>
+
+                  {landInputMode === "satellite" && (
+                    <div className="rounded-xl border border-forest/20 bg-white p-3 space-y-2.5">
+                      <p className="text-[11px] text-ink-soft leading-relaxed">
+                        <strong>Detect your farmland using satellite imagery:</strong> Select your farm location ({village || district || "Karnataka"}) to query satellite imagery and estimate your parcel area. You can edit or override any estimate, or switch to manual entry anytime.
+                      </p>
+                      <div className="flex flex-wrap gap-2">
+                        <button
+                          type="button"
+                          disabled={satLoading}
+                          onClick={async () => {
+                            setSatLoading(true);
+                            setSatNotice(null);
+                            try {
+                              const res = await fetch(
+                                `/api/satellite/ndvi?village=${encodeURIComponent(village || district || "Mandya")}`
+                              );
+                              if (res.ok) {
+                                const satData = await res.json();
+                                if (typeof satData.estimated_acres === "number" && satData.estimated_acres > 0) {
+                                  updateFarm(currentFarmIdx, {
+                                    area_value: satData.estimated_acres,
+                                    area_unit: "acres",
+                                    measurement_method: "satellite"
+                                  });
+                                  setSatNotice(
+                                    `Satellite estimate: ~${satData.estimated_acres} acres (estimated from geospatial boundary). You can edit this value below.`
+                                  );
+                                } else {
+                                  setSatNotice(
+                                    "Satellite boundary estimation requires selecting your parcel on the map, or you can enter your area manually below."
+                                  );
+                                }
+                              } else {
+                                setSatNotice(
+                                  "Satellite imagery service is currently unavailable. Please enter your land area manually or skip for now."
+                                );
+                              }
+                            } catch {
+                              setSatNotice(
+                                "Satellite imagery service is unreachable right now. You can enter your land area manually or skip for now."
+                              );
+                            } finally {
+                              setSatLoading(false);
+                            }
+                          }}
+                          className="rounded-lg bg-forest px-3.5 py-2 text-xs font-bold text-white hover:bg-forest-deep disabled:opacity-50"
+                        >
+                          {satLoading ? "Checking satellite imagery…" : "Check Satellite Imagery"}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setLandInputMode("manual")}
+                          className="rounded-lg border border-line px-3 py-2 text-xs font-semibold text-ink-soft hover:bg-cream"
+                        >
+                          Switch to Manual Entry
+                        </button>
+                      </div>
+                      {satNotice && (
+                        <p className="rounded-lg bg-amber-50 border border-amber-200 px-3 py-2 text-[11px] text-amber-900">
+                          {satNotice}
+                        </p>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Numeric Input + Unit Selector (Available for both Manual & Satellite override) */}
+                  <div>
+                    <div className="flex gap-2">
+                      <input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        value={farms[currentFarmIdx].area_value ?? ""}
+                        onChange={(e) =>
+                          updateFarm(currentFarmIdx, {
+                            area_value: e.target.value === "" ? "" : parseFloat(e.target.value),
+                            measurement_method: landInputMode
+                          })
+                        }
+                        placeholder="e.g. 3.5 (optional)"
+                        className="flex-1 h-12 px-4 rounded-xl border border-forest/20 bg-white text-sm font-medium text-ink focus:outline-none focus:ring-2 focus:ring-forest"
+                      />
+                      <select
+                        value={farms[currentFarmIdx].area_unit}
+                        onChange={(e) =>
+                          updateFarm(currentFarmIdx, { area_unit: e.target.value as any })
+                        }
+                        className="w-36 h-12 px-3 rounded-xl border border-forest/20 bg-white text-forest text-xs font-bold focus:outline-none focus:ring-2 focus:ring-forest"
+                      >
+                        <option value="acres">Acres (ಎಕರೆ)</option>
+                        <option value="guntas">Guntas (ಗುಂಟೆ)</option>
+                        <option value="hectares">Hectares (ಹೆಕ್ಟೇರ್)</option>
+                        <option value="sqft">Sq. ft.</option>
+                      </select>
+                    </div>
+                    {typeof farms[currentFarmIdx].area_value === "number" &&
+                      (farms[currentFarmIdx].area_value as number) > 0 && (
+                        <p className="mt-1.5 text-[11px] text-forest font-medium">
+                          Normalized area: ≈{" "}
+                          {convertToAcres(
+                            farms[currentFarmIdx].area_value,
+                            farms[currentFarmIdx].area_unit
+                          )}{" "}
+                          acres
+                          {farms[currentFarmIdx].measurement_method === "satellite"
+                            ? " (Satellite estimate)"
+                            : ""}
+                        </p>
+                      )}
                   </div>
                 </div>
 

@@ -2,7 +2,10 @@ import React, { createContext, useContext, useEffect, useState } from "react";
 import type { Session, User } from "@supabase/supabase-js";
 import { supabase, isSupabaseConfigured } from "./supabaseClient";
 
+export type AuthStatus = "loading" | "signedOut" | "signedIn";
+
 interface AuthContextValue {
+  status: AuthStatus;
   session: Session | null;
   loading: boolean;
   user: User | null;
@@ -95,7 +98,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     };
   }, []);
 
+  const authStatus: AuthStatus = loading
+    ? "loading"
+    : session?.user
+      ? "signedIn"
+      : "signedOut";
+
   const value: AuthContextValue = {
+    status: authStatus,
     session,
     loading,
     user: session?.user ?? null,
@@ -136,7 +146,14 @@ export function useAuth(): AuthContextValue {
     };
   }, []);
 
+  const fallbackStatus: AuthStatus = loading
+    ? "loading"
+    : session?.user
+      ? "signedIn"
+      : "signedOut";
+
   return {
+    status: fallbackStatus,
     session,
     loading,
     user: session?.user ?? null,
