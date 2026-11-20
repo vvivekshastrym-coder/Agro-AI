@@ -987,15 +987,12 @@
         </div>
 
         <!-- WhatsApp Notifications Banner -->
-        <div style="background:#E8F4EA;border:1px solid #C5E1C9;border-radius:12px;padding:11px 14px;margin-bottom:12px;display:flex;align-items:flex-start;gap:10px;">
-          <span style="color:var(--forest);font-size:15px;font-weight:700;line-height:1.2;">✓</span>
+        <div id="dailyWaBanner" style="background:#F9FAFB;border:1px solid #E5E7EB;border-radius:12px;padding:11px 14px;margin-bottom:12px;display:flex;align-items:flex-start;gap:10px;">
+          <span style="font-size:15px;line-height:1.2;" id="dailyWaIcon">🔔</span>
           <div style="font-size:12.5px;line-height:1.45;">
-            <div style="font-weight:700;color:var(--forest);" id="dailyWaStatus">WhatsApp notifications on</div>
-            <div style="color:var(--ink-soft);">
-              <span id="dailyWaDescPrefix">Daily brief will be sent to</span>
-              <strong style="color:var(--ink);" id="dailyBriefPhone">917019286323</strong>
-              <span id="dailyWaDescSuffix">at 6:30 AM IST.</span>
-              <a href="javascript:void(0)" onclick="changeDailyBriefPhone()" style="color:var(--ink-soft);text-decoration:underline;margin-left:4px;" id="dailyWaChangeLink">Change number</a>
+            <div style="font-weight:700;color:var(--ink);" id="dailyWaStatus">WhatsApp notifications off</div>
+            <div style="color:var(--ink-soft);" id="dailyWaDesc">
+              Get a free personalized daily brief delivered to your phone at 6:30 AM IST. <a href="javascript:void(0)" onclick="changeDailyBriefPhone()" style="color:var(--forest);font-weight:600;text-decoration:underline;margin-left:4px;" id="dailyWaChangeLink">Set up WhatsApp notifications →</a>
             </div>
           </div>
         </div>
@@ -2238,7 +2235,7 @@ const I18N = {
     auth_phone_lbl: "Mobile number",
     auth_send_otp: "Send OTP",
     auth_guest_btn: "🌾 Explore as Guest Farmer",
-    auth_fine_print: "By continuing, you agree to Agro AI's <a href="/terms" target="_blank" rel="noopener" style="color:inherit;text-decoration:underline;font-weight:600;">Terms of Service</a> and <a href="/privacy" target="_blank" rel="noopener" style="color:inherit;text-decoration:underline;font-weight:600;">Privacy Policy</a>.<br>We never share your farm data without your consent.",
+    auth_fine_print: "By continuing, you agree to Agro AI's <a href='/terms' target='_blank' rel='noopener' style='color:inherit;text-decoration:underline;font-weight:600;'>Terms of Service</a> and <a href='/privacy' target='_blank' rel='noopener' style='color:inherit;text-decoration:underline;font-weight:600;'>Privacy Policy</a>.<br>We never share your farm data without your consent.",
     otp_back: "← Back",
     otp_title: "Verify your number",
     otp_verify: "Verify & continue",
@@ -2430,7 +2427,7 @@ const I18N = {
     auth_phone_lbl: "ಮೊಬೈಲ್ ಸಂಖ್ಯೆ",
     auth_send_otp: "OTP ಕಳುಹಿಸಿ",
     auth_guest_btn: "🌾 ರೈತರಾಗಿ ಮುಂದುವರಿಯಿರಿ (ತ್ವರಿತ ಪ್ರವೇಶ)",
-    auth_fine_print: "ಮುಂದುವರಿಯುವ ಮೂಲಕ, ನೀವು ಆಗ್ರೋ AI ನ <a href="/terms" target="_blank" rel="noopener" style="color:inherit;text-decoration:underline;font-weight:600;">ಸೇವಾ ನಿಯಮಗಳು</a> ಮತ್ತು <a href="/privacy" target="_blank" rel="noopener" style="color:inherit;text-decoration:underline;font-weight:600;">ಗೌಪ್ಯತಾ ನೀತಿಯನ್ನು</a> ಒಪ್ಪುತ್ತೀರಿ.<br>ನಿಮ್ಮ ಒಪ್ಪಿಗೆಯಿಲ್ಲದೆ ನಿಮ್ಮ ಕೃಷಿ ಡೇಟಾವನ್ನು ಹಂಚಿಕೊಳ್ಳುವುದಿಲ್ಲ.",
+    auth_fine_print: "ಮುಂದುವರಿಯುವ ಮೂಲಕ, ನೀವು ಆಗ್ರೋ AI ನ <a href='/terms' target='_blank' rel='noopener' style='color:inherit;text-decoration:underline;font-weight:600;'>ಸೇವಾ ನಿಯಮಗಳು</a> ಮತ್ತು <a href='/privacy' target='_blank' rel='noopener' style='color:inherit;text-decoration:underline;font-weight:600;'>ಗೌಪ್ಯತಾ ನೀತಿಯನ್ನು</a> ಒಪ್ಪುತ್ತೀರಿ.<br>ನಿಮ್ಮ ಒಪ್ಪಿಗೆಯಿಲ್ಲದೆ ನಿಮ್ಮ ಕೃಷಿ ಡೇಟಾವನ್ನು ಹಂಚಿಕೊಳ್ಳುವುದಿಲ್ಲ.",
     otp_back: "← ಹಿಂದಕ್ಕೆ",
     otp_title: "ನಿಮ್ಮ ಸಂಖ್ಯೆಯನ್ನು ಪರಿಶೀಲಿಸಿ",
     otp_verify: "ಪರಿಶೀಲಿಸಿ & ಮುಂದುವರಿಯಿರಿ",
@@ -2620,7 +2617,7 @@ const I18N = {
       "auth_phone_lbl": "मोबाइल नंबर",
       "auth_send_otp": "OTP भेजें",
       "auth_guest_btn": "🌾 अतिथि किसान के रूप में देखें",
-      "auth_fine_print": "जारी रखकर, आप एग्रो AI की <a href="/terms" target="_blank" rel="noopener" style="color:inherit;text-decoration:underline;font-weight:600;">सेवा की शर्तों</a> और <a href="/privacy" target="_blank" rel="noopener" style="color:inherit;text-decoration:underline;font-weight:600;">गोपनीयता नीति</a> से सहमत होते हैं।<br>हम आपकी सहमति के बिना कभी भी आपका कृषि डेटा साझा नहीं करते हैं।",
+      "auth_fine_print": "जारी रखकर, आप एग्रो AI की <a href='/terms' target='_blank' rel='noopener' style='color:inherit;text-decoration:underline;font-weight:600;'>सेवा की शर्तों</a> और <a href='/privacy' target='_blank' rel='noopener' style='color:inherit;text-decoration:underline;font-weight:600;'>गोपनीयता नीति</a> से सहमत होते हैं।<br>हम आपकी सहमति के बिना कभी भी आपका कृषि डेटा साझा नहीं करते हैं।",
       "otp_back": "← वापस",
       "otp_title": "अपना नंबर सत्यापित करें",
       "otp_verify": "सत्यापित करें और आगे बढ़ें",
@@ -4739,10 +4736,7 @@ function applyTranslations(lang){
   setTxt('dailyReportTitle', dict.daily_report_title || (lang === 'kn' ? 'ದೈನಂದಿನ ಕೃಷಿ ವರದಿ' : (lang === 'hi' ? 'दैनिक कृषि रिपोर्ट' : 'Daily farm report')));
   setTxt('dailyReportSub', dict.daily_report_sub || (lang === 'kn' ? 'ನಿಮ್ಮ ಜಮೀನಿಗಾಗಿ ತಾಜಾ AI ಸಾರಾಂಶ — ಇಂದಿನ ಹವಾಮಾನ, ಕೀಟಗಳು ಮತ್ತು ಕ್ರಮಗಳು.' : (lang === 'hi' ? 'आपके खेत के लिए ताजा AI सारांश — आज का मौसम, कीट और कार्य।' : "Fresh AI brief for your farm — today's weather, pests, and actions.")));
   setTxt('dailyReportRegenBtn', dict.daily_report_regen_btn || (lang === 'kn' ? '↻ ಮರು-ರಚಿಸಿ' : (lang === 'hi' ? '↻ पुनः लोड करें' : '↻ Regenerate')));
-  setTxt('dailyWaStatus', dict.daily_wa_status || (lang === 'kn' ? 'ವಾಟ್ಸಾಪ್ ಅಧಿಸೂಚನೆ ಸಕ್ರಿಯವಾಗಿದೆ' : (lang === 'hi' ? 'व्हाट्सएप सूचनाएं चालू हैं' : 'WhatsApp notifications on')));
-  setTxt('dailyWaDescPrefix', dict.daily_wa_prefix || (lang === 'kn' ? 'ದೈನಂದಿನ ವರದಿಯನ್ನು ಪ್ರತಿದಿನ ಬೆಳಿಗ್ಗೆ 6:30 ಕ್ಕೆ' : (lang === 'hi' ? 'दैनिक रिपोर्ट सुबह 6:30 बजे' : 'Daily brief will be sent to')));
-  setTxt('dailyWaDescSuffix', dict.daily_wa_suffix || (lang === 'kn' ? 'ಸಂಖ್ಯೆಗೆ ಕಳುಹಿಸಲಾಗುತ್ತದೆ.' : (lang === 'hi' ? 'पर भेजी जाएगी।' : 'at 6:30 AM IST.')));
-  setTxt('dailyWaChangeLink', dict.daily_wa_change || (lang === 'kn' ? 'ಸಂಖ್ಯೆ ಬದಲಿಸಿ' : (lang === 'hi' ? 'नंबर बदलें' : 'Change number')));
+  renderDailyWaBanner();
   setTxt('dailyCardLblWeather', dict.daily_card_weather || (lang === 'kn' ? 'ಹವಾಮಾನ' : (lang === 'hi' ? 'मौसम' : 'WEATHER')));
   setTxt('dailyCardLblPest', dict.daily_card_pest || (lang === 'kn' ? 'ಕೀಟ ಮತ್ತು ರೋಗ' : (lang === 'hi' ? 'कीट एवं रोग' : 'PEST & DISEASE')));
   setTxt('dailyCardLblAction', dict.daily_card_action || (lang === 'kn' ? 'ಬೆಳೆ ಕ್ರಮ' : (lang === 'hi' ? 'फसल कार्य' : 'CROP ACTION')));
@@ -5473,13 +5467,65 @@ function pickFallbackReply(msg){
   return "Namaste! I'm Agro GPT. I can assist you with hyperlocal weather, live mandi prices, leaf disease diagnosis, and agronomy advice.";
 }
 
+function renderDailyWaBanner() {
+  const banner = document.getElementById("dailyWaBanner");
+  if (!banner) return;
+  const isKn = currentLang === "kn";
+  const isHi = currentLang === "hi";
+
+  const userPhone = localStorage.getItem("agroai_brief_phone") ||
+    (typeof session !== "undefined" && session && session.signedIn && !session.isGuest && session.phone ? session.phone : null);
+
+  const iconEl = document.getElementById("dailyWaIcon");
+  const statusEl = document.getElementById("dailyWaStatus");
+  const descEl = document.getElementById("dailyWaDesc");
+
+  if (userPhone) {
+    banner.style.background = "#E8F4EA";
+    banner.style.border = "1px solid #C5E1C9";
+    if (iconEl) {
+      iconEl.textContent = "✓";
+      iconEl.style.color = "var(--forest)";
+    }
+    if (statusEl) {
+      statusEl.textContent = isKn ? "ವಾಟ್ಸಾಪ್ ಅಧಿಸೂಚನೆ ಸಕ್ರಿಯವಾಗಿದೆ" : (isHi ? "व्हाट्सएप सूचनाएं चालू हैं" : "WhatsApp notifications on");
+      statusEl.style.color = "var(--forest)";
+    }
+    const cleanNum = userPhone.startsWith("+") ? userPhone : `+91 ${userPhone.replace(/^91/, "")}`;
+    if (descEl) {
+      const prefix = isKn ? "ದೈನಂದಿನ ವರದಿಯನ್ನು ಪ್ರತಿದಿನ ಬೆಳಿಗ್ಗೆ 6:30 ಕ್ಕೆ " : (isHi ? "दैनिक रिपोर्ट सुबह 6:30 बजे " : "Daily brief will be sent to ");
+      const suffix = isKn ? " ಸಂಖ್ಯೆಗೆ ಕಳುಹಿಸಲಾಗುತ್ತದೆ." : (isHi ? " पर भेजी जाएगी।" : " at 6:30 AM IST.");
+      const changeText = isKn ? "ಸಂಖ್ಯೆ ಬದಲಿಸಿ" : (isHi ? "नंबर बदलें" : "Change number");
+      descEl.innerHTML = `${prefix}<strong style="color:var(--ink);" id="dailyBriefPhone">${cleanNum}</strong>${suffix} <a href="javascript:void(0)" onclick="changeDailyBriefPhone()" style="color:var(--ink-soft);text-decoration:underline;margin-left:4px;">${changeText}</a>`;
+    }
+  } else {
+    banner.style.background = "#F9FAFB";
+    banner.style.border = "1px solid #E5E7EB";
+    if (iconEl) {
+      iconEl.textContent = "🔔";
+      iconEl.style.color = "var(--ink-soft)";
+    }
+    if (statusEl) {
+      statusEl.textContent = isKn ? "ವಾಟ್ಸಾಪ್ ಅಧಿಸೂಚನೆ ಆಫ್ ಆಗಿದೆ" : (isHi ? "व्हाट्सएप सूचनाएं बंद हैं" : "WhatsApp notifications off");
+      statusEl.style.color = "var(--ink)";
+    }
+    if (descEl) {
+      const desc = isKn
+        ? "ಪ್ರತಿದಿನ ಬೆಳಿಗ್ಗೆ 6:30 ಕ್ಕೆ ನಿಮ್ಮ ಮೊಬೈಲ್‌ಗೆ ಉಚಿತ ಕೃಷಿ ವರದಿ ಪಡೆಯಲು ಸಂಖ್ಯೆ ಸೇರಿಸಿ."
+        : (isHi
+          ? "प्रतिदिन सुबह 6:30 बजे अपने मोबाइल पर निःशुल्क कृषि रिपोर्ट पाने के लिए नंबर जोड़ें।"
+          : "Get a free personalized daily brief delivered to your phone at 6:30 AM IST.");
+      const setupText = isKn ? "ವಾಟ್ಸಾಪ್ ಸಂಖ್ಯೆ ಸೇರಿಸಿ" : (isHi ? "व्हाट्सएप नंबर जोड़ें" : "Set up WhatsApp notifications");
+      descEl.innerHTML = `${desc} <a href="javascript:void(0)" onclick="changeDailyBriefPhone()" style="color:var(--forest);font-weight:600;text-decoration:underline;margin-left:4px;">${setupText} →</a>`;
+    }
+  }
+}
+
 /* ================= DAILY FARM REPORT LOADER ================= */
 async function loadDailyFarmReport(forceRegen = false) {
   const loc = (farmerProfile && farmerProfile.village) ? farmerProfile.village : 'Mandya';
   const crop = (farmerProfile && farmerProfile.crop) ? farmerProfile.crop : 'Tomato';
-  const savedPhone = localStorage.getItem('agroai_brief_phone') || (session && session.phone) || '917019286323';
-  const phoneEl = document.getElementById('dailyBriefPhone');
-  if (phoneEl) phoneEl.textContent = savedPhone;
+  renderDailyWaBanner();
 
   const regenBtn = document.getElementById('dailyReportRegenBtn');
   if (forceRegen && regenBtn) {
@@ -5513,17 +5559,28 @@ async function loadDailyFarmReport(forceRegen = false) {
 }
 
 function changeDailyBriefPhone() {
-  const current = localStorage.getItem('agroai_brief_phone') || '917019286323';
-  const promptLbl = currentLang === 'kn'
-    ? 'ದೈನಂದಿನ ಕೃಷಿ ವರದಿಗಾಗಿ ನಿಮ್ಮ ವಾಟ್ಸಾಪ್ ಸಂಖ್ಯೆಯನ್ನು ನಮೂದಿಸಿ:'
-    : (currentLang === 'hi' ? 'दैनिक कृषि रिपोर्ट के लिए अपना व्हाट्सएप नंबर दर्ज करें:' : 'Enter WhatsApp number for your 6:30 AM IST Daily Farm Report:');
+  const current = localStorage.getItem("agroai_brief_phone") ||
+    (typeof session !== "undefined" && session && session.signedIn && !session.isGuest && session.phone ? session.phone : "");
+  const promptLbl = currentLang === "kn"
+    ? "ದೈನಂದಿನ ಕೃಷಿ ವರದಿಗಾಗಿ ನಿಮ್ಮ 10 ಅಂಕಿಯ ವಾಟ್ಸಾಪ್ ಸಂಖ್ಯೆಯನ್ನು ನಮೂದಿಸಿ (ರದ್ದುಗೊಳಿಸಲು ಖಾಲಿ ಬಿಡಿ):"
+    : (currentLang === "hi"
+      ? "दैनिक कृषि रिपोर्ट के लिए अपना 10 अंकों का व्हाट्सएप नंबर दर्ज करें (हटाने के लिए खाली छोड़ें):"
+      : "Enter your 10-digit WhatsApp number for 6:30 AM IST Daily Farm Reports (leave blank to turn off):");
   const next = prompt(promptLbl, current);
-  if (next && next.trim()) {
-    const cleaned = next.trim();
-    localStorage.setItem('agroai_brief_phone', cleaned);
-    const phoneEl = document.getElementById('dailyBriefPhone');
-    if (phoneEl) phoneEl.textContent = cleaned;
-    showToast(currentLang === 'kn' ? 'ವಾಟ್ಸಾಪ್ ಸಂಖ್ಯೆ ನವೀಕರಿಸಲಾಗಿದೆ' : (currentLang === 'hi' ? 'व्हाट्सएप नंबर अपडेट किया गया' : 'WhatsApp number updated'));
+  if (next !== null) {
+    const cleaned = next.trim().replace(/\D/g, "");
+    if (cleaned.length >= 10) {
+      const formatted = (cleaned.length === 12 && cleaned.startsWith("91")) ? cleaned.slice(2) : cleaned;
+      localStorage.setItem("agroai_brief_phone", formatted);
+      showToast(currentLang === "kn" ? "ವಾಟ್ಸಾಪ್ ಸಂಖ್ಯೆ ನವೀಕರಿಸಲಾಗಿದೆ" : (currentLang === "hi" ? "व्हाट्सएप नंबर अपडेट किया गया" : "WhatsApp notifications enabled"));
+    } else if (cleaned.length === 0) {
+      localStorage.removeItem("agroai_brief_phone");
+      showToast(currentLang === "kn" ? "ವಾಟ್ಸಾಪ್ ಅಧಿಸೂಚನೆ ರದ್ದುಗೊಳಿಸಲಾಗಿದೆ" : (currentLang === "hi" ? "व्हाट्सएप सूचनाएं बंद की गईं" : "WhatsApp notifications turned off"));
+    } else {
+      showToast(currentLang === "kn" ? "ದಯವಿಟ್ಟು ಮಾನ್ಯವಾದ 10 ಅಂಕಿಯ ಮೊಬೈಲ್ ಸಂಖ್ಯೆಯನ್ನು ನಮೂದಿಸಿ" : (currentLang === "hi" ? "कृपया एक मान्य 10 अंकों का मोबाइल नंबर दर्ज करें" : "Please enter a valid 10-digit mobile number"));
+      return;
+    }
+    renderDailyWaBanner();
   }
 }
 
