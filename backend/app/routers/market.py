@@ -10,7 +10,7 @@ import uuid
 import httpx
 import logging
 from ..database.connection import get_db
-from ..database.models import MarketPrice, MandiMarket
+from ..database.models import MarketPrice, MandiMarket, MandiPriceRecord
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -781,6 +781,10 @@ async def export_mandi_csv(
     state: Optional[str] = Query(None),
     district: Optional[str] = Query(None),
     commodity: Optional[str] = Query(None),
+    market: Optional[str] = Query(None),
+    market_name: Optional[str] = Query(None),
+    market_date: Optional[str] = Query(None),
+    date: Optional[str] = Query(None),
     db: Session = Depends(get_db),
 ):
     """Exports currently filtered verified mandi observations as CSV."""
@@ -788,25 +792,120 @@ async def export_mandi_csv(
     import io
     from fastapi.responses import Response
 
-    q = db.query(MarketPrice)
-    if state and state.strip():
-        q = q.filter(MarketPrice.state.ilike(f"%{state.strip()}%"))
-    if district and district.strip():
-        q = q.filter(MarketPrice.district.ilike(f"%{district.strip()}%"))
-    if commodity and commodity.strip():
-        q = q.filter(MarketPrice.commodity.ilike(f"%{commodity.split('(')[0].strip()}%"))
+    _ensure_reference_mandi_prices(db)
 
-    rows = q.order_by(MarketPrice.price_date.desc()).limit(250).all()
+    mkt = (market or market_name or "").strip()
+    target_date_str = (market_date or date or "").strip()
+    clean_mkt = mkt.split("(")[0].replace("APMC", "").strip() if mkt else ""
+    comm_base = commodity.split("(")[0].strip() if commodity else ""
+
+    # 1. Query MarketPrice table
+    q_mp = db.query(MarketPrice)
+    if state and state.strip():
+        q_mp = q_mp.filter(MarketPrice.state.ilike(f"%{state.strip()}%"))
+    if district and district.strip():
+        q_mp = q_mp.filter(MarketPrice.district.ilike(f"%{district.strip()}%"))
+    if comm_base:
+        q_mp = q_mp.filter(
+            or_(
+                MarketPrice.commodity.ilike(f"%{commodity.strip()}%"),
+                MarketPrice.commodity.ilike(f"%{comm_base}%")
+            )
+        )
+    if mkt:
+        q_mp = q_mp.filter(
+            or_(
+                MarketPrice.market_name.ilike(f"%{mkt}%"),
+                MarketPrice.market_name.ilike(f"%{clean_mkt}%")
+            )
+        )
+    if target_date_str:
+        try:
+            target_dt = datetime.strptime(target_date_str, "%Y-%m-%d").date()
+            start_dt = datetime.combine(target_dt, datetime.min.time())
+            end_dt = datetime.combine(target_dt, datetime.max.time())
+            q_mp = q_mp.filter(MarketPrice.price_date >= start_dt, MarketPrice.price_date <= end_dt)
+        except ValueError:
+            pass
+
+    mp_rows = q_mp.order_by(MarketPrice.price_date.desc()).limit(250).all()
+
+    # 2. Query MandiPriceRecord table (real-time verified prices)
+    q_mpr = db.query(MandiPriceRecord)
+    if state and state.strip():
+        q_mpr = q_mpr.filter(MandiPriceRecord.state.ilike(f"%{state.strip()}%"))
+    if district and district.strip():
+        q_mpr = q_mpr.filter(MandiPriceRecord.district.ilike(f"%{district.strip()}%"))
+    if comm_base:
+        q_mpr = q_mpr.filter(
+            or_(
+                MandiPriceRecord.commodity.ilike(f"%{commodity.strip()}%"),
+                MandiPriceRecord.commodity.ilike(f"%{comm_base}%")
+            )
+        )
+    if mkt:
+        q_mpr = q_mpr.filter(
+            or_(
+                MandiPriceRecord.market.ilike(f"%{mkt}%"),
+                MandiPriceRecord.market.ilike(f"%{clean_mkt}%")
+            )
+        )
+    if target_date_str:
+        q_mpr = q_mpr.filter(MandiPriceRecord.market_date == target_date_str)
+
+    mpr_rows = q_mpr.order_by(MandiPriceRecord.market_date.desc(), MandiPriceRecord.fetched_at.desc()).limit(250).all()
+
+    seen = set()
+    csv_rows = []
+
+    # Priority 1: Real-time MandiPriceRecord
+    for r in mpr_rows:
+        obs_date = r.market_date or ""
+        key = ((r.commodity or "").strip().lower(), (r.market or "").strip().lower(), obs_date)
+        if key in seen:
+            continue
+        seen.add(key)
+        csv_rows.append([
+            r.commodity,
+            "Standard",
+            r.market,
+            r.district,
+            r.state,
+            r.min_price,
+            r.modal_price,
+            r.max_price,
+            r.unit or "quintal",
+            obs_date,
+            r.source_name or "AGMARKNET",
+        ])
+
+    # Priority 2: MarketPrice records
+    for r in mp_rows:
+        obs_date = r.price_date.strftime("%Y-%m-%d") if r.price_date else ""
+        key = ((r.commodity or "").strip().lower(), (r.market_name or "").strip().lower(), obs_date)
+        if key in seen:
+            continue
+        seen.add(key)
+        csv_rows.append([
+            r.commodity,
+            r.variety or "Standard",
+            r.market_name,
+            r.district,
+            r.state,
+            r.min_price,
+            r.modal_price,
+            r.max_price,
+            r.unit or "quintal",
+            obs_date,
+            r.data_source or "AGMARKNET / data.gov.in",
+        ])
+
     buf = io.StringIO()
     w = csv.writer(buf)
     w.writerow(["Commodity", "Variety", "Mandi", "District", "State", "Min Price", "Modal Price", "Max Price", "Unit", "Observation Date", "Source"])
-    for r in rows:
-        w.writerow([
-            r.commodity, r.variety or "Standard", r.market_name, r.district, r.state,
-            r.min_price, r.modal_price, r.max_price, r.unit or "quintal",
-            r.price_date.strftime("%Y-%m-%d") if r.price_date else "",
-            r.data_source or "AGMARKNET / data.gov.in",
-        ])
+    for row in csv_rows:
+        w.writerow(row)
+
     return Response(
         content=buf.getvalue(),
         media_type="text/csv",

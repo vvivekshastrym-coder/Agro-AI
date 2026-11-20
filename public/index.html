@@ -6496,6 +6496,24 @@ function onMandiDateChange() {
   }
 }
 
+window.exportMandiCsv = function () {
+  const stateVal = mandiCurrentState || document.getElementById('stateSel')?.value || '';
+  const distVal = mandiCurrentDistrict || document.getElementById('districtSel')?.value || '';
+  const commVal = mandiCurrentCommodity || document.getElementById('cropSel')?.value || '';
+  const marketVal = mandiCurrentMarket || '';
+  const dateVal = mandiCurrentDate || document.getElementById('mandiDateSel')?.value || '';
+
+  const params = new URLSearchParams();
+  if (stateVal) params.set('state', stateVal);
+  if (distVal) params.set('district', distVal);
+  if (commVal) params.set('commodity', commVal);
+  if (marketVal) params.set('market', marketVal);
+  if (dateVal) params.set('market_date', dateVal);
+
+  const u = `/api/market/export.csv?${params.toString()}`;
+  window.open(u, '_blank');
+};
+
 async function loadMandiSourcesBadge() {
   const badge = document.getElementById('marketSourceBadge');
   const ind = document.getElementById('mandiLastUpdatedIndicator');
@@ -6540,10 +6558,6 @@ async function initMandiMarketView(forceRefresh = false) {
 }
 
 async function loadMandiStates() {
-  window.exportMandiCsv = function () {
-    const u = `/api/market/export.csv?state=${encodeURIComponent(mandiCurrentState || '')}&district=${encodeURIComponent(mandiCurrentDistrict || '')}&commodity=${encodeURIComponent(mandiCurrentCommodity || '')}`;
-    window.open(u, '_blank');
-  };
   const sel = document.getElementById('stateSel');
   if (!sel) return;
   try {

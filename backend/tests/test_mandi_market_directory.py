@@ -108,3 +108,19 @@ def test_karnataka_priority_markets_and_compare_and_csv():
     assert csv_res.status_code == 200
     assert "text/csv" in csv_res.headers.get("content-type", "")
     assert "Commodity,Variety,Mandi,District" in csv_res.text
+
+    # Filtered CSV by specific market
+    csv_filtered = client.get("/api/market/export.csv?state=Karnataka&commodity=Tomato&market=Kolar%20APMC")
+    assert csv_filtered.status_code == 200
+    filtered_lines = [line.strip() for line in csv_filtered.text.strip().splitlines() if line.strip()]
+    assert len(filtered_lines) >= 2  # header + at least 1 record
+    for row in filtered_lines[1:]:
+        assert "Kolar" in row
+        assert "Yeshwanthpur" not in row
+
+    # Export for a market date with no observations must NOT leak other dates or markets
+    csv_nodata = client.get("/api/market/export.csv?state=Karnataka&commodity=Tomato&market=Kolar%20APMC&market_date=2024-01-01")
+    assert csv_nodata.status_code == 200
+    nodata_lines = [line.strip() for line in csv_nodata.text.strip().splitlines() if line.strip()]
+    assert len(nodata_lines) == 1  # Only the CSV header row
+    assert "Commodity,Variety,Mandi,District" in nodata_lines[0]
