@@ -3127,6 +3127,7 @@ function go(view){
     kisangpt: { path: '/agrogpt',  title: 'Agro GPT Multilingual Assistant — Agro AI',   label: 'Agro GPT' },
     weather:  { path: '/weather',  title: 'Farm Weather Intelligence — Agro AI',         label: 'Weather' },
     market:   { path: '/mandi',    title: 'Mandi Market Prices — Agro AI',               label: 'Mandi Prices' },
+    schemes:  { path: '/schemes',  title: 'Government Schemes & Land — Agro AI',         label: 'Government Schemes' },
     plans:    { path: '/plans',    title: 'Subscription Plans & Pricing — Agro AI',      label: 'Plans' },
     about:    { path: '/about',    title: 'About Agro AI — Smart Farming Platform',      label: 'About' },
     contact:  { path: '/contact',  title: 'Contact & Farmer Support — Agro AI',          label: 'Contact' },
@@ -7633,8 +7634,40 @@ document.addEventListener('DOMContentLoaded', () => {
     window.location.search.includes('code=') ||
     window.location.hash.includes('access_token=');
 
-  // If user is already signed in and profile exists, go directly to Home and hide all auth views!
-  if(session && session.signedIn && farmerProfile){
+  const publicPathMap = {
+    '/diagnose':      'diagnose',
+    '/diagnose.html': 'diagnose',
+    '/agrogpt':       'kisangpt',
+    '/agrogpt.html':  'kisangpt',
+    '/weather':       'weather',
+    '/weather.html':  'weather',
+    '/mandi':         'market',
+    '/mandi.html':    'market',
+    '/schemes':       'schemes',
+    '/schemes.html':  'schemes',
+    '/plans':         'plans',
+    '/plans.html':    'plans',
+    '/about':         'about',
+    '/about.html':    'about',
+    '/contact':       'contact',
+    '/contact.html':  'contact',
+  };
+  const publicTarget = publicPathMap[(window.location.pathname || '/').replace(/\/+$/, '') || '/'];
+
+  // If opening a public route, go directly there without auth flash
+  if(publicTarget){
+    hideSplash();
+    document.querySelectorAll('.auth-view').forEach(v => {
+      v.classList.remove('active');
+      v.style.display = 'none';
+    });
+    document.body.classList.remove('authing');
+    if(session && session.signedIn && farmerProfile){
+      applyProfile();
+    }
+    go(publicTarget);
+  } else if(session && session.signedIn && farmerProfile){
+    // If user is already signed in and profile exists, go directly to Home and hide all auth views!
     hideSplash();
     document.querySelectorAll('.auth-view').forEach(v => {
       v.classList.remove('active');
@@ -10242,18 +10275,31 @@ async function updateSellerOrderStatus(orderId, newStatus) {
 // Direct URL / refresh routing for public SEO routes
 (function initSeoRoute() {
   const pathMap = {
-    '/diagnose': 'diagnose',
-    '/agrogpt':  'kisangpt',
-    '/weather':  'weather',
-    '/mandi':    'market',
-    '/plans':    'plans',
-    '/about':    'about',
-    '/contact':  'contact',
+    '/diagnose':      'diagnose',
+    '/diagnose.html': 'diagnose',
+    '/agrogpt':       'kisangpt',
+    '/agrogpt.html':  'kisangpt',
+    '/weather':       'weather',
+    '/weather.html':  'weather',
+    '/mandi':         'market',
+    '/mandi.html':    'market',
+    '/schemes':       'schemes',
+    '/schemes.html':  'schemes',
+    '/plans':         'plans',
+    '/plans.html':    'plans',
+    '/about':         'about',
+    '/about.html':    'about',
+    '/contact':       'contact',
+    '/contact.html':  'contact',
   };
   const target = pathMap[(window.location.pathname || '/').replace(/\/+$/, '') || '/'];
   const activate = () => {
     if (target) {
       document.body.classList.remove('authing');
+      document.querySelectorAll('.auth-view').forEach(v => {
+        v.classList.remove('active');
+        v.style.display = 'none';
+      });
       go(target);
     }
     if (typeof updateAgroGptAccessUI === 'function') updateAgroGptAccessUI();
