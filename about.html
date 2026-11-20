@@ -53,19 +53,19 @@
 </script>
 
 <!-- Fonts (self-hosted locally; zero external Google Fonts requests) -->
-<link rel="stylesheet" href="css/fonts.css">
+<link rel="stylesheet" href="/css/fonts.css">
 
 <!-- Google Identity Services -->
 <script src="https://accounts.google.com/gsi/client" async defer></script>
 <!-- Supabase Client -->
-<script src="js/vendor/supabase.js"></script>
-<script src="js/engine/supabase.js"></script>
+<script src="/js/vendor/supabase.js"></script>
+<script src="/js/engine/supabase.js"></script>
 <!-- Firebase Module -->
-<script type="module" src="js/engine/firebase.js"></script>
+<script type="module" src="/js/engine/firebase.js"></script>
 <!-- Razorpay Checkout SDK -->
-<script src="js/engine/feature-access.js"></script>
-<script src="js/engine/privacy-consent.js"></script>
-<script src="js/engine/schemes-land.js"></script>
+<script src="/js/engine/feature-access.js"></script>
+<script src="/js/engine/privacy-consent.js"></script>
+<script src="/js/engine/schemes-land.js"></script>
 <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
 <script>
   // Universal API Router: seamless connectivity for Mobile App (Capacitor), Firebase Hosting, and Web
@@ -3896,6 +3896,16 @@ function showGoogleAuthErrorModal(err = null){
     desc = isKn
       ? 'ನೆಟ್‌ವರ್ಕ್ ಸಂಪರ್ಕ ದೋಷ ಕಂಡುಬಂದಿದೆ. ದಯವಿಟ್ಟು ನಿಮ್ಮ ಇಂಟರ್ನೆಟ್ ಪರಿಶೀಲಿಸಿ ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ.'
       : 'Network connection issue detected. Please check your internet connection and retry.';
+  } else if (err && err.message) {
+    const rawMsg = String(err.message);
+    const lower = rawMsg.toLowerCase();
+    if (lower.includes('cancel') || lower.includes('access_denied') || lower.includes('denied')) {
+      desc = isKn
+        ? 'ಗೂಗಲ್ ಸೈನ್-ಇನ್ ರದ್ದುಗೊಳಿಸಲಾಗಿದೆ. ದಯವಿಟ್ಟು ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ ಅಥವಾ ಫೋನ್ OTP ಬಳಸಿ.'
+        : 'Google sign-in was cancelled. You can try again or log in using Phone OTP.';
+    } else if (!lower.includes('secret') && !lower.includes('token') && rawMsg.length < 180) {
+      desc = rawMsg.replace(/[<>&"']/g, '');
+    }
   }
 
   m.innerHTML = `
