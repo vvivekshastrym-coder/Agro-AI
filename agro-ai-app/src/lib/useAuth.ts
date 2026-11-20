@@ -171,6 +171,12 @@ export function formatOAuthError(error: unknown, description?: string | null): s
   const combined = `${rawMessage} ${description || ""}`.toLowerCase();
 
   if (
+    combined.includes("state has expired") ||
+    combined.includes("expired")
+  ) {
+    return "Your Google sign-in session expired or timed out. Please try signing in again.";
+  }
+  if (
     combined.includes("access_denied") ||
     combined.includes("cancel") ||
     combined.includes("denied")

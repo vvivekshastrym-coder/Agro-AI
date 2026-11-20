@@ -3952,7 +3952,20 @@ async function triggerGoogleSignIn(){
     const oauthErrorDesc = searchParams.get('error_description') || hashParams.get('error_description');
     if (oauthError) {
       window.history.replaceState({}, document.title, '/');
-      window.addEventListener('DOMContentLoaded', () => {
+      window.addEventListener('DOMContentLoaded', async () => {
+        // If a valid authenticated session is already active, don't show a stale OAuth callback error over the dashboard
+        if (typeof session !== 'undefined' && session && session.signedIn && !session.isGuest) {
+          return;
+        }
+        try {
+          if (window.supabaseClient?.auth) {
+            const { data } = await window.supabaseClient.auth.getSession();
+            if (data?.session?.user) {
+              window.dispatchEvent(new CustomEvent('agro:signed-in', { detail: data.session }));
+              return;
+            }
+          }
+        } catch (_) {}
         showGoogleAuthErrorModal(new Error(oauthErrorDesc || oauthError));
       });
       return;
@@ -4012,6 +4025,10 @@ function showGoogleAuthErrorModal(err = null){
       desc = isKn
         ? 'ಗೂಗಲ್ ಸೈನ್-ಇನ್ ರದ್ದುಗೊಳಿಸಲಾಗಿದೆ. ದಯವಿಟ್ಟು ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ ಅಥವಾ ಫೋನ್ OTP ಬಳಸಿ.'
         : 'Google sign-in was cancelled. You can try again or log in using Phone OTP.';
+    } else if (lower.includes('state has expired') || lower.includes('expired')) {
+      desc = isKn
+        ? 'ಗೂಗಲ್ ಸೈನ್-ಇನ್ ಅವಧಿ ಮುಗಿದಿದೆ. ದಯವಿಟ್ಟು "Retry Google Sign-In" ಒತ್ತಿ ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ.'
+        : 'Your Google sign-in session expired or timed out. Please tap Retry Google Sign-In to try again.';
     } else if (!lower.includes('secret') && !lower.includes('token') && rawMsg.length < 180) {
       desc = rawMsg.replace(/[<>&"']/g, '');
     }

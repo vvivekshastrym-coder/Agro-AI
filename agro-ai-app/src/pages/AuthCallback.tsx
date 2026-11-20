@@ -75,6 +75,15 @@ export default function AuthCallback() {
 
       if (oauthError) {
         cleanCallbackUrl();
+        try {
+          const { data } = await supabase.auth.getSession();
+          if (data.session?.user) {
+            await finalizeSession(data.session);
+            return;
+          }
+        } catch {
+          // ignore and surface error
+        }
         console.error("OAuth callback error:", oauthError);
         if (active) {
           setErrorMessage(formatOAuthError(oauthError, oauthErrorDesc));
