@@ -32,8 +32,8 @@ class MandiMarketService:
         except Exception:
             db.rollback()
             try:
-                from ...database.connection import Base, engine
-                Base.metadata.create_all(bind=engine)
+                from ...database.connection import engine
+                MandiPriceRecord.__table__.create(bind=engine, checkfirst=True)
                 count = db.query(MandiPriceRecord).count()
             except Exception as _e:
                 logger.error("Failed to ensure mandi_prices table or seed data: %s", _e)
