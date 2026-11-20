@@ -43,6 +43,23 @@ def create_user_token(sub: str, email: str = None, phone: str = None, is_guest: 
         claims["phone"] = phone
     return jwt.encode(claims, _KEY, algorithm="ES256")
 
+def create_local_session_token(sub: str, email: str = None, phone: str = None, is_guest: bool = False):
+    payload = {
+        "sub": sub,
+        "aud": "authenticated",
+        "iss": "agro-ai-local",
+        "exp": int(time.time()) + 3600,
+        "user_metadata": {
+            "name": f"User {sub}",
+            "is_guest": is_guest,
+        }
+    }
+    if email:
+        payload["email"] = email
+    if phone:
+        payload["phone"] = phone
+    return jwt.encode(payload, deps.GUEST_SESSION_SECRET, algorithm="HS256")
+
 def test_no_auth_header_rejected_with_401():
     endpoints = [
         ("post", "/api/agro-gpt/chat", {"message": "hello"}),
@@ -175,3 +192,50 @@ def test_public_guest_features_remain_accessible():
 
     states_resp = client.get("/api/market/states")
     assert states_resp.status_code == 200
+
+def test_google_session_token_and_phone_otp_token_can_access_agrogpt():
+    google_user_id = f"google_user_{uuid.uuid4().hex[:8]}"
+    phone_digits = "9998887776"
+    phone_user_id = f"farmer_{phone_digits}"
+
+    db = SessionLocal()
+    g_user = User(
+        id=google_user_id,
+        email="farmer.google@example.com",
+        full_name="Google Farmer",
+        role=UserRole.farmer,
+        is_verified=True,
+    )
+    p_user = User(
+        id=phone_user_id,
+        phone=phone_digits,
+        full_name="Phone Farmer",
+        role=UserRole.farmer,
+        is_verified=True,
+    )
+    db.add(g_user)
+    db.add(p_user)
+    db.commit()
+    db.close()
+
+    # Google session exchange token (iss: agro-ai-local)
+    google_token = create_local_session_token(google_user_id, email="farmer.google@example.com")
+    # Phone OTP verified token (iss: agro-ai-local)
+    phone_token = create_local_session_token(phone_user_id, phone=phone_digits)
+
+    # Verify Google user can chat with AgroGPT
+    res_google = client.post("/api/agro-gpt/chat", json={
+        "message": "How to grow organic tomatoes?",
+        "language": "en"
+    }, headers={"Authorization": f"Bearer {google_token}"})
+    assert res_google.status_code == 200, f"Google session token rejected: {res_google.text}"
+    assert "reply" in res_google.json()
+
+    # Verify Phone OTP user can chat with AgroGPT
+    res_phone = client.post("/api/agro-gpt/chat", json={
+        "message": "What is the best pesticide for cotton?",
+        "language": "en"
+    }, headers={"Authorization": f"Bearer {phone_token}"})
+    assert res_phone.status_code == 200, f"Phone OTP token rejected: {res_phone.text}"
+    assert "reply" in res_phone.json()
+

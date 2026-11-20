@@ -318,9 +318,15 @@ async def get_authenticated_user(
     claims = verify_supabase_token(token)
 
     # 1. Reject guest tokens via JWT claims
-    iss = claims.get("iss", "")
     meta = claims.get("user_metadata") or {}
-    if iss == "agro-ai-local" or meta.get("is_guest") is True or claims.get("is_guest") is True:
+    sub = str(claims.get("sub", ""))
+    is_guest = (
+        meta.get("is_guest") is True
+        or claims.get("is_guest") is True
+        or sub.startswith("guest_")
+        or sub == "farmer_guest"
+    )
+    if is_guest:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail={"error": {"code": "GUEST_ACCESS_DENIED", "message": "AgroGPT is available only to authenticated users. Please log in to continue."}},
@@ -331,7 +337,7 @@ async def get_authenticated_user(
     user = await get_current_user(request=request, authorization=authorization, db=db)
 
     # 3. Reject unverified guest accounts (no phone, no email, not verified)
-    if not user.email and not user.phone and not user.is_verified:
+    if (not user.email and not user.phone and not user.is_verified) or (user.id and (user.id.startswith("guest_") or user.id == "farmer_guest")):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail={"error": {"code": "GUEST_ACCESS_DENIED", "message": "AgroGPT is available only to authenticated users. Please log in to continue."}},

@@ -3746,13 +3746,13 @@ window.fetch = async function(input, init){
       tok = session.token;
     }
     // If making an API call and we have no token, auto-acquire signed guest token so farmer is never blocked
-    if(!tok && !rawUrl.includes('/api/auth/guest-session') && !rawUrl.includes('/api/health')){
+    if(!tok && !rawUrl.includes('/api/auth/guest-session') && !rawUrl.includes('/api/health') && !rawUrl.includes('/api/agro-gpt/')){
       try {
         const gRes = await _origFetch(_resolveBackendUrl('/api/auth/guest-session'), { method: 'POST' });
         if(gRes.ok){
           const gData = await gRes.json();
           tok = gData.access_token;
-          if(session){
+          if(session && (!session.signedIn || session.isGuest)){
             session.token = tok;
             session.userId = session.userId || gData.user?.farmer_id;
             localStorage.setItem('agroAiSession', JSON.stringify(session));
@@ -4169,7 +4169,24 @@ function getCleanPhone(){
 }
 
 function isRegisteredFarmer(){
-  return Boolean(session && session.signedIn && !session.isGuest && (session.phone || session.google || (session.userId && !session.userId.includes('guest'))));
+  if (session && session.signedIn && !session.isGuest && (session.phone || session.google || (session.userId && !String(session.userId).includes('guest')))) {
+    return true;
+  }
+  try {
+    const kisanAuth = localStorage.getItem('kisanAuth');
+    const kisanUser = JSON.parse(localStorage.getItem('kisanUser') || 'null');
+    if (kisanAuth === 'true' && kisanUser && kisanUser.id && !String(kisanUser.id).includes('guest')) {
+      if (session) {
+        session.signedIn = true;
+        session.isGuest = false;
+        session.userId = session.userId || kisanUser.id;
+        session.token = session.token || localStorage.getItem('kisanToken');
+        if (kisanUser.email) session.google = session.google || { name: kisanUser.name, email: kisanUser.email };
+      }
+      return true;
+    }
+  } catch(e) {}
+  return false;
 }
 
 function showRegisteredFarmerModal(featureName = 'Logistics'){
@@ -4221,19 +4238,26 @@ function applyAgroGptGateTranslations(lang){
 }
 
 function updateAgroGptAccessUI(){
-  const isAuthed = isRegisteredFarmer();
+  let isAuthed = isRegisteredFarmer();
   const gate = document.getElementById('agroGptGuestGate');
   const chat = document.getElementById('agroGptChatContainer');
+  const banner = document.getElementById('agroGptLoginBanner');
   if(gate) gate.style.display = isAuthed ? 'none' : 'block';
   if(chat) chat.style.display = isAuthed ? 'block' : 'none';
+  if(banner){
+    if(isAuthed) banner.style.display = 'none';
+  }
   if(!isAuthed){
-    const banner = document.getElementById('agroGptLoginBanner');
     if(banner) banner.style.display = 'none';
     applyAgroGptGateTranslations(typeof currentLang !== 'undefined' ? currentLang : 'en');
   }
 }
 
 function showAgroGptLoginNotice(){
+  if (isRegisteredFarmer()) {
+    updateAgroGptAccessUI();
+    return;
+  }
   updateAgroGptAccessUI();
   const banner = document.getElementById('agroGptLoginBanner');
   if(banner){
@@ -5454,8 +5478,23 @@ async function sendChat(preset, isVoice = false){
   // Real backend call
   try {
     const headers = {'Content-Type': 'application/json'};
-    if (typeof session !== 'undefined' && session && session.token) {
-      headers['Authorization'] = 'Bearer ' + session.token;
+    let bearerToken = null;
+    if (window.supabaseClient?.auth) {
+      try {
+        const { data } = await window.supabaseClient.auth.getSession();
+        if (data?.session?.access_token) {
+          bearerToken = data.session.access_token;
+        }
+      } catch(e) {}
+    }
+    if (!bearerToken && typeof session !== 'undefined' && session && session.token) {
+      bearerToken = session.token;
+    }
+    if (!bearerToken) {
+      bearerToken = localStorage.getItem('kisanToken');
+    }
+    if (bearerToken) {
+      headers['Authorization'] = 'Bearer ' + bearerToken;
     }
     const res = await fetch('/api/agro-gpt/chat', {
       method: 'POST',
@@ -5475,9 +5514,13 @@ async function sendChat(preset, isVoice = false){
       document.getElementById('typingIndicator')?.remove();
       chatHistory.pop();
       renderChat();
-      showToast('🔒 Please log in to continue using AgroGPT. Your AI farming assistant is available after signing in.');
-      updateAgroGptAccessUI();
-      showAgroGptLoginNotice();
+      if (!isRegisteredFarmer()) {
+        showToast('🔒 Please log in to continue using AgroGPT. Your AI farming assistant is available after signing in.');
+        updateAgroGptAccessUI();
+        showAgroGptLoginNotice();
+      } else {
+        showToast('Session needs refresh. Please retry in a moment.');
+      }
       return;
     }
     if(res.ok) {
