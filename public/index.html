@@ -1623,6 +1623,86 @@
       </div><!-- /.scheme-tab-pane eligible -->
     </section>
 
+    <!-- ============ PEST RADAR ============ -->
+    <section class="view" data-view="pest" style="display:none;">
+      <button class="backlink" onclick="go('more')" id="pestBackBtn">← Back</button>
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px;gap:8px;">
+        <div>
+          <h2 class="display" style="font-size:22px;margin:0 0 4px;" id="pestRadarTitle">🦗 Pest Radar</h2>
+          <p class="muted" style="margin:0;font-size:13px;" id="pestRadarSub">Hyperlocal outbreak risk &amp; community reports within 15 km of your village.</p>
+        </div>
+        <span class="badge" style="background:#DCFCE7;color:#166534;font-size:12px;font-weight:700;padding:5px 12px;border-radius:999px;white-space:nowrap;" id="pestRadarBadge">🟢 Low Risk</span>
+      </div>
+
+      <!-- Location, Crop & Radius Controls -->
+      <div class="card" style="margin-bottom:14px;padding:14px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+          <span style="font-size:12.5px;font-weight:700;color:var(--forest);" id="pestLocHeader">📍 Monitored Farmland</span>
+          <button class="btn btn-outline" style="padding:3px 9px;font-size:11px;" onclick="go('account')" id="pestChangeProfileBtn">Edit Profile</button>
+        </div>
+        <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
+          <span class="pill" id="pestActiveLocationPill" style="background:var(--cream);font-size:12px;font-weight:600;">🏡 Mandya, Karnataka</span>
+          <span class="pill" id="pestActiveCropPill" style="background:var(--cream);font-size:12px;font-weight:600;">🌾 Tomato</span>
+          <span class="pill" id="pestRadiusPill" style="background:#E0F2FE;color:#0369A1;font-size:12px;font-weight:600;">📡 15 km Detection Radius</span>
+        </div>
+      </div>
+
+      <!-- Live Outbreak Risk & Environmental Drivers -->
+      <div class="card" style="margin-bottom:14px;padding:14px;background:#F8FAFC;border:1px solid #E2E8F0;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+          <div style="font-weight:700;font-size:13.5px;color:#1E293B;" id="pestRiskHeading">Weather-Correlated Risk Factors</div>
+          <span style="font-size:11px;color:#64748B;font-weight:600;" id="pestLastChecked">Updated today</span>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px;">
+          <div style="background:#FFFFFF;border:1px solid #E2E8F0;border-radius:10px;padding:10px;">
+            <div class="muted" style="font-size:11px;margin-bottom:2px;" id="pestSuckingLbl">Sucking Pests (Thrips, Aphids)</div>
+            <div style="font-weight:700;font-size:13px;color:#D97706;" id="pestSuckingRisk">⚠️ Moderate Risk (Dry/Warm)</div>
+          </div>
+          <div style="background:#FFFFFF;border:1px solid #E2E8F0;border-radius:10px;padding:10px;">
+            <div class="muted" style="font-size:11px;margin-bottom:2px;" id="pestFungalLbl">Fungal Blight / Mildew</div>
+            <div style="font-weight:700;font-size:13px;color:#16A34A;" id="pestFungalRisk">✅ Low Risk (Low Rain)</div>
+          </div>
+        </div>
+        <div style="font-size:12px;color:#475569;line-height:1.45;" id="pestRiskSummaryText">
+          Dry and warm conditions favor sucking insect proliferation on standing crops. Inspect underside of leaves during morning scouting.
+        </div>
+      </div>
+
+      <!-- Community Outbreak Reports (Empty State / Active Feed) -->
+      <div id="pestCommunityReportsArea"></div>
+
+      <!-- How Pest Radar Works -->
+      <div class="card" style="margin-bottom:16px;background:#FAFAFA;border:1px solid var(--line);padding:14px;">
+        <h4 style="margin:0 0 8px;font-size:13.5px;color:var(--forest);" id="pestHowItWorksTitle">📡 How Pest Radar Works</h4>
+        <ul style="margin:0;padding-left:18px;font-size:12px;color:var(--ink-soft);line-height:1.6;" id="pestHowItWorksList">
+          <li><strong>Community AI Leaf Scans:</strong> When nearby farmers scan leaf symptoms in Crop Diagnose, verified disease and pest results are anonymized and pinned to a 15 km village grid.</li>
+          <li><strong>Weather Correlation:</strong> Real-time temperature, wind, and rainfall data predict incubation conditions before infestations visibly spread.</li>
+          <li><strong>Early Warning Alerts:</strong> Outbreak flags are pushed directly to your Daily Farm Report and WhatsApp to recommend timely preventive bio-sprays.</li>
+        </ul>
+      </div>
+
+      <!-- Action Buttons Grid -->
+      <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:24px;" id="pestActionButtons">
+        <button type="button" class="btn btn-primary btn-block" style="padding:11px;" onclick="go('diagnose')" id="pestActionDiagnose">
+          📸 Scan Leaf to Report / Diagnose Pest
+        </button>
+        <button type="button" class="btn btn-outline btn-block" style="padding:10px;" onclick="askAgroGptPest()" id="pestActionGpt">
+          💬 Ask Agro GPT for Pest Advisory &amp; IPM
+        </button>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+          <button type="button" class="btn btn-outline" style="padding:10px;font-size:12.5px;" onclick="go('weather')" id="pestActionSpray">
+            🌦️ Weather Spray Window
+          </button>
+          <button type="button" class="btn btn-outline" style="padding:10px;font-size:12.5px;" onclick="go('drone')" id="pestActionDrone">
+            🛸 Book Drone Spray
+          </button>
+        </div>
+        <button type="button" class="btn btn-outline btn-block" style="padding:10px;font-size:12.5px;" onclick="go('inputs')" id="pestActionInputs">
+          🛒 Compare Pesticide &amp; Fertilizer Prices
+        </button>
+      </div>
+    </section>
+
     <!-- ============ DRONE SERVICES ============ -->
     <section class="view" data-view="drone" style="display:none;">
       <button class="backlink" onclick="go('home')" id="droneBackBtn">← Back</button>
@@ -3082,6 +3162,7 @@ function go(view){
   if(view === 'weather') loadRealWeather();
   if(view === 'market') initMandiMarketView();
   if(view === 'home') { loadRealWeather(); loadDailyFarmReport(); renderReportsList(); loadHomeBroadcasts(); loadHomePlansCard(); }
+  if(view === 'pest') loadPestRadarView();
   if(view === 'drone') loadDroneOperators();
   if(view === 'inputs') loadInputsProducts();
   if(view === 'plans') loadMembershipPlansView();
@@ -4930,6 +5011,10 @@ function applyTranslations(lang){
   const inputsView = document.querySelector('.view[data-view="inputs"]');
   if(inputsView && inputsView.style.display !== 'none'){
     loadInputsProducts();
+  }
+  const pestView = document.querySelector('.view[data-view="pest"]');
+  if(pestView && pestView.style.display !== 'none'){
+    loadPestRadarView();
   }
 
   renderReportsList();
@@ -7120,6 +7205,155 @@ function getFarmPassportDetails(lang) {
     '  Automated decentralized blockchain anchoring for immutable soil, input, and harvest logging is currently in development. Your in-app activity is continuously recorded in your Agro AI profile in the meantime.';
 }
 
+/* ================= PEST RADAR ================= */
+function askAgroGptPest(){
+  const crop = (farmerProfile && farmerProfile.crop) ? farmerProfile.crop : 'crops';
+  const query = currentLang === 'kn'
+    ? `${crop} ಬೆಳೆಗೆ ಬರುವ ಮುಖ್ಯ ಕೀಟಗಳು ಮತ್ತು ಸಾವಯವ ತಡೆಗಟ್ಟುವ ಕ್ರಮಗಳೇನು?`
+    : (currentLang === 'hi'
+      ? `${crop} फसल में लगने वाले प्रमुख कीट और जैविक रोकथाम के उपाय क्या हैं?`
+      : `What are the major pests affecting ${crop} and recommended IPM / bio-pesticide controls?`);
+  go('kisangpt');
+  setTimeout(() => {
+    const input = document.getElementById('chatInput');
+    if(input){
+      input.value = query;
+      sendChat();
+    }
+  }, 250);
+}
+
+function loadPestRadarView(){
+  const isKn = currentLang === 'kn';
+  const isHi = currentLang === 'hi';
+  const p = (typeof farmerProfile !== 'undefined' && farmerProfile) ? farmerProfile : null;
+  const village = p && p.village ? p.village : 'Mandya';
+  const state = p && p.state ? p.state : 'Karnataka';
+  const crop = p && p.crop ? p.crop : 'Tomato';
+  const reports = (typeof savedReports !== 'undefined' && Array.isArray(savedReports)) ? savedReports : [];
+
+  const locPill = document.getElementById('pestActiveLocationPill');
+  if(locPill) locPill.textContent = `🏡 ${village}, ${state}`;
+  const cropPill = document.getElementById('pestActiveCropPill');
+  if(cropPill) cropPill.textContent = `🌾 ${crop}`;
+
+  const t = (id, txt) => {
+    const el = document.getElementById(id);
+    if(el) el.textContent = txt;
+  };
+
+  if(isKn){
+    t('pestBackBtn', '← ಹಿಂದಕ್ಕೆ');
+    t('pestRadarTitle', '🦗 ಕೀಟ ರೇಡಾರ್');
+    t('pestRadarBadge', '🟢 ಕಡಿಮೆ ಕೀಟ ಅಪಾಯ');
+    t('pestRadarSub', 'ನಿಮ್ಮ ಹಳ್ಳಿಯ ಸುತ್ತಮುತ್ತ 15 ಕಿಮೀ ವ್ಯಾಪ್ತಿಯಲ್ಲಿ ಕೀಟ ಬಾಧೆಯ ಅಪಾಯ ಮತ್ತು ರೈತರ ವರದಿಗಳು.');
+    t('pestLocHeader', '📍 ಮೇಲ್ವಿಚಾರಣೆಯಲ್ಲಿರುವ ಕೃಷಿ ಭೂಮಿ');
+    t('pestChangeProfileBtn', 'ಪ್ರೊಫೈಲ್ ತಿದ್ದುಪಡಿ');
+    t('pestRadiusPill', '📡 15 ಕಿಮೀ ಪತ್ತೆ ವ್ಯಾಪ್ತಿ');
+    t('pestRiskHeading', 'ಹವಾಮಾನ ಆಧಾರಿತ ಕೀಟ ಅಪಾಯದ ಅಂಶಗಳು');
+    t('pestLastChecked', 'ಇಂದು ನವೀಕರಿಸಲಾಗಿದೆ');
+    t('pestSuckingLbl', 'ಹೀರುವ ಕೀಟಗಳು (ಥ್ರಿಪ್ಸ್, ಹೇನು)');
+    t('pestSuckingRisk', '⚠️ ಮಧ್ಯಮ ಅಪಾಯ (ಒಣ ಹವೆ)');
+    t('pestFungalLbl', 'ಶಿಲೀಂಧ್ರ ರೋಗ / ಮಚ್ಚೆ ರೋಗ');
+    t('pestFungalRisk', '✅ ಕಡಿಮೆ ಅಪಾಯ (ಕಡಿಮೆ ಮಳೆ)');
+    t('pestRiskSummaryText', 'ಒಣ ಮತ್ತು ಬೆಚ್ಚನೆಯ ವಾತಾವರಣವು ಹೀರುವ ಕೀಟಗಳ ಹರಡುವಿಕೆಗೆ ಅನುಕೂಲಕರವಾಗಿದೆ. ಬೆಳಗಿನ ಸಮಯದಲ್ಲಿ ಎಲೆಗಳ ಕೆಳಭಾಗವನ್ನು ಪರೀಕ್ಷಿಸಿ.');
+    t('pestHowItWorksTitle', '📡 ಕೀಟ ರೇಡಾರ್ ಹೇಗೆ ಕಾರ್ಯನಿರ್ವಹಿಸುತ್ತದೆ?');
+    t('pestActionDiagnose', '📸 ಕೀಟ ಪತ್ತೆ / ವರದಿ ಮಾಡಲು ಎಲೆ ಸ್ಕ್ಯಾನ್ ಮಾಡಿ');
+    t('pestActionGpt', '💬 Agro GPT ಯಲ್ಲಿ ಕೀಟ ನಿಯಂತ್ರಣ ಸಲಹೆ ಪಡೆಯಿರಿ');
+    t('pestActionSpray', '🌦️ ಕೀಟನಾಶಕ ಸಿಂಪಡಣೆ ಸಮಯ');
+    t('pestActionDrone', '🛸 ಡ್ರೋನ್ ಸಿಂಪಡಣೆ ಬುಕ್ ಮಾಡಿ');
+    t('pestActionInputs', '🛒 ಕೀಟನಾಶಕ ಬೆಲೆಗಳನ್ನು ಹೋಲಿಕೆ ಮಾಡಿ');
+  } else if(isHi){
+    t('pestBackBtn', '← वापस');
+    t('pestRadarTitle', '🦗 कीट रडार');
+    t('pestRadarBadge', '🟢 कम प्रकोप जोखिम');
+    t('pestRadarSub', 'आपके गांव के 15 किमी के दायरे में कीट प्रकोप का खतरा और सामुदायिक रिपोर्ट।');
+    t('pestLocHeader', '📍 निगरानी में खेत');
+    t('pestChangeProfileBtn', 'प्रोफाइल बदलें');
+    t('pestRadiusPill', '📡 15 किमी निगरानी दायरा');
+    t('pestRiskHeading', 'मौसम आधारित कीट प्रकोप जोखिम कारक');
+    t('pestLastChecked', 'आज अपडेट किया गया');
+    t('pestSuckingLbl', 'रस चूसक कीट (थ्रिप्स, एफिड्स)');
+    t('pestSuckingRisk', '⚠️ मध्यम जोखिम (शुष्क/गर्म)');
+    t('pestFungalLbl', 'फंगल ब्लाइट / फफूंद');
+    t('pestFungalRisk', '✅ कम जोखिम (कम बारिश)');
+    t('pestRiskSummaryText', 'शुष्क और गर्म मौसम रस चूसक कीटों के पनपने के अनुकूल है। सुबह के समय पत्तियों के निचले हिस्से की जांच करें।');
+    t('pestHowItWorksTitle', '📡 कीट रडार कैसे काम करता है?');
+    t('pestActionDiagnose', '📸 कीट की पहचान / रिपोर्ट के लिए पत्ती स्कैन करें');
+    t('pestActionGpt', '💬 Agro GPT से कीट निवारण सलाह लें');
+    t('pestActionSpray', '🌦️ कीटनाशक छिड़काव मौसम');
+    t('pestActionDrone', '🛸 ड्रोन छिड़काव बुक करें');
+    t('pestActionInputs', '🛒 कीटनाशक और खाद की कीमतें देखें');
+  } else {
+    t('pestBackBtn', '← Back');
+    t('pestRadarTitle', '🦗 Pest Radar');
+    t('pestRadarBadge', '🟢 Low Outbreak Risk');
+    t('pestRadarSub', 'Hyperlocal outbreak risk & community reports within 15 km of your village.');
+    t('pestLocHeader', '📍 Monitored Farmland');
+    t('pestChangeProfileBtn', 'Edit Profile');
+    t('pestRadiusPill', '📡 15 km Detection Radius');
+    t('pestRiskHeading', 'Weather-Correlated Risk Factors');
+    t('pestLastChecked', 'Updated today');
+    t('pestSuckingLbl', 'Sucking Pests (Thrips, Aphids)');
+    t('pestSuckingRisk', '⚠️ Moderate Risk (Dry/Warm)');
+    t('pestFungalLbl', 'Fungal Blight / Mildew');
+    t('pestFungalRisk', '✅ Low Risk (Low Rain)');
+    t('pestRiskSummaryText', 'Dry and warm conditions favor sucking insect proliferation on standing crops. Inspect underside of leaves during morning scouting.');
+    t('pestHowItWorksTitle', '📡 How Pest Radar Works');
+    t('pestActionDiagnose', '📸 Scan Leaf to Report / Diagnose Pest');
+    t('pestActionGpt', '💬 Ask Agro GPT for Pest Advisory & IPM');
+    t('pestActionSpray', '🌦️ Weather Spray Window');
+    t('pestActionDrone', '🛸 Book Drone Spray');
+    t('pestActionInputs', '🛒 Compare Pesticide & Fertilizer Prices');
+  }
+
+  const area = document.getElementById('pestCommunityReportsArea');
+  if(!area) return;
+
+  const emptyTitle = isKn ? 'ಯಾವುದೇ ಕೀಟ ಬಾಧೆ ವರದಿಯಾಗಿಲ್ಲ' : (isHi ? 'कोई सक्रिय कीट प्रकोप रिपोर्ट नहीं' : 'No Active Outbreak Clusters Reported');
+  const emptyDesc = isKn
+    ? `ಕಳೆದ 7 ದಿನಗಳಲ್ಲಿ ${village} ಅಥವಾ ಸುತ್ತಮುತ್ತಲಿನ 15 ಕಿಮೀ ಪ್ರದೇಶದಲ್ಲಿ ಯಾವುದೇ ಕೀಟ ಬಾಧೆ ಅಥವಾ ಗಂಭೀರ ರೋಗದ ಹರಡುವಿಕೆ ವರದಿಯಾಗಿಲ್ಲ. ನಿಮ್ಮ ಗ್ರಾಮವು ಹಸಿರು ವಲಯದಲ್ಲಿದೆ (ಸುರಕ್ಷಿತ).`
+    : (isHi
+      ? `पिछले 7 दिनों में ${village} या आसपास के 15 किमी क्षेत्र में किसी भी कीट प्रकोप या गंभीर फसल रोग की रिपोर्ट नहीं मिली है। आपका क्षेत्र ग्रीन ज़ोन में है (सुरक्षित)।`
+      : `No verified pest outbreaks or severe crop disease clusters have been reported by farmers in ${village} or within the 15 km radius in the past 7 days. Your village is in the Green Zone (Safe).`);
+  const scanBtnText = isKn ? '📸 ರೋಗ ತಪಾಸಣೆ ನಡೆಸಿ / ವರದಿ ಮಾಡಿ' : (isHi ? '📸 फसल जांच करें / रिपोर्ट दर्ज करें' : '📸 Run Leaf Scan to Diagnose / Report');
+
+  let reportsHtml = '';
+  if(reports && reports.length > 0){
+    const recentHeading = isKn ? 'ನಿಮ್ಮ ಇತ್ತೀಚಿನ ಬೆಳೆ ತಪಾಸಣಾ ದಾಖಲೆಗಳು:' : (isHi ? 'आपकी हालिया फसल जांच रिपोर्ट:' : 'Your Recent Crop Diagnosis Logs:');
+    reportsHtml = `
+      <div style="margin-top:12px;border-top:1px solid #BBF7D0;padding-top:10px;text-align:left;">
+        <div style="font-weight:700;font-size:12px;color:#166534;margin-bottom:6px;">${recentHeading}</div>
+        ${reports.slice(0, 3).map(r => `
+          <div style="display:flex;justify-content:space-between;align-items:center;background:#FFFFFF;border:1px solid #BBF7D0;border-radius:8px;padding:8px 10px;margin-bottom:6px;font-size:12px;">
+            <div>
+              <span style="font-weight:700;color:#166534;">${escHtml(r.disease || r.name || 'Crop Scan')}</span>
+              <span class="muted" style="font-size:11px;"> · ${escHtml(r.crop || crop)}</span>
+            </div>
+            <span class="badge" style="background:#FEF3C7;color:#92400E;font-size:11px;padding:2px 6px;border-radius:4px;">${escHtml(r.severity || 'Logged')}</span>
+          </div>
+        `).join('')}
+      </div>
+    `;
+  }
+
+  area.innerHTML = `
+    <div class="card" style="text-align:center;padding:22px 16px;background:#F0FDF4;border:1.5px dashed #86EFAC;margin-bottom:16px;">
+      <div style="font-size:36px;margin-bottom:6px;">🛡️</div>
+      <div style="font-weight:700;font-size:15px;color:#166534;margin-bottom:4px;">${emptyTitle}</div>
+      <div class="muted" style="font-size:12.5px;max-width:420px;margin:0 auto 12px;line-height:1.5;">
+        ${emptyDesc}
+      </div>
+      ${reportsHtml}
+      <div style="margin-top:14px;">
+        <button type="button" class="btn btn-primary" style="padding:9px 18px;font-size:13px;" onclick="go('diagnose')">
+          ${scanBtnText}
+        </button>
+      </div>
+    </div>
+  `;
+}
+
 function openMoreItem(id){
   if(id === 'account'){ go('account'); return; }
   if(id === 'plans'){ go('plans'); return; }
@@ -7130,6 +7364,7 @@ function openMoreItem(id){
   if(id === 'drone'){ go('drone'); return; }
   if(id === 'inputs'){ go('inputs'); return; }
   if(id === 'logistics'){ go('logistics'); return; }
+  if(id === 'pest'){ go('pest'); return; }
   const item = MORE_ITEMS.find(m=>m.id===id);
   if(!item) return;
   const isKn = currentLang === 'kn';
