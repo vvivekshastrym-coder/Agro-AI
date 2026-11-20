@@ -100,7 +100,9 @@ export default function Diagnose() {
             disabled={!base64 || loading}
             className="bg-forest text-white rounded-full px-5 py-2.5 text-sm font-semibold disabled:opacity-40"
           >
-            {loading ? "Analyzing…" : "Analyze"}
+            {loading
+              ? (language?.startsWith("kn") ? "ವಿಶ್ಲೇಷಿಸಲಾಗುತ್ತಿದೆ…" : language?.startsWith("hi") ? "विश्लेषण हो रहा है…" : "Analyzing…")
+              : (language?.startsWith("kn") ? "ವಿಶ್ಲೇಷಿಸಿ" : language?.startsWith("hi") ? "विश्लेषण करें" : "Analyze")}
           </button>
         </div>
 

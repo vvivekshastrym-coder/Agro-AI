@@ -4717,7 +4717,7 @@ function applyTranslations(lang){
   setTxt('diagCropHintOpt', dict.diag_crop_hint_opt);
   setTxt('diagChooseBtn', dict.diag_choose_btn);
   const analyzeBtn = document.getElementById('analyzeBtn');
-  if(analyzeBtn && !analyzeBtn.disabled) analyzeBtn.textContent = dict.diag_analyze_btn;
+  if(analyzeBtn) analyzeBtn.textContent = dict.diag_analyze_btn;
 
   // Agro GPT (Strictly Agro GPT everywhere)
   setTxt('gptTitle', dict.gpt_title || 'Agro GPT');
