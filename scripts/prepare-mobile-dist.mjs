@@ -5,15 +5,13 @@ import { execFileSync } from 'child_process';
 const root = process.cwd();
 const dist = path.join(root, 'dist');
 const pub = path.join(root, 'public');
-const targetDirs = [dist, pub];
 
-// Clean and recreate dist/ and public/
-for (const target of targetDirs) {
-  if (fs.existsSync(target)) {
-    fs.rmSync(target, { recursive: true, force: true });
-  }
-  fs.mkdirSync(target, { recursive: true });
+// Clean and recreate ONLY dist/ (DO NOT wipe public/ as it contains committed assets like admin)
+if (fs.existsSync(dist)) {
+  fs.rmSync(dist, { recursive: true, force: true });
 }
+fs.mkdirSync(dist, { recursive: true });
+fs.mkdirSync(pub, { recursive: true });
 
 const filesToCopy = [
   'index.html',
@@ -37,26 +35,33 @@ const dirsToCopy = [
   'icons',
 ];
 
-for (const target of targetDirs) {
-  for (const file of filesToCopy) {
-    const src = path.join(root, file);
-    if (fs.existsSync(src)) {
-      fs.copyFileSync(src, path.join(target, file));
-    }
+// Copy files and dirs to dist and ensure public has them
+for (const file of filesToCopy) {
+  const src = path.join(root, file);
+  if (fs.existsSync(src)) {
+    fs.copyFileSync(src, path.join(dist, file));
+    fs.copyFileSync(src, path.join(pub, file));
   }
+}
 
-  for (const dir of dirsToCopy) {
-    const src = path.join(root, dir);
-    if (fs.existsSync(src)) {
-      fs.cpSync(src, path.join(target, dir), { recursive: true });
-    }
+for (const dir of dirsToCopy) {
+  const src = path.join(root, dir);
+  if (fs.existsSync(src)) {
+    fs.cpSync(src, path.join(dist, dir), { recursive: true });
+    fs.cpSync(src, path.join(pub, dir), { recursive: true });
   }
+}
 
-  // Copy only compiled admin/dist (never admin/node_modules or admin/src)
-  const adminDistSrc = path.join(root, 'admin', 'dist');
-  if (fs.existsSync(adminDistSrc)) {
-    fs.cpSync(adminDistSrc, path.join(target, 'admin'), { recursive: true });
-  }
+// Copy admin assets
+const adminDistSrc = path.join(root, 'admin', 'dist');
+const adminPubSrc = path.join(pub, 'admin');
+
+if (fs.existsSync(adminDistSrc)) {
+  fs.cpSync(adminDistSrc, path.join(dist, 'admin'), { recursive: true });
+  fs.cpSync(adminDistSrc, adminPubSrc, { recursive: true });
+} else if (fs.existsSync(adminPubSrc)) {
+  // If admin/dist is gitignored or not present in CI, use committed public/admin
+  fs.cpSync(adminPubSrc, path.join(dist, 'admin'), { recursive: true });
 }
 
 // Generate static SEO pages + authoritative sitemap.xml in root and dist/

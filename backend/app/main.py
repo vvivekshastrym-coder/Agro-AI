@@ -485,7 +485,10 @@ async def serve_delete_account_page():
     raise HTTPException(status_code=404, detail="Account deletion page not found")
 
 
-if os.path.exists(project_root):
+public_dir = os.path.join(project_root, "public")
+if os.path.exists(public_dir):
+    app.mount("/", StaticFiles(directory=public_dir, html=True), name="frontend")
+elif os.path.exists(project_root):
     app.mount("/", StaticFiles(directory=project_root, html=True), name="frontend")
 
 
