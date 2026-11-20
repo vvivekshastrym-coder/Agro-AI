@@ -7055,6 +7055,71 @@ function renderMoreList(){
     </div>`).join('');
 }
 
+function getFarmPassportDetails(lang) {
+  const p = (typeof farmerProfile !== 'undefined' && farmerProfile) ? farmerProfile : null;
+  const reports = (typeof savedReports !== 'undefined' && Array.isArray(savedReports)) ? savedReports : [];
+  const name = p && p.name ? p.name : (lang === 'kn' ? 'ನಮೂದಿಸಿಲ್ಲ (ಅತಿಥಿ)' : (lang === 'hi' ? 'दर्ज नहीं (अतिथि)' : 'Not set (Guest)'));
+  const loc = p && p.village ? `${p.village}, ${p.state || 'Karnataka'}` : (lang === 'kn' ? 'ಮಾಂಡ್ಯ, ಕರ್ನಾಟಕ (ಡೀಫಾಲ್ಟ್)' : (lang === 'hi' ? 'मंड्या, कर्नाटक (डिफ़ॉल्ट)' : 'Mandya, Karnataka (Default)'));
+  const land = p && p.land ? `${p.land} ${lang === 'kn' ? 'ಎಕರೆ' : (lang === 'hi' ? 'एकड़' : 'acres')}` : (lang === 'kn' ? 'ನಮೂದಿಸಿಲ್ಲ' : (lang === 'hi' ? 'दर्ज नहीं' : 'Not specified'));
+  const crop = p && p.crop ? p.crop : (lang === 'kn' ? 'ಟೊಮೆಟೊ (ಡೀಫಾಲ್ಟ್)' : (lang === 'hi' ? 'टमाटर (डिफ़ॉल्ट)' : 'Tomato (Default)'));
+  const reportCount = reports.length;
+
+  if (lang === 'kn') {
+    return 'ಕೃಷಿ ಪಾಸ್‌ಪೋರ್ಟ್ ಮತ್ತು ಡಿಜಿಟಲ್ ದಾಖಲೆಗಳ ಮಾರ್ಗದರ್ಶಿ:\n\n' +
+      '• ಕೃಷಿ ಪಾಸ್‌ಪೋರ್ಟ್ ಎಂದರೇನು?\n' +
+      '  ಇದು ನಿಮ್ಮ ಹೊಲದ ಅಧಿಕೃತ ಡಿಜಿಟಲ್ ಗುರುತು. ನಿಮ್ಮ ಪರಿಶೀಲಿಸಿದ ಜಮೀನು, ಮಣ್ಣು ಪರೀಕ್ಷೆ, ರೋಗ ತಪಾಸಣೆ ಮತ್ತು ಬೆಳೆ ಇಳುವರಿಯ ಶಾಶ್ವತ ದಾಖಲೆಯನ್ನು ಇದು ಒದಗಿಸುತ್ತದೆ.\n\n' +
+      '• ಈ ಸಾಧನದಲ್ಲಿನ ಪ್ರಸ್ತುತ ಕೃಷಿ ದಾಖಲೆಗಳು:\n' +
+      `  — ರೈತರ ಹೆಸರು: ${name}\n` +
+      `  — ಸ್ಥಳ: ${loc}\n` +
+      `  — ಜಮೀನಿನ ವಿಸ್ತೀರ್ಣ: ${land}\n` +
+      `  — ಮುಖ್ಯ ಬೆಳೆ: ${crop}\n` +
+      `  — ಉಳಿಸಲಾದ ತಪಾಸಣಾ ವರದಿಗಳು: ${reportCount} ವರದಿಗಳು\n\n` +
+      '• ನಿಮ್ಮ ಕೃಷಿ ದಾಖಲೆಗಳನ್ನು ವೀಕ್ಷಿಸುವುದು ಮತ್ತು ನಿರ್ಮಿಸುವುದು ಹೇಗೆ:\n' +
+      '  1. ಪ್ರೊಫೈಲ್ ಮತ್ತು ಜಮೀನು: ನಿಮ್ಮ ರೈತ ಪ್ರೊಫೈಲ್‌ನಲ್ಲಿ ಗ್ರಾಮ, ವಿಸ್ತೀರ್ಣ ಮತ್ತು ಮುಖ್ಯ ಬೆಳೆಯನ್ನು ನವೀಕರಿಸಿ.\n' +
+      '  2. ಬೆಳೆ ಆರೋಗ್ಯ ಇತಿಹಾಸ: ರೋಗ ತಪಾಸಣೆ ನಡೆಸಿ ಎಲೆ ಸ್ಕ್ಯಾನ್, ರೋಗದ ತೀವ್ರತೆ ಮತ್ತು ಚಿಕಿತ್ಸಾ ವಿವರಗಳನ್ನು ದಾಖಲಿಸಿ.\n' +
+      '  3. ಸರ್ಕಾರಿ ಜಮೀನು ದಾಖಲೆಗಳು: ಸರ್ಕಾರಿ ಯೋಜನೆಗಳ ವಿಭಾಗದಲ್ಲಿ ನಿಮ್ಮ ಪಹಣಿ (RTC) ಮತ್ತು FRUITS ID ವಿವರಗಳನ್ನು ಜೋಡಿಸಿ.\n' +
+      '  4. ಮಾರ್ಟ್ ಟ್ರಸ್ಟ್ ಪಾಸ್‌ಪೋರ್ಟ್: Agro AI ಮಾರ್ಟ್‌ನಲ್ಲಿ ಪರಿಶೀಲಿಸಿದ ಬೆಳೆ ಬ್ಯಾಚ್ ಮತ್ತು ನೇರ ಮಾರಾಟ ವಿವರಗಳನ್ನು ವೀಕ್ಷಿಸಿ.\n\n' +
+      '• ಬ್ಲಾಕ್‌ಚೈನ್ ಆಧಾರಿತ ಶಾಶ್ವತ ದಾಖಲೆ:\n' +
+      '  ಮಣ್ಣು, ಪರಿಕರಗಳು ಮತ್ತು ಇಳುವರಿಯ ಸ್ವಯಂಚಾಲಿತ ಬ್ಲಾಕ್‌ಚೈನ್ ಡಿಜಿಟಲ್ ದಾಖಲೀಕರಣವು ಸದ್ಯ ಅಭಿವೃದ್ಧಿಯಲ್ಲಿದೆ. ಈ ಮಧ್ಯೆ ನಿಮ್ಮ ಎಲ್ಲಾ ಚಟುವಟಿಕೆಗಳು Agro AI ಪ್ರೊಫೈಲ್‌ನಲ್ಲಿ ಸುರಕ್ಷಿತವಾಗಿ ದಾಖಲಾಗುತ್ತವೆ.';
+  }
+
+  if (lang === 'hi') {
+    return 'फार्म पासपोर्ट एवं डिजिटल रिकॉर्ड गाइड:\n\n' +
+      '• फार्म पासपोर्ट क्या है?\n' +
+      '  यह आपके खेत का एक आधिकारिक डिजिटल पहचान-पत्र है, जो आपके सत्यापित भूमि पार्सल, मिट्टी परीक्षण, फसल रोग निदान और कृषि उपज लॉट का स्थायी रिकॉर्ड रखता है।\n\n' +
+      '• इस डिवाइस पर वर्तमान कृषि रिकॉर्ड:\n' +
+      `  — किसान का नाम: ${name}\n` +
+      `  — स्थान: ${loc}\n` +
+      `  — भूमि का रकबा: ${land}\n` +
+      `  — मुख्य फसल: ${crop}\n` +
+      `  — सहेजी गई जांच रिपोर्ट: ${reportCount} रिपोर्ट\n\n` +
+      '• अपने कृषि रिकॉर्ड कैसे देखें और बनाएं:\n' +
+      '  1. प्रोफाइल और भूमि विवरण: अपनी किसान प्रोफाइल में गांव, रकबा और मुख्य फसल दर्ज करके अपनी पहचान बनाएं।\n' +
+      '  2. फसल स्वास्थ्य इतिहास: फसल जांच में जाकर स्कैन करें और बीमारी की गंभीरता व उपचार का इतिहास सहेजें।\n' +
+      '  3. सरकारी भूमि रिकॉर्ड: सरकारी योजनाएं और भूमि टैब में अपनी खतौनी / RTC और FRUITS ID जोड़ें।\n' +
+      '  4. मार्ट ट्रस्ट पासपोर्ट: बिक्री के लिए उपलब्ध उपज का बैच विवरण और प्रामाणिकता Agro AI Mart में देखें।\n\n' +
+      '• ब्लॉकचेन-आधारित स्थायी रिकॉर्ड:\n' +
+      '  खाद, मिट्टी और उपज के अपरिवर्तनीय ब्लॉकचेन रिकॉर्ड की सुविधा सद्य विकास में है। तब तक आपकी सभी गतिविधियां आपकी Agro AI प्रोफाइल में सुरक्षित रूप से दर्ज होती हैं।';
+  }
+
+  return 'Farm Passport Access & Digital Records Guide:\n\n' +
+    '• What is Farm Passport?\n' +
+    '  An authoritative digital identity and permanent farm history log that aggregates your verified land parcels, soil health tests, crop diagnosis history, and produce lot batches.\n\n' +
+    '• Current Farm Records on This Device:\n' +
+    `  — Farmer Name: ${name}\n` +
+    `  — Location: ${loc}\n` +
+    `  — Land Area: ${land}\n` +
+    `  — Primary Crop: ${crop}\n` +
+    `  — Saved Diagnosis Reports: ${reportCount} report(s)\n\n` +
+    '• How to view, build & unlock your records:\n' +
+    '  1. Profile & Land Parcel: Update your village, acreage, and crop in your Farmer Profile to establish your farm identity.\n' +
+    '  2. Crop Health History: Perform leaf scans in Diagnose to log disease records, severity ratings, and treatment history.\n' +
+    '  3. Official Land Registry: Connect your Karnataka Bhoomi RTC / Pahani or FRUITS ID in Government Schemes.\n' +
+    '  4. Marketplace Trust Passport: View batch credentials and zero-middleman produce origins in Agro AI Mart.\n\n' +
+    '• Blockchain-Backed Permanent Ledger:\n' +
+    '  Automated decentralized blockchain anchoring for immutable soil, input, and harvest logging is currently in development. Your in-app activity is continuously recorded in your Agro AI profile in the meantime.';
+}
+
 function openMoreItem(id){
   if(id === 'account'){ go('account'); return; }
   if(id === 'plans'){ go('plans'); return; }
@@ -7068,18 +7133,24 @@ function openMoreItem(id){
   const item = MORE_ITEMS.find(m=>m.id===id);
   if(!item) return;
   const isKn = currentLang === 'kn';
+  const isHi = currentLang === 'hi';
   // These services have no connected provider yet: say so plainly instead of claiming a live integration.
   const NOT_CONNECTED = {
     satellite: {
       en: 'Not available yet: no satellite imagery provider or registered field boundary is connected. No imagery or NDVI is shown until one is. You can add your land area manually in your Farmer Profile in the meantime.',
       kn: 'ಇನ್ನೂ ಲಭ್ಯವಿಲ್ಲ: ಉಪಗ್ರಹ ಚಿತ್ರ ಸೇವೆ ಅಥವಾ ನೋಂದಾಯಿತ ಹೊಲದ ಗಡಿ ಸಂಪರ್ಕಗೊಂಡಿಲ್ಲ. ಅದು ಸಂಪರ್ಕವಾಗುವವರೆಗೆ ಯಾವುದೇ ಚಿತ್ರ ಅಥವಾ NDVI ತೋರಿಸಲಾಗುವುದಿಲ್ಲ. ಈ ಮಧ್ಯೆ ನಿಮ್ಮ ರೈತ ಪ್ರೊಫೈಲ್‌ನಲ್ಲಿ ಜಮೀನಿನ ವಿಸ್ತೀರ್ಣವನ್ನು ಕೈಯಾರೆ ಸೇರಿಸಬಹುದು.',
+      hi: 'अभी उपलब्ध नहीं है: कोई उपग्रह इमेजरी प्रदाता या पंजीकृत खेत की सीमा जुड़ी नहीं है। जब तक यह नहीं जुड़ती, कोई इमेजरी या NDVI नहीं दिखाया जाएगा। इस बीच आप अपनी किसान प्रोफाइल में अपनी भूमि का रकबा दर्ज कर सकते हैं।',
       actions: [
-        { label: '✏️ Update Land Area in Profile', labelKn: '✏️ ಪ್ರೊಫೈಲ್‌ನಲ್ಲಿ ಜಮೀನು ನವೀಕರಿಸಿ', action: "go('account')" }
+        { label: '✏️ Update Land Area in Profile', labelKn: '✏️ ಪ್ರೊಫೈಲ್‌ನಲ್ಲಿ ಜಮೀನು ನವೀಕರಿಸಿ', labelHi: '✏️ प्रोफाइल में भूमि विवरण अपडेट करें', action: "go('account')" }
       ]
     },
     carbon: {
       en: 'Not available yet: Carbon tracking and credit income estimates require an enrolled farmland boundary and certified sustainable farming records. This service is currently in development and not connected yet.',
-      kn: 'ಇನ್ನೂ ಲಭ್ಯವಿಲ್ಲ: ಕಾರ್ಬನ್ ಟ್ರ್ಯಾಕಿಂಗ್ ಮತ್ತು ಆದಾಯದ ಅಂದಾಜಿಗೆ ನೋಂದಾಯಿತ ಹೊಲದ ಗಡಿ ಮತ್ತು ಪ್ರಮಾಣೀಕೃತ ಕೃಷಿ ದಾಖಲೆಗಳ ಅಗತ್ಯವಿದೆ. ಈ ಸೇವೆ ಸದ್ಯ ಅಭಿವೃದ್ಧಿಯಲ್ಲಿದೆ ಮತ್ತು ಇನ್ನೂ ಸಂಪರ್ಕಗೊಂಡಿಲ್ಲ.'
+      kn: 'ಇನ್ನೂ ಲಭ್ಯವಿಲ್ಲ: ಕಾರ್ಬನ್ ಟ್ರ್ಯಾಕಿಂಗ್ ಮತ್ತು ಆದಾಯದ ಅಂದಾಜಿಗೆ ನೋಂದಾಯಿತ ಹೊಲದ ಗಡಿ ಮತ್ತು ಪ್ರಮಾಣೀಕೃತ ಕೃಷಿ ದಾಖಲೆಗಳ ಅಗತ್ಯವಿದೆ. ಈ ಸೇವೆ ಸದ್ಯ ಅಭಿವೃದ್ಧಿಯಲ್ಲಿದೆ ಮತ್ತು ಇನ್ನೂ ಸಂಪರ್ಕಗೊಂಡಿಲ್ಲ.',
+      hi: 'अभी उपलब्ध नहीं है: कार्बन ट्रैकिंग और क्रेडिट आय अनुमान के लिए पंजीकृत खेत की सीमा और प्रमाणित टिकाऊ कृषि रिकॉर्ड की आवश्यकता होती है। यह सेवा वर्तमान में विकास में है और अभी जुड़ी नहीं है।',
+      actions: [
+        { label: '✏️ Update Farm Profile & Land', labelKn: '✏️ ಕೃಷಿ ಪ್ರೊಫೈಲ್ ಮತ್ತು ಜಮೀನು ನವೀಕರಿಸಿ', labelHi: '✏️ किसान प्रोफाइल और भूमि विवरण अपडेट करें', action: "go('account')" }
+      ]
     },
     insurance: {
       en: 'How to obtain crop insurance:\n\n' +
@@ -7092,9 +7163,14 @@ function openMoreItem(id){
           '• ವಿಮೆ ಪಡೆಯಲು, ಬೆಳೆ ಋತುವಿನ (ಖಾರಿಫ್ / ರಬಿ) ಕೊನೆಯ ದಿನಾಂಕದೊಳಗೆ ನಿಮ್ಮ ಪಹಣಿ (RTC) ಮತ್ತು ಬ್ಯಾಂಕ್ ಖಾತೆ ವಿವರಗಳೊಂದಿಗೆ ನೋಂದಾಯಿಸಿ.\n' +
           '• ನಿಮ್ಮ ಹತ್ತಿರದ ರೈತ ಸಂಪರ್ಕ ಕೇಂದ್ರ (RSK), ಸಿಎಸ್‌ಸಿ (CSC) ಅಥವಾ ರಾಷ್ಟ್ರೀಯ PMFBY ಪೋರ್ಟಲ್ ಮೂಲಕ ಅರ್ಜಿ ಸಲ್ಲಿಸಬಹುದು.\n' +
           '• ಆಗ್ರೋ AI ನಲ್ಲಿ ನೇರ ಸ್ವಯಂಚಾಲಿತ ವಿಮಾ ಸೌಲಭ್ಯವು ಸದ್ಯ ಅಭಿವೃದ್ಧಿಯಲ್ಲಿದೆ.',
+      hi: 'फसल बीमा प्राप्त करने की प्रक्रिया:\n\n' +
+          '• मौसम-सूचकांक आधारित बीमा तब स्वतः मुआवजा सक्रिय करता है जब स्थानीय IMD वर्षा की कमी, लू या बेमौसम बारिश नीति सीमा से अधिक हो जाती है।\n' +
+          '• सुरक्षा प्राप्त करने के लिए, अपनी भूमि रिकॉर्ड (खतौनी / RTC) और बैंक विवरण के साथ मौसमी समय सीमा (खरीफ / रबी) से पहले नामांकन करें।\n' +
+          '• आप अपने नजदीकी रायथा संपर्क केंद्र (RSK), जन सेवा केंद्र (CSC) या राष्ट्रीय PMFBY पोर्टल (pmfby.gov.in) के माध्यम से नामांकन कर सकते हैं।\n' +
+          '• Agro AI में प्रत्यक्ष इन-ऐप स्वचालित बीमा पॉलिसी प्रक्रिया वर्तमान में विकास में है।',
       actions: [
-        { label: '📋 View Crop Insurance Schemes', labelKn: '📋 ಬೆಳೆ ವಿಮೆ ಯೋಜನೆಗಳನ್ನು ವೀಕ್ಷಿಸಿ', action: "go('schemes')" },
-        { label: '🌐 Open PMFBY Portal (pmfby.gov.in)', labelKn: '🌐 PMFBY ಅಧಿಕೃತ ಪೋರ್ಟಲ್ ತೆರೆಯಿರಿ', external: 'https://pmfby.gov.in' }
+        { label: '📋 View Crop Insurance Schemes', labelKn: '📋 ಬೆಳೆ ವಿಮೆ ಯೋಜನೆಗಳನ್ನು ವೀಕ್ಷಿಸಿ', labelHi: '📋 फसल बीमा योजनाएं देखें', action: "go('schemes')" },
+        { label: '🌐 Open PMFBY Portal (pmfby.gov.in)', labelKn: '🌐 PMFBY ಅಧಿಕೃತ ಪೋರ್ಟಲ್ ತೆರೆಯಿರಿ', labelHi: '🌐 PMFBY आधिकारिक पोर्टल खोलें', external: 'https://pmfby.gov.in' }
       ]
     },
     soildna: {
@@ -7108,23 +7184,56 @@ function openMoreItem(id){
           '• ವಿಶ್ಲೇಷಣೆ ಮತ್ತು ಶಿಫಾರಸು: ಸೂಕ್ಷ್ಮಾಣು ಜೀವಿಗಳು, ರಂಜಕ ಕರಗಿಸುವ ಮತ್ತು ಸಾರಜನಕ ಸ್ಥಿರೀಕರಿಸುವ ಬ್ಯಾಕ್ಟೀರಿಯಾಗಳನ್ನು ಗುರುತಿಸಿ ಸೂಕ್ತ ಜೈವಿಕ ಗೊಬ್ಬರದ ಸಲಹೆ ನೀಡಲಾಗುತ್ತದೆ.\n' +
           '• ಆಗ್ರೋ AI ನಲ್ಲಿ ನೇರ ಕಿಟ್ ಆರ್ಡರ್ ಮಾಡುವ ಸೌಲಭ್ಯವು ಸದ್ಯ ಅಭಿವೃದ್ಧಿಯಲ್ಲಿದೆ.\n' +
           '• ಸರ್ಕಾರಿ ಮಣ್ಣು ಪರೀಕ್ಷೆ: ನಿಮ್ಮ ಹತ್ತಿರದ ಕೃಷಿ ವಿಜ್ಞಾನ ಕೇಂದ್ರ (KVK) ಅಥವಾ ರೈತ ಸಂಪರ್ಕ ಕೇಂದ್ರ (RSK) ಮೂಲಕ ಮಣ್ಣು ಆರೋಗ್ಯ ಕಾರ್ಡ್ (Soil Health Card) ಪಡೆಯಬಹುದು.',
+      hi: 'मृदा डीएनए किट विवरण और पहुंच निर्देश:\n\n' +
+          '• किट सामग्री: 3 बाँझ नमूना संग्रह शीशियां, नमूना स्पैटुला, जीपीएस पार्सल टैग, और पूर्व-संबोधित कूरियर रिटर्न मेलर।\n' +
+          '• विश्लेषण और सिफारिशें: मेटाजेनोमिक अनुक्रमण लाभकारी मिट्टी के रोगाणुओं (राइजोबिया, माइकोराइजा), पोषक तत्वों की उपलब्धता और फंगल रोगजनकों की उपस्थिति की पहचान करके लक्षित जैव उर्वरकों की सिफारिश करता है।\n' +
+          '• Agro AI के माध्यम से डायरेक्ट मेल-ऑर्डर किट वर्तमान में विकास में हैं।\n' +
+          '• सरकारी मिट्टी परीक्षण: आप अपने नजदीकी कृषि विज्ञान केंद्र (KVK) से N-P-K, सूक्ष्म पोषक तत्वों और pH के परीक्षण के लिए मृदा स्वास्थ्य कार्ड (SHC) प्राप्त कर सकते हैं।',
       actions: [
-        { label: '🌱 Ask Agro GPT for Soil Advisory', labelKn: '🌱 Agro GPT ಯಲ್ಲಿ ಮಣ್ಣು/ಗೊಬ್ಬರದ ಸಲಹೆ ಪಡೆಯಿರಿ', action: "go('agrogpt')" },
-        { label: '📋 View Soil Health Schemes', labelKn: '📋 ಮಣ್ಣು ಆರೋಗ್ಯ ಯೋಜನೆಗಳನ್ನು ವೀಕ್ಷಿಸಿ', action: "go('schemes')" },
-        { label: '🌐 Soil Health Card Portal (soilhealth.dac.gov.in)', labelKn: '🌐 ರಾಷ್ಟ್ರೀಯ ಮಣ್ಣು ಆರೋಗ್ಯ ಪೋರ್ಟಲ್', external: 'https://soilhealth.dac.gov.in' }
+        { label: '🌱 Ask Agro GPT for Soil Advisory', labelKn: '🌱 Agro GPT ಯಲ್ಲಿ ಮಣ್ಣು/ಗೊಬ್ಬರದ ಸಲಹೆ ಪಡೆಯಿರಿ', labelHi: '🌱 Agro GPT से मिट्टी/उर्वरक सलाह लें', action: "go('agrogpt')" },
+        { label: '📋 View Soil Health Schemes', labelKn: '📋 ಮಣ್ಣು ಆರೋಗ್ಯ ಯೋಜನೆಗಳನ್ನು ವೀಕ್ಷಿಸಿ', labelHi: '📋 मृदा स्वास्थ्य योजनाएं देखें', action: "go('schemes')" },
+        { label: '🌐 Soil Health Card Portal (soilhealth.dac.gov.in)', labelKn: '🌐 ರಾಷ್ಟ್ರೀಯ ಮಣ್ಣು ಆರೋಗ್ಯ ಪೋರ್ಟಲ್', labelHi: '🌐 मृदा स्वास्थ्य कार्ड पोर्टल', external: 'https://soilhealth.dac.gov.in' }
       ]
     },
-    passport:  { en: 'Not available yet: this service is not connected.', kn: 'ಇನ್ನೂ ಲಭ್ಯವಿಲ್ಲ: ಈ ಸೇವೆ ಇನ್ನೂ ಸಂಪರ್ಕಗೊಂಡಿಲ್ಲ.' },
-    credit:    { en: 'Not available yet: this service is not connected.', kn: 'ಇನ್ನೂ ಲಭ್ಯವಿಲ್ಲ: ಈ ಸೇವೆ ಇನ್ನೂ ಸಂಪರ್ಕಗೊಂಡಿಲ್ಲ.' }
+    passport: {
+      en: getFarmPassportDetails('en'),
+      kn: getFarmPassportDetails('kn'),
+      hi: getFarmPassportDetails('hi'),
+      actions: [
+        { label: '👤 View / Update Farmer Profile & Land', labelKn: '👤 ರೈತ ಪ್ರೊಫೈಲ್ ಮತ್ತು ಜಮೀನು ವೀಕ್ಷಿಸಿ/ನವೀಕರಿಸಿ', labelHi: '👤 किसान प्रोफाइल और भूमि विवरण देखें/अपडेट करें', action: "go('account')" },
+        { label: '🔬 View Saved Crop Health Reports', labelKn: '🔬 ಉಳಿಸಲಾದ ಬೆಳೆ ಆರೋಗ್ಯ ವರದಿಗಳನ್ನು ವೀಕ್ಷಿಸಿ', labelHi: '🔬 सहेजी गई फसल स्वास्थ्य रिपोर्ट देखें', action: "go('home'); document.getElementById('reportsContainer')?.scrollIntoView({behavior:'smooth'});" },
+        { label: '🏛️ Link Land Records & FRUITS ID', labelKn: '🏛️ ಜಮೀನು ದಾಖಲೆಗಳು ಮತ್ತು FRUITS ID ಜೋಡಿಸಿ', labelHi: '🏛️ भूमि रिकॉर्ड और FRUITS ID जोड़ें', action: "go('schemes'); setTimeout(() => { AgroSchemesLand && AgroSchemesLand.switchTab('myland'); }, 100);" },
+        { label: '🛒 View Produce Trust Passports on Mart', labelKn: '🛒 ಮಾರ್ಟ್‌ನಲ್ಲಿ ಬೆಳೆ ಟ್ರಸ್ಟ್ ಪಾಸ್‌ಪೋರ್ಟ್‌ಗಳನ್ನು ವೀಕ್ಷಿಸಿ', labelHi: '🛒 मार्ट पर उत्पाद ट्रस्ट पासपोर्ट देखें', action: "go('mart')" }
+      ]
+    },
+    credit: {
+      en: 'Alternative Credit Scoring Guide:\n\n' +
+          '• Alternative Credit builds a creditworthiness profile for farmers without formal bank collateral using UPI transactions, satellite-estimated farm acreage, and crop yield history.\n' +
+          '• To prepare your profile for lending partners, keep your Farmer Profile updated with your verified land size and primary crops.\n' +
+          '• Direct in-app credit underwriting and loan disbursement with partner banks are currently in development.',
+      kn: 'ಪರ್ಯಾಯ ಕೃಷಿ ಕ್ರೆಡಿಟ್ ಸ್ಕೋರ್ ಮಾರ್ಗದರ್ಶಿ:\n\n' +
+          '• ಬ್ಯಾಂಕ್ ಭದ್ರತೆ ಇಲ್ಲದ ರೈತರಿಗೆ UPI ವಹಿವಾಟು, ಉಪಗ್ರಹ ಆಧಾರಿತ ಜಮೀನಿನ ವಿಸ್ತೀರ್ಣ ಮತ್ತು ಇಳುವರಿ ಇತಿಹಾಸದ ಆಧಾರದ ಮೇಲೆ ಕ್ರೆಡಿಟ್ ಸ್ಕೋರ್ ನಿರ್ಮಿಸಲಾಗುತ್ತದೆ.\n' +
+          '• ಸಾಲ ಪಾಲುದಾರರಿಗೆ ನಿಮ್ಮ ವಿವರ ಒದಗಿಸಲು, ಪ್ರೊಫೈಲ್‌ನಲ್ಲಿ ನಿಮ್ಮ ನಿಖರವಾದ ಜಮೀನು ಮತ್ತು ಬೆಳೆ ವಿವರಗಳನ್ನು ನವೀಕರಿಸಿ ಇರಿಸಿ.\n' +
+          '• ಬ್ಯಾಂಕ್ ಪಾಲುದಾರರೊಂದಿಗೆ ನೇರ ಸಾಲ ವಿತರಣಾ ಸೌಲಭ್ಯವು ಸದ್ಯ ಅಭಿವೃದ್ಧಿಯಲ್ಲಿದೆ.',
+      hi: 'वैकल्पिक कृषि क्रेडिट स्कोर गाइड:\n\n' +
+          '• बिना बैंक गारंटी वाले किसानों के लिए UPI लेनदेन, उपग्रह-आधारित भूमि रकबा और फसल उपज इतिहास के आधार पर क्रेडिट स्कोर तैयार किया जाता है।\n' +
+          '• ऋण प्रदाताओं के लिए अपनी प्रोफाइल तैयार रखने के लिए अपनी भूमि और मुख्य फसलों का विवरण अद्यतन रखें।\n' +
+          '• बैंकों के साथ इन-ऐप ऋण वितरण सुविधा वर्तमान में विकास में है।',
+      actions: [
+        { label: '👤 Update Farm Profile & Land', labelKn: '👤 ಕೃಷಿ ಪ್ರೊಫೈಲ್ ಮತ್ತು ಜಮೀನು ನವೀಕರಿಸಿ', labelHi: '👤 किसान प्रोफाइल और भूमि विवरण अपडेट करें', action: "go('account')" },
+        { label: '🏛️ View Agricultural Credit Schemes', labelKn: '🏛️ ಕೃಷಿ ಸಾಲ ಯೋಜನೆಗಳನ್ನು ವೀಕ್ಷಿಸಿ', labelHi: '🏛️ कृषि ऋण योजनाएं देखें', action: "go('schemes')" }
+      ]
+    }
   };
   const nc = NOT_CONNECTED[id];
   document.getElementById('stubTitle').textContent = item.emoji + '  ' + item.t;
   if(nc){
-    document.getElementById('stubBanner').textContent = isKn ? 'ಶೀಘ್ರದಲ್ಲಿ ಬರಲಿದೆ · ಇನ್ನೂ ಸಂಪರ್ಕಗೊಂಡಿಲ್ಲ' : 'Coming soon · Not connected yet';
-    document.getElementById('stubBody').textContent = item.body + '\n\n' + (isKn ? nc.kn : nc.en);
+    document.getElementById('stubBanner').textContent = isKn ? 'ಶೀಘ್ರದಲ್ಲಿ ಬರಲಿದೆ · ಅಭಿವೃದ್ಧಿಯಲ್ಲಿದೆ' : (isHi ? 'जल्द आ रहा है · विकास में है' : 'Coming soon · In development');
+    const ncDesc = isKn ? (nc.kn || nc.en) : (isHi ? (nc.hi || nc.en) : nc.en);
+    document.getElementById('stubBody').textContent = item.body + '\n\n' + ncDesc;
     document.getElementById('stubBody').style.whiteSpace = 'pre-line';
   } else {
-    document.getElementById('stubBanner').textContent = isKn ? 'ನೇರ ಸೇವಾ ಸಂಯೋಜನೆ · ಆಗ್ರೋ AI API ಮೂಲಕ' : 'Live Service Integration · Powered by Agro AI APIs';
+    document.getElementById('stubBanner').textContent = isKn ? 'ನೇರ ಸೇವಾ ಸಂಯೋಜನೆ · ಆಗ್ರೋ AI API ಮೂಲಕ' : (isHi ? 'लाइव सेवा एकीकरण · Agro AI APIs द्वारा संचालित' : 'Live Service Integration · Powered by Agro AI APIs');
     document.getElementById('stubBody').textContent = item.body;
   }
   const actArea = document.getElementById('stubActionArea');
@@ -7134,7 +7243,7 @@ function openMoreItem(id){
       actArea.style.flexDirection = 'column';
       actArea.style.gap = '8px';
       actArea.innerHTML = nc.actions.map(a => {
-        const lbl = isKn ? (a.labelKn || a.label) : a.label;
+        const lbl = isKn ? (a.labelKn || a.label) : (isHi ? (a.labelHi || a.label) : a.label);
         if(a.external){
           return `<a href="${a.external}" target="_blank" rel="noopener noreferrer" class="btn btn-outline btn-block" style="text-align:center;padding:10px;text-decoration:none;display:block;">${lbl} ↗</a>`;
         }
