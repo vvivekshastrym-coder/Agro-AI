@@ -5911,14 +5911,30 @@ SharedLocationService.subscribe((newLoc) => {
   }
 });
 
-function _formatSunTime(isoOrStr) {
+function _formatSunTime(isoOrStr, tzOffsetSeconds) {
   if (!isoOrStr) return null;
   try {
+    const isExplicitUtc = isoOrStr.endsWith('Z') || isoOrStr.includes('+00:00') || isoOrStr.includes('-00:00');
+    if (isExplicitUtc && typeof tzOffsetSeconds === 'number') {
+      const d = new Date(isoOrStr);
+      if (!isNaN(d.getTime())) {
+        const locDate = new Date(d.getTime() + tzOffsetSeconds * 1000);
+        const hrs = String(locDate.getUTCHours()).padStart(2, '0');
+        const mins = String(locDate.getUTCMinutes()).padStart(2, '0');
+        return `${hrs}:${mins}`;
+      }
+    }
     if (isoOrStr.includes('T') && isoOrStr.length >= 16) {
       return isoOrStr.split('T')[1].slice(0, 5);
     }
     const d = new Date(isoOrStr);
     if (!isNaN(d.getTime())) {
+      if (typeof tzOffsetSeconds === 'number') {
+        const locDate = new Date(d.getTime() + tzOffsetSeconds * 1000);
+        const hrs = String(locDate.getUTCHours()).padStart(2, '0');
+        const mins = String(locDate.getUTCMinutes()).padStart(2, '0');
+        return `${hrs}:${mins}`;
+      }
       return d.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: false });
     }
   } catch (e) {}
@@ -6008,9 +6024,11 @@ async function loadRealWeather(forceRefresh = false){
     const rainMm = data.rain_mm != null ? data.rain_mm : data.rain_1h;
     set('weatherRainMmMetric', rainMm != null ? `${rainMm} mm` : 'N/A');
     set('weatherRainProbMetric', data.rain_probability != null ? `${data.rain_probability}%` : 'N/A');
-    const sr = _formatSunTime(data.sunrise);
-    const ss = _formatSunTime(data.sunset);
-    set('weatherSunMetric', (sr && ss) ? `${sr} / ${ss}` : (sr || ss || 'N/A'));
+    const tzLabel = data.timezone_abbr || ((data.country === 'IN' || data.timezone_offset_seconds === 19800) ? 'IST' : '');
+    const sr = _formatSunTime(data.sunrise, data.timezone_offset_seconds);
+    const ss = _formatSunTime(data.sunset, data.timezone_offset_seconds);
+    const sunTimes = (sr && ss) ? `${sr} / ${ss}` : (sr || ss || 'N/A');
+    set('weatherSunMetric', (sunTimes !== 'N/A' && tzLabel) ? `${sunTimes} ${tzLabel}` : sunTimes);
 
     // Source and observation timestamp metadata
     const srcName = (data.metadata && data.metadata.source) ? data.metadata.source : 'Authorized Weather Service';

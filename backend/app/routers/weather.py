@@ -243,6 +243,22 @@ def _deg_to_cardinal(deg: Optional[float]) -> Optional[str]:
     return dirs[ix]
 
 
+def _format_tz_label(tz_offset_sec: Optional[int], country: Optional[str] = None) -> str:
+    if tz_offset_sec is None:
+        return "IST" if country == "IN" else ""
+    if tz_offset_sec == 19800 or (country == "IN" and tz_offset_sec == 19800):
+        return "IST"
+    if tz_offset_sec == 0:
+        return "UTC"
+    sign = "+" if tz_offset_sec >= 0 else "-"
+    total_mins = abs(tz_offset_sec) // 60
+    hours = total_mins // 60
+    mins = total_mins % 60
+    if mins == 0:
+        return f"GMT{sign}{hours}"
+    return f"GMT{sign}{hours}:{mins:02d}"
+
+
 def _validate_coords(lat: Optional[float], lon: Optional[float]) -> None:
     if lat is not None and (math.isnan(lat) or lat < -90.0 or lat > 90.0):
         raise HTTPException(status_code=400, detail="Latitude must be between -90 and 90 degrees.")
@@ -712,6 +728,8 @@ async def fetch_open_meteo_current(target_lat: float, target_lon: float, city_na
             )
             sunrise = daily["sunrise"][0] if daily.get("sunrise") and len(daily["sunrise"]) > 0 else None
             sunset = daily["sunset"][0] if daily.get("sunset") and len(daily["sunset"]) > 0 else None
+            tz_offset_sec = data.get("utc_offset_seconds")
+            tz_abbr = "IST" if tz_offset_sec == 19800 else (data.get("timezone_abbreviation") or _format_tz_label(tz_offset_sec, "IN"))
             rain_probability = (
                 round(daily["precipitation_probability_max"][0])
                 if daily.get("precipitation_probability_max") and daily["precipitation_probability_max"][0] is not None
@@ -779,6 +797,8 @@ async def fetch_open_meteo_current(target_lat: float, target_lon: float, city_na
                 "rain_probability": rain_probability,
                 "sunrise": sunrise,
                 "sunset": sunset,
+                "timezone_offset_seconds": tz_offset_sec,
+                "timezone_abbr": tz_abbr,
                 "hourly": hourly_list,
                 "city": city_name,
                 "state": state_name,
@@ -950,16 +970,27 @@ async def get_current_weather(
 
                     sr_ts = sys_block.get("sunrise")
                     ss_ts = sys_block.get("sunset")
+                    tz_offset_sec = data.get("timezone")
+                    country_code = sys_block.get("country", "IN")
+                    if tz_offset_sec is None and country_code == "IN":
+                        tz_offset_sec = 19800
+
+                    loc_tz = (
+                        datetime.timezone(datetime.timedelta(seconds=tz_offset_sec))
+                        if tz_offset_sec is not None
+                        else datetime.timezone.utc
+                    )
                     sunrise_iso = (
-                        datetime.datetime.fromtimestamp(sr_ts, tz=datetime.timezone.utc).isoformat()
+                        datetime.datetime.fromtimestamp(sr_ts, tz=loc_tz).isoformat()
                         if sr_ts
                         else None
                     )
                     sunset_iso = (
-                        datetime.datetime.fromtimestamp(ss_ts, tz=datetime.timezone.utc).isoformat()
+                        datetime.datetime.fromtimestamp(ss_ts, tz=loc_tz).isoformat()
                         if ss_ts
                         else None
                     )
+                    tz_abbr = _format_tz_label(tz_offset_sec, country_code)
 
                     weather_res = {
                         "available": True,
@@ -980,6 +1011,8 @@ async def get_current_weather(
                         "rain_probability": None,  # OpenWeatherMap /weather does not report pop; never fabricate
                         "sunrise": sunrise_iso,
                         "sunset": sunset_iso,
+                        "timezone_offset_seconds": tz_offset_sec,
+                        "timezone_abbr": tz_abbr,
                         "hourly": [],
                         "city": city_name if (q and q.strip()) else data.get("name", city_name),
                         "state": state_name,

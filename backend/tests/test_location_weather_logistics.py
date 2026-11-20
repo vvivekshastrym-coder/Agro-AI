@@ -452,6 +452,9 @@ def test_17_weather_for_current_gps_location_uses_exact_coordinates(monkeypatch)
     assert body["temp"] == 29
     assert body["wind_direction_deg"] == 90
     assert body["wind_direction_cardinal"] == "E"
+    assert body["sunrise"] is not None and "+05:30" in body["sunrise"]
+    assert body["sunset"] is not None and "+05:30" in body["sunset"]
+    assert body["timezone_abbr"] == "IST"
 
 
 def test_18_weather_for_manually_searched_location_updates_accurately(monkeypatch):
