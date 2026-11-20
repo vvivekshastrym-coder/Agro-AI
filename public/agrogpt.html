@@ -7106,6 +7106,118 @@ function getFarmPassportDetails(lang) {
     '  Automated decentralized blockchain anchoring for immutable soil, input, and harvest logging is currently in development. Your in-app activity is continuously recorded in your Agro AI profile in the meantime.';
 }
 
+function askAgroGptCredit(){
+  const p = (typeof farmerProfile !== 'undefined' && farmerProfile) ? farmerProfile : null;
+  const land = p && p.land ? `${p.land} acres` : 'my land';
+  const crop = p && p.crop ? p.crop : 'crops';
+  const query = currentLang === 'kn'
+    ? `${land} ಜಮೀನಿನಲ್ಲಿ ${crop} ಬೆಳೆಯಲು ಕಿಸಾನ್ ಕ್ರೆಡಿಟ್ ಕಾರ್ಡ್ (KCC) 4% ಬಡ್ಡಿದರದ ಬೆಳೆ ಸಾಲ ಮತ್ತು ಅರ್ಹತೆಯ ನಿಯಮಗಳೇನು?`
+    : (currentLang === 'hi'
+      ? `${land} भूमि पर ${crop} की खेती के लिए किसान क्रेडिट कार्ड (KCC) 4% ब्याज दर फसल ऋण और पात्रता की शर्तें क्या हैं?`
+      : `What are the eligibility criteria, interest subvention (4% KCC), and document requirements for a Kisan Credit Card crop loan for ${land} of ${crop}?`);
+  go('kisangpt');
+  setTimeout(() => {
+    const input = document.getElementById('chatInput');
+    if(input){
+      input.value = query;
+      sendChat();
+    }
+  }, 250);
+}
+
+function getAlternativeCreditDetails(lang) {
+  const p = (typeof farmerProfile !== 'undefined' && farmerProfile) ? farmerProfile : null;
+  const reports = (typeof savedReports !== 'undefined' && Array.isArray(savedReports)) ? savedReports : [];
+  const name = p && p.name ? p.name : (lang === 'kn' ? 'ನಮೂದಿಸಿಲ್ಲ (ಅತಿಥಿ)' : (lang === 'hi' ? 'दर्ज नहीं (अतिथि)' : 'Not set (Guest)'));
+  const loc = p && p.village ? `${p.village}, ${p.state || 'Karnataka'}` : (lang === 'kn' ? 'ಮಾಂಡ್ಯ, ಕರ್ನಾಟಕ' : (lang === 'hi' ? 'मंड्या, कर्नाटक' : 'Mandya, Karnataka'));
+  const landVal = p && p.land ? parseFloat(p.land) : 2.5;
+  const landText = p && p.land ? `${p.land} ${lang === 'kn' ? 'ಎಕರೆ' : (lang === 'hi' ? 'एकड़' : 'acres')}` : (lang === 'kn' ? '2.5 ಎಕರೆ (ಅಂದಾಜು)' : (lang === 'hi' ? '2.5 एकड़ (अनुमानित)' : '2.5 acres (Estimated)'));
+  const crop = p && p.crop ? p.crop : (lang === 'kn' ? 'ಟೊಮೆಟೊ (ವಾಣಿಜ್ಯ ಬೆಳೆ)' : (lang === 'hi' ? 'टमाटर (व्यावसायिक फसल)' : 'Tomato (Commercial crop)'));
+
+  // Calculate dynamic indicative credit score (scale 300 - 900, standard agricultural credit range 600 - 850)
+  const baseScore = 650;
+  const safeLand = (!isNaN(landVal) && landVal > 0) ? landVal : 2.5;
+  const landBonus = Math.min(50, Math.round(safeLand * 8));
+  const cropStr = String(crop).toLowerCase();
+  const isHighValue = cropStr.includes('tomat') || cropStr.includes('sugarcane') || cropStr.includes('cotton') || cropStr.includes('onion') || cropStr.includes('potato') || cropStr.includes('coffee') || cropStr.includes('chilli') || cropStr.includes('paddy') || cropStr.includes('wheat') || cropStr.includes('ಟೊಮೆಟೊ') || cropStr.includes('टमाटर');
+  const cropBonus = isHighValue ? 30 : 20;
+  const reportBonus = Math.min(25, reports.length * 5);
+  const totalEstimated = baseScore + landBonus + cropBonus + reportBonus;
+  const scoreMin = Math.max(580, totalEstimated - 20);
+  const scoreMax = Math.min(840, totalEstimated + 20);
+
+  let ratingBandEn = 'Good Credit Potential';
+  let ratingBandKn = 'ಉತ್ತಮ ಸಾಲ ಅರ್ಹತೆ';
+  let ratingBandHi = 'अच्छी ऋण क्षमता';
+  if (totalEstimated >= 740) {
+    ratingBandEn = 'Excellent Credit Potential';
+    ratingBandKn = 'ಅತ್ಯುತ್ತಮ ಸಾಲ ಅರ್ಹತೆ';
+    ratingBandHi = 'उत्कृष्ट ऋण क्षमता';
+  } else if (totalEstimated < 670) {
+    ratingBandEn = 'Moderate Credit Potential';
+    ratingBandKn = 'ಮಧ್ಯಮ ಸಾಲ ಅರ್ಹತೆ';
+    ratingBandHi = 'सामान्य ऋण क्षमता';
+  }
+
+  if (lang === 'kn') {
+    return 'ಪರ್ಯಾಯ ಕೃಷಿ ಕ್ರೆಡಿಟ್ ಸ್ಕೋರ್ ಮತ್ತು ಸಾಲ ಸೌಲಭ್ಯ ಮಾರ್ಗದರ್ಶಿ:\n\n' +
+      `• ನಿಮ್ಮ ಅಂದಾಜು ಪರ್ಯಾಯ ಕ್ರೆಡಿಟ್ ಸ್ಕೋರ್: ~${scoreMin}–${scoreMax} / 900 (${ratingBandKn})\n` +
+      `  ಪರಿಶೀಲಿಸಿದ ಕೃಷಿ ವಿವರ: ${name} · ${loc} (${landText}, ${crop})\n\n` +
+      '• ಪರ್ಯಾಯ ಕ್ರೆಡಿಟ್ ಸ್ಕೋರ್ ಹೇಗೆ ಕೆಲಸ ಮಾಡುತ್ತದೆ?\n' +
+      '  ಸಾಂಪ್ರದಾಯಿಕ ಬ್ಯಾಂಕ್ ಸಿಬಿಲ್ (CIBIL) ಅಥವಾ ಆಸ್ತಿ ಭದ್ರತೆ ಇಲ್ಲದ ರೈತರಿಗೆ, ಕೃಷಿ ಉತ್ಪಾದನಾ ಸಾಮರ್ಥ್ಯ, ಜಮೀನಿನ ವಿಸ್ತೀರ್ಣ, UPI ವಹಿವಾಟು ಮತ್ತು ಇಳುವರಿ ಇತಿಹಾಸದ ಆಧಾರದ ಮೇಲೆ ಕೃಷಿ ಸಾಲದ ಅರ್ಹತೆಯನ್ನು ಲೆಕ್ಕಹಾಕಲಾಗುತ್ತದೆ.\n\n' +
+      '• ನಿಮ್ಮ ಸ್ಕೋರ್ ಹೆಚ್ಚಿಸುವ 4 ಪ್ರಮುಖ ಅಂಶಗಳು:\n' +
+      `  1. ಪರಿಶೀಲಿಸಿದ ಜಮೀನು ವಿಸ್ತೀರ್ಣ (+${landBonus} pts): ಅಧಿಕೃತ ಜಮೀನು ಮತ್ತು ವಿಸ್ತೀರ್ಣ ಖಚಿತತೆ.\n` +
+      `  2. ಬೆಳೆ ಆರ್ಥಿಕ ಸಾಮರ್ಥ್ಯ (+${cropBonus} pts): ಮಾರುಕಟ್ಟೆ ಬೇಡಿಕೆಯಿರುವ ವಾಣಿಜ್ಯ ಬೆಳೆಗಳ ಉತ್ಪಾದನೆ.\n` +
+      `  3. ಬೆಳೆ ಆರೋಗ್ಯ ಮತ್ತು ಡಿಜಿಟಲ್ ಇತಿಹಾಸ (+${reportBonus} pts): ರೋಗ ತಪಾಸಣೆ ಮತ್ತು ನಿಯಮಿತ ನಿರ್ವಹಣೆ (${reports.length} ವರದಿಗಳು ದಾಖಲಾಗಿವೆ).\n` +
+      '  4. ಅಪಾಯ ನಿರ್ವಹಣೆ ಮತ್ತು ವಿಮೆ (+15 pts): PMFBY ಬೆಳೆ ವಿಮೆ ಮತ್ತು ಹವಾಮಾನ ಎಚ್ಚರಿಕೆಗಳ ಪಾಲನೆ.\n\n' +
+      '• ಸಾಲ ಸೌಲಭ್ಯ ಪಡೆಯುವ ಮತ್ತು ಸ್ಕೋರ್ ಸುಧಾರಿಸುವ ಹಂತಗಳು:\n' +
+      '  1. ಪ್ರೊಫೈಲ್ ನವೀಕರಿಸಿ: ನಿಮ್ಮ ರೈತ ಪ್ರೊಫೈಲ್‌ನಲ್ಲಿ ನಿಖರವಾದ ಜಮೀನು ವಿಸ್ತೀರ್ಣ ಮತ್ತು ಮುಖ್ಯ ಬೆಳೆಯನ್ನು ನಮೂದಿಸಿ.\n' +
+      '  2. ಕಿಸಾನ್ ಕ್ರೆಡಿಟ್ ಕಾರ್ಡ್ (KCC): 4% ಬಡ್ಡಿದರದ ಸರ್ಕಾರಿ ಬೆಳೆ ಸಾಲ ಮತ್ತು ಸಬ್ಸಿಡಿ ಯೋಜನೆಗಳ ವಿವರ ವೀಕ್ಷಿಸಿ.\n' +
+      '  3. ಕೃಷಿ ದಾಖಲೆ ಜೋಡಿಸಿ: ನಿಮ್ಮ ಪಹಣಿ (RTC) ಮತ್ತು FRUITS ID ಜೋಡಿಸಿ ನಿಮ್ಮ ಡಿಜಿಟಲ್ ಕೃಷಿ ಪಾಸ್‌ಪೋರ್ಟ್ ಸಿದ್ಧಪಡಿಸಿ.\n' +
+      '  4. Agro GPT ಯಲ್ಲಿ ಸಾಲ ಸಲಹೆ ಪಡೆಯಿರಿ: ಬೆಳೆ ಸಾಲದ ದಾಖಲೆಗಳು ಮತ್ತು ಅರ್ಜಿ ಸಲ್ಲಿಕೆ ಕುರಿತು ನೇರ ಮಾರ್ಗದರ್ಶನ ಪಡೆಯಿರಿ.\n\n' +
+      '• ಬ್ಯಾಂಕ್ ನೇರ ಸಾಲ ಸಂಯೋಜನೆ:\n' +
+      '  ಪಾಲುದಾರ ಬ್ಯಾಂಕುಗಳೊಂದಿಗೆ ಇನ್-ಆ್ಯಪ್ ಸಾಲ ಮಂಜೂರಾತಿ ಮತ್ತು ವಿತರಣಾ ವ್ಯವಸ್ಥೆಯು ಸದ್ಯ ಸಕ್ರಿಯ ಅಭಿವೃದ್ಧಿಯಲ್ಲಿದೆ (ಶೀಘ್ರದಲ್ಲಿ ಬರಲಿದೆ). ಈ ಮಧ್ಯೆ ಬ್ಯಾಂಕ್‌ಗಳಲ್ಲಿ ಸಾಲ ಪಡೆಯಲು ಕೆಳಗಿನ ಕೆಸಿಸಿ (KCC) ಯೋಜನೆಗಳು ಮತ್ತು ರೈತ ಪ್ರೊಫೈಲ್ ವಿವರಗಳನ್ನು ಬಳಸಬಹುದು.';
+  }
+
+  if (lang === 'hi') {
+    return 'वैकल्पिक कृषि क्रेडिट स्कोर और ऋण पहुंच गाइड:\n\n' +
+      `• आपका अनुमानित वैकल्पिक क्रेडिट स्कोर: ~${scoreMin}–${scoreMax} / 900 (${ratingBandHi})\n` +
+      `  सत्यापित कृषि विवरण: ${name} · ${loc} (${landText}, ${crop})\n\n` +
+      '• वैकल्पिक क्रेडिट स्कोर कैसे काम करता है?\n' +
+      '  पारंपरिक बैंक CIBIL या संपत्ति गिरवी के बिना किसानों के लिए कृषि उत्पादन क्षमता, भूमि रकबा, UPI लेनदेन और फसल उपज इतिहास के आधार पर ऋण पात्रता का मूल्यांकन किया जाता है।\n\n' +
+      '• आपके स्कोर को निर्धारित करने वाले 4 मुख्य कारक:\n' +
+      `  1. सत्यापित भूमि रकबा (+${landBonus} pts): पंजीकृत कृषि जोत का रकबा।\n` +
+      `  2. फसल की आर्थिक क्षमता (+${cropBonus} pts): बाजार में उच्च मांग वाली नकदी/व्यावसायिक फसल।\n` +
+      `  3. फसल स्वास्थ्य और डिजिटल रिकॉर्ड (+${reportBonus} pts): रोग परीक्षण व नियमित प्रबंधन (${reports.length} रिपोर्ट दर्ज)।\n` +
+      '  4. जोखिम न्यूनीकरण (+15 pts): PMFBY फसल बीमा और मौसम पूर्वानुमान का पालन।\n\n' +
+      '• ऋण सुविधा प्राप्त करने और स्कोर बढ़ाने के चरण:\n' +
+      '  1. प्रोफाइल अपडेट करें: अपनी किसान प्रोफाइल में सही भूमि रकबा और मुख्य फसल दर्ज करें।\n' +
+      '  2. किसान क्रेडिट कार्ड (KCC): 4% रियायती ब्याज दर फसल ऋण और सरकारी योजनाओं की जानकारी देखें।\n' +
+      '  3. कृषि रिकॉर्ड लिंक करें: अपनी खतौनी/RTC और डिजिटल फार्म पासपोर्ट के माध्यम से दस्तावेज तैयार रखें।\n' +
+      '  4. Agro GPT से ऋण सलाह लें: KCC ऋण आवेदन और बैंक पात्रता के बारे में तुरंत जानकारी प्राप्त करें।\n\n' +
+      '• बैंक प्रत्यक्ष ऋण एकीकरण:\n' +
+      '  सहयोगी बैंकों के साथ इन-ऐप ऋण अंडरराइटिंग और तत्काल वितरण सुविधा वर्तमान में विकास में है (जल्द आ रहा है)। इस बीच बैंक शाखाओं में आवेदन के लिए नीचे दिए गए KCC विकल्पों और फार्म पासपोर्ट का उपयोग करें।';
+  }
+
+  return 'Alternative Farm Credit Score & Service Access Guide:\n\n' +
+    `• Your Indicative Alternative Credit Score: ~${scoreMin}–${scoreMax} / 900 (${ratingBandEn})\n` +
+    `  Verified Farm Profile: ${name} · ${loc} (${landText}, ${crop})\n\n` +
+    '• What is Alternative Agricultural Credit?\n' +
+    '  Designed for unbanked smallholder farmers without formal CIBIL credit scores or collateral. Your creditworthiness is evaluated using remote-sensing land estimates, crop agronomic potential, UPI digital transactions, and yield continuity.\n\n' +
+    '• 4 Key Pillars Driving Your Score:\n' +
+    `  1. Verified Land Acreage (+${landBonus} pts): Confirmed parcel boundaries and agricultural landholding.\n` +
+    `  2. Crop Market Potential (+${cropBonus} pts): High-yield commercial crops with demonstrated market liquidity.\n` +
+    `  3. Digital Farm Health Ledger (+${reportBonus} pts): Regular leaf diagnostic scans and active pest management (${reports.length} scan records logged).\n` +
+    '  4. Climate Risk Mitigation (+15 pts): Enrollment in PMFBY crop insurance and weather advisories.\n\n' +
+    '• How to Access Credit & Maximize Your Score:\n' +
+    '  1. Update Farm Profile: Ensure your exact acreage, irrigation type, and standing crops are up-to-date.\n' +
+    '  2. Review 4% KCC Schemes: Check eligibility for subsidized Kisan Credit Card crop loans up to ₹3 Lakh.\n' +
+    '  3. Link Farm Records: Prepare your RTC / Bhoomi or FRUITS land records in your Farm Passport.\n' +
+    '  4. Ask Agro GPT: Inquire about loan requirements, interest subvention, and bank branch documentation.\n\n' +
+    '• Direct Bank Underwriting Status:\n' +
+    '  Automated partner-bank credit underwriting and instant in-app loan disbursement are currently in active development (Coming soon · In development). In the interim, use the action buttons below to manage your profile, view 4% KCC schemes, and consult Agro GPT.';
+}
+
 /* ================= PEST RADAR ================= */
 function askAgroGptPest(){
   const crop = (farmerProfile && farmerProfile.crop) ? farmerProfile.crop : 'crops';
@@ -7343,21 +7455,14 @@ function openMoreItem(id){
       ]
     },
     credit: {
-      en: 'Alternative Credit Scoring Guide:\n\n' +
-          '• Alternative Credit builds a creditworthiness profile for farmers without formal bank collateral using UPI transactions, satellite-estimated farm acreage, and crop yield history.\n' +
-          '• To prepare your profile for lending partners, keep your Farmer Profile updated with your verified land size and primary crops.\n' +
-          '• Direct in-app credit underwriting and loan disbursement with partner banks are currently in development.',
-      kn: 'ಪರ್ಯಾಯ ಕೃಷಿ ಕ್ರೆಡಿಟ್ ಸ್ಕೋರ್ ಮಾರ್ಗದರ್ಶಿ:\n\n' +
-          '• ಬ್ಯಾಂಕ್ ಭದ್ರತೆ ಇಲ್ಲದ ರೈತರಿಗೆ UPI ವಹಿವಾಟು, ಉಪಗ್ರಹ ಆಧಾರಿತ ಜಮೀನಿನ ವಿಸ್ತೀರ್ಣ ಮತ್ತು ಇಳುವರಿ ಇತಿಹಾಸದ ಆಧಾರದ ಮೇಲೆ ಕ್ರೆಡಿಟ್ ಸ್ಕೋರ್ ನಿರ್ಮಿಸಲಾಗುತ್ತದೆ.\n' +
-          '• ಸಾಲ ಪಾಲುದಾರರಿಗೆ ನಿಮ್ಮ ವಿವರ ಒದಗಿಸಲು, ಪ್ರೊಫೈಲ್‌ನಲ್ಲಿ ನಿಮ್ಮ ನಿಖರವಾದ ಜಮೀನು ಮತ್ತು ಬೆಳೆ ವಿವರಗಳನ್ನು ನವೀಕರಿಸಿ ಇರಿಸಿ.\n' +
-          '• ಬ್ಯಾಂಕ್ ಪಾಲುದಾರರೊಂದಿಗೆ ನೇರ ಸಾಲ ವಿತರಣಾ ಸೌಲಭ್ಯವು ಸದ್ಯ ಅಭಿವೃದ್ಧಿಯಲ್ಲಿದೆ.',
-      hi: 'वैकल्पिक कृषि क्रेडिट स्कोर गाइड:\n\n' +
-          '• बिना बैंक गारंटी वाले किसानों के लिए UPI लेनदेन, उपग्रह-आधारित भूमि रकबा और फसल उपज इतिहास के आधार पर क्रेडिट स्कोर तैयार किया जाता है।\n' +
-          '• ऋण प्रदाताओं के लिए अपनी प्रोफाइल तैयार रखने के लिए अपनी भूमि और मुख्य फसलों का विवरण अद्यतन रखें।\n' +
-          '• बैंकों के साथ इन-ऐप ऋण वितरण सुविधा वर्तमान में विकास में है।',
+      en: getAlternativeCreditDetails('en'),
+      kn: getAlternativeCreditDetails('kn'),
+      hi: getAlternativeCreditDetails('hi'),
       actions: [
-        { label: '👤 Update Farm Profile & Land', labelKn: '👤 ಕೃಷಿ ಪ್ರೊಫೈಲ್ ಮತ್ತು ಜಮೀನು ನವೀಕರಿಸಿ', labelHi: '👤 किसान प्रोफाइल और भूमि विवरण अपडेट करें', action: "go('account')" },
-        { label: '🏛️ View Agricultural Credit Schemes', labelKn: '🏛️ ಕೃಷಿ ಸಾಲ ಯೋಜನೆಗಳನ್ನು ವೀಕ್ಷಿಸಿ', labelHi: '🏛️ कृषि ऋण योजनाएं देखें', action: "go('schemes')" }
+        { label: '👤 Update Farm Profile & Land Acreage', labelKn: '👤 ಕೃಷಿ ಪ್ರೊಫೈಲ್ ಮತ್ತು ಜಮೀನು ನವೀಕರಿಸಿ', labelHi: '👤 किसान प्रोफाइल और भूमि रकबा अपडेट करें', action: "go('account')" },
+        { label: '🏛️ View 4% KCC & Agricultural Loan Schemes', labelKn: '🏛️ 4% KCC ಮತ್ತು ಕೃಷಿ ಸಾಲ ಯೋಜನೆಗಳನ್ನು ವೀಕ್ಷಿಸಿ', labelHi: '🏛️ 4% KCC और कृषि ऋण योजनाएं देखें', action: "go('schemes')" },
+        { label: '💬 Ask Agro GPT for KCC Loan & Credit Advice', labelKn: '💬 Agro GPT ಯಲ್ಲಿ KCC ಸಾಲ ಮತ್ತು ಕ್ರೆಡಿಟ್ ಸಲಹೆ ಪಡೆಯಿರಿ', labelHi: '💬 Agro GPT से KCC ऋण और क्रेडिट सलाह लें', action: "askAgroGptCredit()" },
+        { label: '🪪 View Farm Passport & Permanent Records', labelKn: '🪪 ಕೃಷಿ ಪಾಸ್‌ಪೋರ್ಟ್ ಮತ್ತು ಶಾಶ್ವತ ದಾಖಲೆಗಳನ್ನು ವೀಕ್ಷಿಸಿ', labelHi: '🪪 फार्म पासपोर्ट और स्थायी रिकॉर्ड देखें', action: "openMoreItem('passport')" }
       ]
     }
   };
