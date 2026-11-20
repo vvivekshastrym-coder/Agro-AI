@@ -499,11 +499,11 @@ export default function Login() {
       <div className="text-center text-[11px] text-ink-soft pt-4 border-t border-line/60">
         <p className="leading-relaxed">
           {t.termsNotice}{" "}
-          <a href="#" className="underline text-forest font-semibold">
+          <a href="/terms" target="_blank" rel="noopener noreferrer" className="underline text-forest font-semibold">
             {t.termsLink}
           </a>{" "}
           ·{" "}
-          <a href="#" className="underline text-forest font-semibold">
+          <a href="/privacy" target="_blank" rel="noopener noreferrer" className="underline text-forest font-semibold">
             {t.privacyLink}
           </a>
         </p>
