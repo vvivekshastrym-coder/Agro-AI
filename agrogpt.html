@@ -992,10 +992,10 @@
         </p>
 
         <div style="display:flex;flex-direction:column;gap:12px;max-width:320px;margin:0 auto 20px;">
-          <button class="btn btn-primary btn-block" style="background:var(--forest);color:#fff;padding:13px 20px;font-size:15px;font-weight:700;border-radius:999px;border:none;box-shadow:0 4px 14px rgba(31,77,43,0.22);cursor:pointer;" onclick="openAgroGptAuth('login')">
+          <button id="agroGptLoginBtn" class="btn btn-primary btn-block" style="background:var(--forest);color:#fff;padding:13px 20px;font-size:15px;font-weight:700;border-radius:999px;border:none;box-shadow:0 4px 14px rgba(31,77,43,0.22);cursor:pointer;" onclick="openAgroGptAuth('login')">
             Login to Access AgroGPT
           </button>
-          <button class="btn btn-outline btn-block" style="padding:12px 20px;font-size:14.5px;font-weight:600;border-radius:999px;border:1.5px solid var(--forest);color:var(--forest);background:transparent;cursor:pointer;" onclick="openAgroGptAuth('signup')">
+          <button id="agroGptSignupBtn" class="btn btn-outline btn-block" style="padding:12px 20px;font-size:14.5px;font-weight:600;border-radius:999px;border:1.5px solid var(--forest);color:var(--forest);background:transparent;cursor:pointer;" onclick="openAgroGptAuth('signup')">
             Create Free Account
           </button>
         </div>
@@ -2179,6 +2179,12 @@ const I18N = {
     diag_evidence_title: "🔬 Measured Visual Evidence:",
     diag_conf_label: "confidence",
     gpt_title: "Agro GPT",
+    agro_gpt_gate_heading: "Your AI Farming Assistant Awaits!",
+    agro_gpt_gate_desc: "Log in to Agro AI to access AgroGPT, your intelligent farming assistant. Get personalized crop advice, farming guidance, disease solutions, and answers to your agricultural questions.",
+    agro_gpt_login_btn: "Login to Access AgroGPT",
+    agro_gpt_signup_btn: "Create Free Account",
+    agro_gpt_gate_subtext: "Join Agro AI and get smarter farming assistance in your language.",
+    agro_gpt_login_banner: "🔒 Please log in to continue using AgroGPT. Your AI farming assistant is available after signing in.",
     gpt_call_btn: "📞 1800-AGRO-AI",
     gpt_placeholder: "Type your question…",
     weather_forecast_title: "7-day forecast",
@@ -2395,6 +2401,12 @@ const I18N = {
     diag_evidence_title: "🔬 ಅಳತೆ ಮಾಡಿದ ದೃಶ್ಯ ಸಾಕ್ಷ್ಯಗಳು:",
     diag_conf_label: "ವಿಶ್ವಾಸಾರ್ಹತೆ",
     gpt_title: "ಅಗ್ರೋ ಜಿಪಿಟಿ",
+    agro_gpt_gate_heading: "ನಿಮ್ಮ AI ಕೃಷಿ ಸಹಾಯಕ ಸಿದ್ಧವಾಗಿದೆ!",
+    agro_gpt_gate_desc: "AgroGPT ಬಳಸಲು ಆಗ್ರೋ AI ಗೆ ಲಾಗಿನ್ ಮಾಡಿ. ವೈಯಕ್ತಿಕ ಬೆಳೆ ಸಲಹೆ, ಕೃಷಿ ಮಾರ್ಗದರ್ಶನ, ರೋಗ ಪರಿಹಾರಗಳು ಮತ್ತು ನಿಮ್ಮ ಕೃಷಿ ಪ್ರಶ್ನೆಗಳಿಗೆ ಉತ್ತರಗಳನ್ನು ಪಡೆಯಿರಿ.",
+    agro_gpt_login_btn: "AgroGPT ಪ್ರವೇಶಿಸಲು ಲಾಗಿನ್ ಮಾಡಿ",
+    agro_gpt_signup_btn: "ಉಚಿತ ಖಾತೆ ರಚಿಸಿ",
+    agro_gpt_gate_subtext: "ಆಗ್ರೋ AI ನೊಂದಿಗೆ ಸೇರಿ ಮತ್ತು ನಿಮ್ಮ ಭಾಷೆಯಲ್ಲಿ ಸ್ಮಾರ್ಟ್ ಕೃಷಿ ನೆರವು ಪಡೆಯಿರಿ.",
+    agro_gpt_login_banner: "🔒 AgroGPT ಬಳಸುವುದನ್ನು ಮುಂದುವರಿಸಲು ದಯವಿಟ್ಟು ಲಾಗಿನ್ ಮಾಡಿ. ಸೈನ್ ಇನ್ ಆದ ನಂತರ ನಿಮ್ಮ AI ಕೃಷಿ ಸಹಾಯಕ ಲಭ್ಯವಿರುತ್ತದೆ.",
     gpt_call_btn: "📞 1800-ಆಗ್ರೋ-AI",
     gpt_placeholder: "ನಿಮ್ಮ ಪ್ರಶ್ನೆಯನ್ನು ಟೈಪ್ ಮಾಡಿ…",
     weather_forecast_title: "7 ದಿನಗಳ ಮುನ್ಸೂಚನೆ",
@@ -2567,6 +2579,12 @@ const I18N = {
       "diag_evidence_title": "🔬 पहचाने गए दृश्य लक्षण:",
       "diag_conf_label": "सटीकता",
       "gpt_title": "एग्रो GPT",
+      "agro_gpt_gate_heading": "आपका AI कृषि सहायक तैयार है!",
+      "agro_gpt_gate_desc": "AgroGPT तक पहुँचने के लिए एग्रो AI में लॉगिन करें। अपनी फसल के अनुसार व्यक्तिगत सलाह, खेती का मार्गदर्शन, रोग समाधान और अपने कृषि प्रश्नों के उत्तर पाएं।",
+      "agro_gpt_login_btn": "AgroGPT के लिए लॉगिन करें",
+      "agro_gpt_signup_btn": "निःशुल्क खाता बनाएं",
+      "agro_gpt_gate_subtext": "एग्रो AI से जुड़ें और अपनी भाषा में स्मार्ट कृषि सहायता प्राप्त करें।",
+      "agro_gpt_login_banner": "🔒 AgroGPT का उपयोग जारी रखने के लिए कृपया लॉगिन करें। आपका AI कृषि सहायक साइन इन करने के बाद उपलब्ध होगा।",
       "gpt_call_btn": "📞 1800-एग्रो-AI",
       "gpt_placeholder": "अपना सवाल यहां लिखें…",
       "weather_forecast_title": "7-दिनों का पूर्वानुमान",
@@ -4092,6 +4110,20 @@ function closeRegisteredFarmerModal(){
   if(m) m.style.display = 'none';
 }
 
+function applyAgroGptGateTranslations(lang){
+  const dict = (typeof I18N !== 'undefined' && I18N && I18N[lang]) ? I18N[lang] : ((typeof I18N !== 'undefined' && I18N) ? I18N.en : {});
+  const setEl = (id, txt) => {
+    const el = document.getElementById(id);
+    if(el && txt !== undefined) el.textContent = txt;
+  };
+  setEl('agroGptGateHeading', dict.agro_gpt_gate_heading || (lang === 'kn' ? 'ನಿಮ್ಮ AI ಕೃಷಿ ಸಹಾಯಕ ಸಿದ್ಧವಾಗಿದೆ!' : (lang === 'hi' ? 'आपका AI कृषि सहायक तैयार है!' : 'Your AI Farming Assistant Awaits!')));
+  setEl('agroGptGateDesc', dict.agro_gpt_gate_desc || (lang === 'kn' ? 'AgroGPT ಬಳಸಲು ಆಗ್ರೋ AI ಗೆ ಲಾಗಿನ್ ಮಾಡಿ. ವೈಯಕ್ತಿಕ ಬೆಳೆ ಸಲಹೆ, ಕೃಷಿ ಮಾರ್ಗದರ್ಶನ, ರೋಗ ಪರಿಹಾರಗಳು ಮತ್ತು ನಿಮ್ಮ ಕೃಷಿ ಪ್ರಶ್ನೆಗಳಿಗೆ ಉತ್ತರಗಳನ್ನು ಪಡೆಯಿರಿ.' : (lang === 'hi' ? 'AgroGPT तक पहुँचने के लिए एग्रो AI में लॉगिन करें। अपनी फसल के अनुसार व्यक्तिगत सलाह, खेती का मार्गदर्शन, रोग समाधान और अपने कृषि प्रश्नों के उत्तर पाएं।' : 'Log in to Agro AI to access AgroGPT, your intelligent farming assistant. Get personalized crop advice, farming guidance, disease solutions, and answers to your agricultural questions.')));
+  setEl('agroGptLoginBtn', dict.agro_gpt_login_btn || (lang === 'kn' ? 'AgroGPT ಪ್ರವೇಶಿಸಲು ಲಾಗಿನ್ ಮಾಡಿ' : (lang === 'hi' ? 'AgroGPT के लिए लॉगिन करें' : 'Login to Access AgroGPT')));
+  setEl('agroGptSignupBtn', dict.agro_gpt_signup_btn || (lang === 'kn' ? 'ಉಚಿತ ಖಾತೆ ರಚಿಸಿ' : (lang === 'hi' ? 'निःशुल्क खाता बनाएं' : 'Create Free Account')));
+  setEl('agroGptGateSubtext', dict.agro_gpt_gate_subtext || (lang === 'kn' ? 'ಆಗ್ರೋ AI ನೊಂದಿಗೆ ಸೇರಿ ಮತ್ತು ನಿಮ್ಮ ಭಾಷೆಯಲ್ಲಿ ಸ್ಮಾರ್ಟ್ ಕೃಷಿ ನೆರವು ಪಡೆಯಿರಿ.' : (lang === 'hi' ? 'एग्रो AI से जुड़ें और अपनी भाषा में स्मार्ट कृषि सहायता प्राप्त करें।' : 'Join Agro AI and get smarter farming assistance in your language.')));
+  setEl('agroGptLoginBanner', dict.agro_gpt_login_banner || (lang === 'kn' ? '🔒 AgroGPT ಬಳಸುವುದನ್ನು ಮುಂದುವರಿಸಲು ದಯವಿಟ್ಟು ಲಾಗಿನ್ ಮಾಡಿ. ಸೈನ್ ಇನ್ ಆದ ನಂತರ ನಿಮ್ಮ AI ಕೃಷಿ ಸಹಾಯಕ ಲಭ್ಯವಿರುತ್ತದೆ.' : (lang === 'hi' ? '🔒 AgroGPT का उपयोग जारी रखने के लिए कृपया लॉगिन करें। आपका AI कृषि सहायक साइन इन करने के बाद उपलब्ध होगा।' : '🔒 Please log in to continue using AgroGPT. Your AI farming assistant is available after signing in.')));
+}
+
 function updateAgroGptAccessUI(){
   const isAuthed = isRegisteredFarmer();
   const gate = document.getElementById('agroGptGuestGate');
@@ -4101,6 +4133,7 @@ function updateAgroGptAccessUI(){
   if(!isAuthed){
     const banner = document.getElementById('agroGptLoginBanner');
     if(banner) banner.style.display = 'none';
+    applyAgroGptGateTranslations(typeof currentLang !== 'undefined' ? currentLang : 'en');
   }
 }
 
@@ -4111,7 +4144,13 @@ function showAgroGptLoginNotice(){
     banner.style.display = 'block';
     banner.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   }
-  showToast('🔒 Please log in to continue using AgroGPT. Your AI farming assistant is available after signing in.');
+  const lang = typeof currentLang !== 'undefined' ? currentLang : 'en';
+  const noticeMsg = lang === 'kn'
+    ? '🔒 AgroGPT ಬಳಸುವುದನ್ನು ಮುಂದುವರಿಸಲು ದಯವಿಟ್ಟು ಲಾಗಿನ್ ಮಾಡಿ. ಸೈನ್ ಇನ್ ಆದ ನಂತರ ನಿಮ್ಮ AI ಕೃಷಿ ಸಹಾಯಕ ಲಭ್ಯವಿರುತ್ತದೆ.'
+    : (lang === 'hi'
+      ? '🔒 AgroGPT का उपयोग जारी रखने के लिए कृपया लॉगिन करें। आपका AI कृषि सहायक साइन इन करने के बाद उपलब्ध होगा।'
+      : '🔒 Please log in to continue using AgroGPT. Your AI farming assistant is available after signing in.');
+  showToast(noticeMsg);
 }
 
 function openAgroGptAuth(mode){
@@ -4622,6 +4661,9 @@ function applyTranslations(lang){
   setTxt('gptSideSignOut', lang === 'kn' ? 'ಸೈನ್ ಔಟ್' : (lang === 'hi' ? 'साइन आउट' : 'Sign out'));
   const chatInput = document.getElementById('chatInput');
   if(chatInput) chatInput.placeholder = lang === 'kn' ? 'ಬೆಳೆಗಳು, ಹವಾಮಾನ, ಮಂಡಿ ದರಗಳು, ಯೋಜನೆಗಳ ಬಗ್ಗೆ ಕೇಳಿ...' : (lang === 'hi' ? 'फसलों, मौसम, मंडी भाव, योजनाओं के बारे में पूछें...' : 'Ask about crops, weather, mandi prices, schemes...');
+
+  // Agro GPT Guest Gate
+  if(typeof applyAgroGptGateTranslations === 'function') applyAgroGptGateTranslations(lang);
 
   // Daily Farm Report Labels & Default Content
   setTxt('dailyReportTitle', dict.daily_report_title || (lang === 'kn' ? 'ದೈನಂದಿನ ಕೃಷಿ ವರದಿ' : (lang === 'hi' ? 'दैनिक कृषि रिपोर्ट' : 'Daily farm report')));

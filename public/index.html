@@ -987,15 +987,12 @@
         </div>
 
         <!-- WhatsApp Notifications Banner -->
-        <div style="background:#E8F4EA;border:1px solid #C5E1C9;border-radius:12px;padding:11px 14px;margin-bottom:12px;display:flex;align-items:flex-start;gap:10px;">
-          <span style="color:var(--forest);font-size:15px;font-weight:700;line-height:1.2;">✓</span>
+        <div id="dailyWaBanner" style="background:#F9FAFB;border:1px solid #E5E7EB;border-radius:12px;padding:11px 14px;margin-bottom:12px;display:flex;align-items:flex-start;gap:10px;">
+          <span style="font-size:15px;line-height:1.2;" id="dailyWaIcon">🔔</span>
           <div style="font-size:12.5px;line-height:1.45;">
-            <div style="font-weight:700;color:var(--forest);" id="dailyWaStatus">WhatsApp notifications on</div>
-            <div style="color:var(--ink-soft);">
-              <span id="dailyWaDescPrefix">Daily brief will be sent to</span>
-              <strong style="color:var(--ink);" id="dailyBriefPhone">917019286323</strong>
-              <span id="dailyWaDescSuffix">at 6:30 AM IST.</span>
-              <a href="javascript:void(0)" onclick="changeDailyBriefPhone()" style="color:var(--ink-soft);text-decoration:underline;margin-left:4px;" id="dailyWaChangeLink">Change number</a>
+            <div style="font-weight:700;color:var(--ink);" id="dailyWaStatus">WhatsApp notifications off</div>
+            <div style="color:var(--ink-soft);" id="dailyWaDesc">
+              Get a free personalized daily brief delivered to your phone at 6:30 AM IST. <a href="javascript:void(0)" onclick="changeDailyBriefPhone()" style="color:var(--forest);font-weight:600;text-decoration:underline;margin-left:4px;" id="dailyWaChangeLink">Set up WhatsApp notifications →</a>
             </div>
           </div>
         </div>
@@ -1104,10 +1101,10 @@
         </p>
 
         <div style="display:flex;flex-direction:column;gap:12px;max-width:320px;margin:0 auto 20px;">
-          <button class="btn btn-primary btn-block" style="background:var(--forest);color:#fff;padding:13px 20px;font-size:15px;font-weight:700;border-radius:999px;border:none;box-shadow:0 4px 14px rgba(31,77,43,0.22);cursor:pointer;" onclick="openAgroGptAuth('login')">
+          <button id="agroGptLoginBtn" class="btn btn-primary btn-block" style="background:var(--forest);color:#fff;padding:13px 20px;font-size:15px;font-weight:700;border-radius:999px;border:none;box-shadow:0 4px 14px rgba(31,77,43,0.22);cursor:pointer;" onclick="openAgroGptAuth('login')">
             Login to Access AgroGPT
           </button>
-          <button class="btn btn-outline btn-block" style="padding:12px 20px;font-size:14.5px;font-weight:600;border-radius:999px;border:1.5px solid var(--forest);color:var(--forest);background:transparent;cursor:pointer;" onclick="openAgroGptAuth('signup')">
+          <button id="agroGptSignupBtn" class="btn btn-outline btn-block" style="padding:12px 20px;font-size:14.5px;font-weight:600;border-radius:999px;border:1.5px solid var(--forest);color:var(--forest);background:transparent;cursor:pointer;" onclick="openAgroGptAuth('signup')">
             Create Free Account
           </button>
         </div>
@@ -1350,10 +1347,10 @@
     <section class="view" data-view="account" style="display:none;">
       <button class="backlink" onclick="go('home')" id="acctBackBtn">← Back</button>
       <div style="display:flex;align-items:center;gap:14px;margin-bottom:18px;">
-        <div class="avatar-circle" id="acctAvatar">V</div>
+        <div class="avatar-circle" id="acctAvatar">?</div>
         <div>
           <div style="font-weight:700;font-size:16px;" id="acctName"></div>
-          <div class="muted" id="acctMeta">vivek@gmail.com · Signed in</div>
+          <div class="muted" id="acctMeta">Not signed in</div>
         </div>
       </div>
 
@@ -1368,9 +1365,9 @@
 
       <div class="section-title" style="margin-top:0;" id="acctSecLogin">Login &amp; security</div>
       <div class="card" style="margin-bottom:16px;">
-        <div class="kv-row"><span class="k" id="acctLblMethod">Sign-in method</span><span class="v" id="acctMethod">Google Sign-In</span></div>
-        <div class="kv-row"><span class="k" id="acctLbl2fa">Two-factor verification</span><span class="v pill pill-forest" id="acctVal2fa">Enabled</span></div>
-        <div class="kv-row"><span class="k" id="acctLblSessions">Active sessions</span><span class="v" id="acctValSessions">1 device</span></div>
+        <div class="kv-row"><span class="k" id="acctLblMethod">Sign-in method</span><span class="v" id="acctMethod">Not signed in</span></div>
+        <div class="kv-row"><span class="k" id="acctLbl2fa">Two-factor verification</span><span class="v pill pill-forest" id="acctVal2fa">—</span></div>
+        <div class="kv-row"><span class="k" id="acctLblSessions">Active sessions</span><span class="v" id="acctValSessions">—</span></div>
         <div style="display:flex;gap:10px;margin-top:14px;">
           <button class="btn btn-outline" style="flex:1" id="acctExportBtn" onclick="exportDataWhatsApp()">⬇ Export my data</button>
           <button class="btn btn-outline" style="flex:1;border-color:var(--danger);color:var(--danger);" id="acctDeleteBtn" onclick="requestDeleteAccount()">Delete account</button>
@@ -1468,6 +1465,7 @@
       <div class="stub-banner" id="stubBanner"></div>
       <div class="card">
         <div class="muted" id="stubBody"></div>
+        <div id="stubActionArea" style="margin-top:16px;"></div>
       </div>
     </section>
 
@@ -2237,7 +2235,7 @@ const I18N = {
     auth_phone_lbl: "Mobile number",
     auth_send_otp: "Send OTP",
     auth_guest_btn: "🌾 Explore as Guest Farmer",
-    auth_fine_print: "By continuing, you agree to Agro AI's <a href="/terms" target="_blank" rel="noopener" style="color:inherit;text-decoration:underline;font-weight:600;">Terms of Service</a> and <a href="/privacy" target="_blank" rel="noopener" style="color:inherit;text-decoration:underline;font-weight:600;">Privacy Policy</a>.<br>We never share your farm data without your consent.",
+    auth_fine_print: "By continuing, you agree to Agro AI's <a href='/terms' target='_blank' rel='noopener' style='color:inherit;text-decoration:underline;font-weight:600;'>Terms of Service</a> and <a href='/privacy' target='_blank' rel='noopener' style='color:inherit;text-decoration:underline;font-weight:600;'>Privacy Policy</a>.<br>We never share your farm data without your consent.",
     otp_back: "← Back",
     otp_title: "Verify your number",
     otp_verify: "Verify & continue",
@@ -2290,6 +2288,12 @@ const I18N = {
     diag_evidence_title: "🔬 Measured Visual Evidence:",
     diag_conf_label: "confidence",
     gpt_title: "Agro GPT",
+    agro_gpt_gate_heading: "Your AI Farming Assistant Awaits!",
+    agro_gpt_gate_desc: "Log in to Agro AI to access AgroGPT, your intelligent farming assistant. Get personalized crop advice, farming guidance, disease solutions, and answers to your agricultural questions.",
+    agro_gpt_login_btn: "Login to Access AgroGPT",
+    agro_gpt_signup_btn: "Create Free Account",
+    agro_gpt_gate_subtext: "Join Agro AI and get smarter farming assistance in your language.",
+    agro_gpt_login_banner: "🔒 Please log in to continue using AgroGPT. Your AI farming assistant is available after signing in.",
     gpt_call_btn: "📞 1800-AGRO-AI",
     gpt_placeholder: "Type your question…",
     weather_forecast_title: "7-day forecast",
@@ -2429,7 +2433,7 @@ const I18N = {
     auth_phone_lbl: "ಮೊಬೈಲ್ ಸಂಖ್ಯೆ",
     auth_send_otp: "OTP ಕಳುಹಿಸಿ",
     auth_guest_btn: "🌾 ರೈತರಾಗಿ ಮುಂದುವರಿಯಿರಿ (ತ್ವರಿತ ಪ್ರವೇಶ)",
-    auth_fine_print: "ಮುಂದುವರಿಯುವ ಮೂಲಕ, ನೀವು ಆಗ್ರೋ AI ನ <a href="/terms" target="_blank" rel="noopener" style="color:inherit;text-decoration:underline;font-weight:600;">ಸೇವಾ ನಿಯಮಗಳು</a> ಮತ್ತು <a href="/privacy" target="_blank" rel="noopener" style="color:inherit;text-decoration:underline;font-weight:600;">ಗೌಪ್ಯತಾ ನೀತಿಯನ್ನು</a> ಒಪ್ಪುತ್ತೀರಿ.<br>ನಿಮ್ಮ ಒಪ್ಪಿಗೆಯಿಲ್ಲದೆ ನಿಮ್ಮ ಕೃಷಿ ಡೇಟಾವನ್ನು ಹಂಚಿಕೊಳ್ಳುವುದಿಲ್ಲ.",
+    auth_fine_print: "ಮುಂದುವರಿಯುವ ಮೂಲಕ, ನೀವು ಆಗ್ರೋ AI ನ <a href='/terms' target='_blank' rel='noopener' style='color:inherit;text-decoration:underline;font-weight:600;'>ಸೇವಾ ನಿಯಮಗಳು</a> ಮತ್ತು <a href='/privacy' target='_blank' rel='noopener' style='color:inherit;text-decoration:underline;font-weight:600;'>ಗೌಪ್ಯತಾ ನೀತಿಯನ್ನು</a> ಒಪ್ಪುತ್ತೀರಿ.<br>ನಿಮ್ಮ ಒಪ್ಪಿಗೆಯಿಲ್ಲದೆ ನಿಮ್ಮ ಕೃಷಿ ಡೇಟಾವನ್ನು ಹಂಚಿಕೊಳ್ಳುವುದಿಲ್ಲ.",
     otp_back: "← ಹಿಂದಕ್ಕೆ",
     otp_title: "ನಿಮ್ಮ ಸಂಖ್ಯೆಯನ್ನು ಪರಿಶೀಲಿಸಿ",
     otp_verify: "ಪರಿಶೀಲಿಸಿ & ಮುಂದುವರಿಯಿರಿ",
@@ -2506,6 +2510,12 @@ const I18N = {
     diag_evidence_title: "🔬 ಅಳತೆ ಮಾಡಿದ ದೃಶ್ಯ ಸಾಕ್ಷ್ಯಗಳು:",
     diag_conf_label: "ವಿಶ್ವಾಸಾರ್ಹತೆ",
     gpt_title: "ಅಗ್ರೋ ಜಿಪಿಟಿ",
+    agro_gpt_gate_heading: "ನಿಮ್ಮ AI ಕೃಷಿ ಸಹಾಯಕ ಸಿದ್ಧವಾಗಿದೆ!",
+    agro_gpt_gate_desc: "AgroGPT ಬಳಸಲು ಆಗ್ರೋ AI ಗೆ ಲಾಗಿನ್ ಮಾಡಿ. ವೈಯಕ್ತಿಕ ಬೆಳೆ ಸಲಹೆ, ಕೃಷಿ ಮಾರ್ಗದರ್ಶನ, ರೋಗ ಪರಿಹಾರಗಳು ಮತ್ತು ನಿಮ್ಮ ಕೃಷಿ ಪ್ರಶ್ನೆಗಳಿಗೆ ಉತ್ತರಗಳನ್ನು ಪಡೆಯಿರಿ.",
+    agro_gpt_login_btn: "AgroGPT ಪ್ರವೇಶಿಸಲು ಲಾಗಿನ್ ಮಾಡಿ",
+    agro_gpt_signup_btn: "ಉಚಿತ ಖಾತೆ ರಚಿಸಿ",
+    agro_gpt_gate_subtext: "ಆಗ್ರೋ AI ನೊಂದಿಗೆ ಸೇರಿ ಮತ್ತು ನಿಮ್ಮ ಭಾಷೆಯಲ್ಲಿ ಸ್ಮಾರ್ಟ್ ಕೃಷಿ ನೆರವು ಪಡೆಯಿರಿ.",
+    agro_gpt_login_banner: "🔒 AgroGPT ಬಳಸುವುದನ್ನು ಮುಂದುವರಿಸಲು ದಯವಿಟ್ಟು ಲಾಗಿನ್ ಮಾಡಿ. ಸೈನ್ ಇನ್ ಆದ ನಂತರ ನಿಮ್ಮ AI ಕೃಷಿ ಸಹಾಯಕ ಲಭ್ಯವಿರುತ್ತದೆ.",
     gpt_call_btn: "📞 1800-ಆಗ್ರೋ-AI",
     gpt_placeholder: "ನಿಮ್ಮ ಪ್ರಶ್ನೆಯನ್ನು ಟೈಪ್ ಮಾಡಿ…",
     weather_forecast_title: "7 ದಿನಗಳ ಮುನ್ಸೂಚನೆ",
@@ -2619,7 +2629,7 @@ const I18N = {
       "auth_phone_lbl": "मोबाइल नंबर",
       "auth_send_otp": "OTP भेजें",
       "auth_guest_btn": "🌾 अतिथि किसान के रूप में देखें",
-      "auth_fine_print": "जारी रखकर, आप एग्रो AI की <a href="/terms" target="_blank" rel="noopener" style="color:inherit;text-decoration:underline;font-weight:600;">सेवा की शर्तों</a> और <a href="/privacy" target="_blank" rel="noopener" style="color:inherit;text-decoration:underline;font-weight:600;">गोपनीयता नीति</a> से सहमत होते हैं।<br>हम आपकी सहमति के बिना कभी भी आपका कृषि डेटा साझा नहीं करते हैं।",
+      "auth_fine_print": "जारी रखकर, आप एग्रो AI की <a href='/terms' target='_blank' rel='noopener' style='color:inherit;text-decoration:underline;font-weight:600;'>सेवा की शर्तों</a> और <a href='/privacy' target='_blank' rel='noopener' style='color:inherit;text-decoration:underline;font-weight:600;'>गोपनीयता नीति</a> से सहमत होते हैं।<br>हम आपकी सहमति के बिना कभी भी आपका कृषि डेटा साझा नहीं करते हैं।",
       "otp_back": "← वापस",
       "otp_title": "अपना नंबर सत्यापित करें",
       "otp_verify": "सत्यापित करें और आगे बढ़ें",
@@ -2678,6 +2688,12 @@ const I18N = {
       "diag_evidence_title": "🔬 पहचाने गए दृश्य लक्षण:",
       "diag_conf_label": "सटीकता",
       "gpt_title": "एग्रो GPT",
+      "agro_gpt_gate_heading": "आपका AI कृषि सहायक तैयार है!",
+      "agro_gpt_gate_desc": "AgroGPT तक पहुँचने के लिए एग्रो AI में लॉगिन करें। अपनी फसल के अनुसार व्यक्तिगत सलाह, खेती का मार्गदर्शन, रोग समाधान और अपने कृषि प्रश्नों के उत्तर पाएं।",
+      "agro_gpt_login_btn": "AgroGPT के लिए लॉगिन करें",
+      "agro_gpt_signup_btn": "निःशुल्क खाता बनाएं",
+      "agro_gpt_gate_subtext": "एग्रो AI से जुड़ें और अपनी भाषा में स्मार्ट कृषि सहायता प्राप्त करें।",
+      "agro_gpt_login_banner": "🔒 AgroGPT का उपयोग जारी रखने के लिए कृपया लॉगिन करें। आपका AI कृषि सहायक साइन इन करने के बाद उपलब्ध होगा।",
       "gpt_call_btn": "📞 1800-एग्रो-AI",
       "gpt_placeholder": "अपना सवाल यहां लिखें…",
       "weather_forecast_title": "7-दिनों का पूर्वानुमान",
@@ -4203,6 +4219,20 @@ function closeRegisteredFarmerModal(){
   if(m) m.style.display = 'none';
 }
 
+function applyAgroGptGateTranslations(lang){
+  const dict = (typeof I18N !== 'undefined' && I18N && I18N[lang]) ? I18N[lang] : ((typeof I18N !== 'undefined' && I18N) ? I18N.en : {});
+  const setEl = (id, txt) => {
+    const el = document.getElementById(id);
+    if(el && txt !== undefined) el.textContent = txt;
+  };
+  setEl('agroGptGateHeading', dict.agro_gpt_gate_heading || (lang === 'kn' ? 'ನಿಮ್ಮ AI ಕೃಷಿ ಸಹಾಯಕ ಸಿದ್ಧವಾಗಿದೆ!' : (lang === 'hi' ? 'आपका AI कृषि सहायक तैयार है!' : 'Your AI Farming Assistant Awaits!')));
+  setEl('agroGptGateDesc', dict.agro_gpt_gate_desc || (lang === 'kn' ? 'AgroGPT ಬಳಸಲು ಆಗ್ರೋ AI ಗೆ ಲಾಗಿನ್ ಮಾಡಿ. ವೈಯಕ್ತಿಕ ಬೆಳೆ ಸಲಹೆ, ಕೃಷಿ ಮಾರ್ಗದರ್ಶನ, ರೋಗ ಪರಿಹಾರಗಳು ಮತ್ತು ನಿಮ್ಮ ಕೃಷಿ ಪ್ರಶ್ನೆಗಳಿಗೆ ಉತ್ತರಗಳನ್ನು ಪಡೆಯಿರಿ.' : (lang === 'hi' ? 'AgroGPT तक पहुँचने के लिए एग्रो AI में लॉगिन करें। अपनी फसल के अनुसार व्यक्तिगत सलाह, खेती का मार्गदर्शन, रोग समाधान और अपने कृषि प्रश्नों के उत्तर पाएं।' : 'Log in to Agro AI to access AgroGPT, your intelligent farming assistant. Get personalized crop advice, farming guidance, disease solutions, and answers to your agricultural questions.')));
+  setEl('agroGptLoginBtn', dict.agro_gpt_login_btn || (lang === 'kn' ? 'AgroGPT ಪ್ರವೇಶಿಸಲು ಲಾಗಿನ್ ಮಾಡಿ' : (lang === 'hi' ? 'AgroGPT के लिए लॉगिन करें' : 'Login to Access AgroGPT')));
+  setEl('agroGptSignupBtn', dict.agro_gpt_signup_btn || (lang === 'kn' ? 'ಉಚಿತ ಖಾತೆ ರಚಿಸಿ' : (lang === 'hi' ? 'निःशुल्क खाता बनाएं' : 'Create Free Account')));
+  setEl('agroGptGateSubtext', dict.agro_gpt_gate_subtext || (lang === 'kn' ? 'ಆಗ್ರೋ AI ನೊಂದಿಗೆ ಸೇರಿ ಮತ್ತು ನಿಮ್ಮ ಭಾಷೆಯಲ್ಲಿ ಸ್ಮಾರ್ಟ್ ಕೃಷಿ ನೆರವು ಪಡೆಯಿರಿ.' : (lang === 'hi' ? 'एग्रो AI से जुड़ें और अपनी भाषा में स्मार्ट कृषि सहायता प्राप्त करें।' : 'Join Agro AI and get smarter farming assistance in your language.')));
+  setEl('agroGptLoginBanner', dict.agro_gpt_login_banner || (lang === 'kn' ? '🔒 AgroGPT ಬಳಸುವುದನ್ನು ಮುಂದುವರಿಸಲು ದಯವಿಟ್ಟು ಲಾಗಿನ್ ಮಾಡಿ. ಸೈನ್ ಇನ್ ಆದ ನಂತರ ನಿಮ್ಮ AI ಕೃಷಿ ಸಹಾಯಕ ಲಭ್ಯವಿರುತ್ತದೆ.' : (lang === 'hi' ? '🔒 AgroGPT का उपयोग जारी रखने के लिए कृपया लॉगिन करें। आपका AI कृषि सहायक साइन इन करने के बाद उपलब्ध होगा।' : '🔒 Please log in to continue using AgroGPT. Your AI farming assistant is available after signing in.')));
+}
+
 function updateAgroGptAccessUI(){
   const isAuthed = isRegisteredFarmer();
   const gate = document.getElementById('agroGptGuestGate');
@@ -4212,6 +4242,7 @@ function updateAgroGptAccessUI(){
   if(!isAuthed){
     const banner = document.getElementById('agroGptLoginBanner');
     if(banner) banner.style.display = 'none';
+    applyAgroGptGateTranslations(typeof currentLang !== 'undefined' ? currentLang : 'en');
   }
 }
 
@@ -4222,7 +4253,13 @@ function showAgroGptLoginNotice(){
     banner.style.display = 'block';
     banner.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   }
-  showToast('🔒 Please log in to continue using AgroGPT. Your AI farming assistant is available after signing in.');
+  const lang = typeof currentLang !== 'undefined' ? currentLang : 'en';
+  const noticeMsg = lang === 'kn'
+    ? '🔒 AgroGPT ಬಳಸುವುದನ್ನು ಮುಂದುವರಿಸಲು ದಯವಿಟ್ಟು ಲಾಗಿನ್ ಮಾಡಿ. ಸೈನ್ ಇನ್ ಆದ ನಂತರ ನಿಮ್ಮ AI ಕೃಷಿ ಸಹಾಯಕ ಲಭ್ಯವಿರುತ್ತದೆ.'
+    : (lang === 'hi'
+      ? '🔒 AgroGPT का उपयोग जारी रखने के लिए कृपया लॉगिन करें। आपका AI कृषि सहायक साइन इन करने के बाद उपलब्ध होगा।'
+      : '🔒 Please log in to continue using AgroGPT. Your AI farming assistant is available after signing in.');
+  showToast(noticeMsg);
 }
 
 function openAgroGptAuth(mode){
@@ -4515,20 +4552,46 @@ function applyProfile(){
 }
 
 function renderAccount(){
-  if(!farmerProfile) return;
-  document.getElementById('acctAvatar').textContent = farmerProfile.name.charAt(0).toUpperCase();
-  document.getElementById('acctName').textContent = farmerProfile.name;
-  document.getElementById('acctMeta').textContent = session.method === 'Google'
-    ? `${session.google?.email || 'vivek@gmail.com'} · Signed in`
-    : `+91 ${session.phone ? session.phone.slice(0,5)+' '+session.phone.slice(5) : '98765 43210'} · Signed in`;
-  document.getElementById('acctVillage').textContent = farmerProfile.village;
-  document.getElementById('acctState').textContent = farmerProfile.state;
-  document.getElementById('acctLand').textContent = farmerProfile.land ? farmerProfile.land + ' acres' : '—';
-  document.getElementById('acctCrop').textContent = farmerProfile.crop;
-  document.getElementById('acctLangRow').textContent = (LANGS.find(l=>l.code===currentLang)||{}).label || 'English';
-  document.getElementById('acctMethod').textContent = session.method || 'Google Sign-In';
-}
+  const setT = (id, v) => { const el = document.getElementById(id); if(el) el.textContent = v; };
+  const isRealUser = Boolean(session && session.signedIn && !session.isGuest);
+  const isGuestSession = Boolean(session && session.signedIn && session.isGuest);
 
+  if(!isRealUser){
+    // Never show an identity, 2FA or device claim for a visitor who has not authenticated.
+    setT('acctAvatar', '?');
+    setT('acctName', isGuestSession ? 'Guest Farmer' : 'Not signed in');
+    setT('acctMeta', isGuestSession
+      ? 'Guest session (demo data) · Log in to save your own account'
+      : 'Log in to see your account and security settings');
+    setT('acctMethod', isGuestSession ? 'Guest (not authenticated)' : 'Not signed in');
+    setT('acctVal2fa', '—');
+    setT('acctValSessions', '—');
+    if(!isGuestSession){
+      setT('acctVillage', '—'); setT('acctState', '—'); setT('acctLand', '—'); setT('acctCrop', '—');
+    }
+    setT('acctLangRow', (LANGS.find(l=>l.code===currentLang)||{}).label || 'English');
+    return;
+  }
+
+  const prof = farmerProfile || {};
+  const displayName = prof.name || (session.google && session.google.name) || 'Farmer';
+  setT('acctAvatar', displayName.charAt(0).toUpperCase());
+  setT('acctName', displayName);
+  const phoneLabel = session.phone ? `+91 ${session.phone.slice(0,5)} ${session.phone.slice(5)}` : '';
+  const idLabel = (session.method === 'Google' && session.google && session.google.email)
+    ? session.google.email
+    : (phoneLabel || (session.google && session.google.email) || 'Account');
+  setT('acctMeta', `${idLabel} · Signed in`);
+  setT('acctVillage', prof.village || '—');
+  setT('acctState', prof.state || '—');
+  setT('acctLand', prof.land ? prof.land + ' acres' : '—');
+  setT('acctCrop', prof.crop || '—');
+  setT('acctLangRow', (LANGS.find(l=>l.code===currentLang)||{}).label || 'English');
+  setT('acctMethod', session.method === 'Google' ? 'Google Sign-In' : (session.method || 'Signed in'));
+  // Agro AI does not track 2FA or per-device sessions, so do not claim any.
+  setT('acctVal2fa', session.method === 'Google' ? 'Managed by your Google account' : 'Not set up');
+  setT('acctValSessions', 'This device');
+}
 function signOut(){
   if(!confirm('Sign out of Agro AI on this device?')) return;
   try { if(window.supabaseClient) window.supabaseClient.auth.signOut(); } catch(e){}
@@ -4690,7 +4753,7 @@ function applyTranslations(lang){
   setTxt('diagCropHintOpt', dict.diag_crop_hint_opt);
   setTxt('diagChooseBtn', dict.diag_choose_btn);
   const analyzeBtn = document.getElementById('analyzeBtn');
-  if(analyzeBtn && !analyzeBtn.disabled) analyzeBtn.textContent = dict.diag_analyze_btn;
+  if(analyzeBtn) analyzeBtn.textContent = dict.diag_analyze_btn;
 
   // Agro GPT (Strictly Agro GPT everywhere)
   setTxt('gptTitle', dict.gpt_title || 'Agro GPT');
@@ -4708,14 +4771,14 @@ function applyTranslations(lang){
   const chatInput = document.getElementById('chatInput');
   if(chatInput) chatInput.placeholder = lang === 'kn' ? 'ಬೆಳೆಗಳು, ಹವಾಮಾನ, ಮಂಡಿ ದರಗಳು, ಯೋಜನೆಗಳ ಬಗ್ಗೆ ಕೇಳಿ...' : (lang === 'hi' ? 'फसलों, मौसम, मंडी भाव, योजनाओं के बारे में पूछें...' : 'Ask about crops, weather, mandi prices, schemes...');
 
+  // Agro GPT Guest Gate
+  if(typeof applyAgroGptGateTranslations === 'function') applyAgroGptGateTranslations(lang);
+
   // Daily Farm Report Labels & Default Content
   setTxt('dailyReportTitle', dict.daily_report_title || (lang === 'kn' ? 'ದೈನಂದಿನ ಕೃಷಿ ವರದಿ' : (lang === 'hi' ? 'दैनिक कृषि रिपोर्ट' : 'Daily farm report')));
   setTxt('dailyReportSub', dict.daily_report_sub || (lang === 'kn' ? 'ನಿಮ್ಮ ಜಮೀನಿಗಾಗಿ ತಾಜಾ AI ಸಾರಾಂಶ — ಇಂದಿನ ಹವಾಮಾನ, ಕೀಟಗಳು ಮತ್ತು ಕ್ರಮಗಳು.' : (lang === 'hi' ? 'आपके खेत के लिए ताजा AI सारांश — आज का मौसम, कीट और कार्य।' : "Fresh AI brief for your farm — today's weather, pests, and actions.")));
   setTxt('dailyReportRegenBtn', dict.daily_report_regen_btn || (lang === 'kn' ? '↻ ಮರು-ರಚಿಸಿ' : (lang === 'hi' ? '↻ पुनः लोड करें' : '↻ Regenerate')));
-  setTxt('dailyWaStatus', dict.daily_wa_status || (lang === 'kn' ? 'ವಾಟ್ಸಾಪ್ ಅಧಿಸೂಚನೆ ಸಕ್ರಿಯವಾಗಿದೆ' : (lang === 'hi' ? 'व्हाट्सएप सूचनाएं चालू हैं' : 'WhatsApp notifications on')));
-  setTxt('dailyWaDescPrefix', dict.daily_wa_prefix || (lang === 'kn' ? 'ದೈನಂದಿನ ವರದಿಯನ್ನು ಪ್ರತಿದಿನ ಬೆಳಿಗ್ಗೆ 6:30 ಕ್ಕೆ' : (lang === 'hi' ? 'दैनिक रिपोर्ट सुबह 6:30 बजे' : 'Daily brief will be sent to')));
-  setTxt('dailyWaDescSuffix', dict.daily_wa_suffix || (lang === 'kn' ? 'ಸಂಖ್ಯೆಗೆ ಕಳುಹಿಸಲಾಗುತ್ತದೆ.' : (lang === 'hi' ? 'पर भेजी जाएगी।' : 'at 6:30 AM IST.')));
-  setTxt('dailyWaChangeLink', dict.daily_wa_change || (lang === 'kn' ? 'ಸಂಖ್ಯೆ ಬದಲಿಸಿ' : (lang === 'hi' ? 'नंबर बदलें' : 'Change number')));
+  renderDailyWaBanner();
   setTxt('dailyCardLblWeather', dict.daily_card_weather || (lang === 'kn' ? 'ಹವಾಮಾನ' : (lang === 'hi' ? 'मौसम' : 'WEATHER')));
   setTxt('dailyCardLblPest', dict.daily_card_pest || (lang === 'kn' ? 'ಕೀಟ ಮತ್ತು ರೋಗ' : (lang === 'hi' ? 'कीट एवं रोग' : 'PEST & DISEASE')));
   setTxt('dailyCardLblAction', dict.daily_card_action || (lang === 'kn' ? 'ಬೆಳೆ ಕ್ರಮ' : (lang === 'hi' ? 'फसल कार्य' : 'CROP ACTION')));
@@ -5446,13 +5509,65 @@ function pickFallbackReply(msg){
   return "Namaste! I'm Agro GPT. I can assist you with hyperlocal weather, live mandi prices, leaf disease diagnosis, and agronomy advice.";
 }
 
+function renderDailyWaBanner() {
+  const banner = document.getElementById("dailyWaBanner");
+  if (!banner) return;
+  const isKn = currentLang === "kn";
+  const isHi = currentLang === "hi";
+
+  const userPhone = localStorage.getItem("agroai_brief_phone") ||
+    (typeof session !== "undefined" && session && session.signedIn && !session.isGuest && session.phone ? session.phone : null);
+
+  const iconEl = document.getElementById("dailyWaIcon");
+  const statusEl = document.getElementById("dailyWaStatus");
+  const descEl = document.getElementById("dailyWaDesc");
+
+  if (userPhone) {
+    banner.style.background = "#E8F4EA";
+    banner.style.border = "1px solid #C5E1C9";
+    if (iconEl) {
+      iconEl.textContent = "✓";
+      iconEl.style.color = "var(--forest)";
+    }
+    if (statusEl) {
+      statusEl.textContent = isKn ? "ವಾಟ್ಸಾಪ್ ಅಧಿಸೂಚನೆ ಸಕ್ರಿಯವಾಗಿದೆ" : (isHi ? "व्हाट्सएप सूचनाएं चालू हैं" : "WhatsApp notifications on");
+      statusEl.style.color = "var(--forest)";
+    }
+    const cleanNum = userPhone.startsWith("+") ? userPhone : `+91 ${userPhone.replace(/^91/, "")}`;
+    if (descEl) {
+      const prefix = isKn ? "ದೈನಂದಿನ ವರದಿಯನ್ನು ಪ್ರತಿದಿನ ಬೆಳಿಗ್ಗೆ 6:30 ಕ್ಕೆ " : (isHi ? "दैनिक रिपोर्ट सुबह 6:30 बजे " : "Daily brief will be sent to ");
+      const suffix = isKn ? " ಸಂಖ್ಯೆಗೆ ಕಳುಹಿಸಲಾಗುತ್ತದೆ." : (isHi ? " पर भेजी जाएगी।" : " at 6:30 AM IST.");
+      const changeText = isKn ? "ಸಂಖ್ಯೆ ಬದಲಿಸಿ" : (isHi ? "नंबर बदलें" : "Change number");
+      descEl.innerHTML = `${prefix}<strong style="color:var(--ink);" id="dailyBriefPhone">${cleanNum}</strong>${suffix} <a href="javascript:void(0)" onclick="changeDailyBriefPhone()" style="color:var(--ink-soft);text-decoration:underline;margin-left:4px;">${changeText}</a>`;
+    }
+  } else {
+    banner.style.background = "#F9FAFB";
+    banner.style.border = "1px solid #E5E7EB";
+    if (iconEl) {
+      iconEl.textContent = "🔔";
+      iconEl.style.color = "var(--ink-soft)";
+    }
+    if (statusEl) {
+      statusEl.textContent = isKn ? "ವಾಟ್ಸಾಪ್ ಅಧಿಸೂಚನೆ ಆಫ್ ಆಗಿದೆ" : (isHi ? "व्हाट्सएप सूचनाएं बंद हैं" : "WhatsApp notifications off");
+      statusEl.style.color = "var(--ink)";
+    }
+    if (descEl) {
+      const desc = isKn
+        ? "ಪ್ರತಿದಿನ ಬೆಳಿಗ್ಗೆ 6:30 ಕ್ಕೆ ನಿಮ್ಮ ಮೊಬೈಲ್‌ಗೆ ಉಚಿತ ಕೃಷಿ ವರದಿ ಪಡೆಯಲು ಸಂಖ್ಯೆ ಸೇರಿಸಿ."
+        : (isHi
+          ? "प्रतिदिन सुबह 6:30 बजे अपने मोबाइल पर निःशुल्क कृषि रिपोर्ट पाने के लिए नंबर जोड़ें।"
+          : "Get a free personalized daily brief delivered to your phone at 6:30 AM IST.");
+      const setupText = isKn ? "ವಾಟ್ಸಾಪ್ ಸಂಖ್ಯೆ ಸೇರಿಸಿ" : (isHi ? "व्हाट्सएप नंबर जोड़ें" : "Set up WhatsApp notifications");
+      descEl.innerHTML = `${desc} <a href="javascript:void(0)" onclick="changeDailyBriefPhone()" style="color:var(--forest);font-weight:600;text-decoration:underline;margin-left:4px;">${setupText} →</a>`;
+    }
+  }
+}
+
 /* ================= DAILY FARM REPORT LOADER ================= */
 async function loadDailyFarmReport(forceRegen = false) {
   const loc = (farmerProfile && farmerProfile.village) ? farmerProfile.village : 'Mandya';
   const crop = (farmerProfile && farmerProfile.crop) ? farmerProfile.crop : 'Tomato';
-  const savedPhone = localStorage.getItem('agroai_brief_phone') || (session && session.phone) || '917019286323';
-  const phoneEl = document.getElementById('dailyBriefPhone');
-  if (phoneEl) phoneEl.textContent = savedPhone;
+  renderDailyWaBanner();
 
   const regenBtn = document.getElementById('dailyReportRegenBtn');
   if (forceRegen && regenBtn) {
@@ -5486,17 +5601,28 @@ async function loadDailyFarmReport(forceRegen = false) {
 }
 
 function changeDailyBriefPhone() {
-  const current = localStorage.getItem('agroai_brief_phone') || '917019286323';
-  const promptLbl = currentLang === 'kn'
-    ? 'ದೈನಂದಿನ ಕೃಷಿ ವರದಿಗಾಗಿ ನಿಮ್ಮ ವಾಟ್ಸಾಪ್ ಸಂಖ್ಯೆಯನ್ನು ನಮೂದಿಸಿ:'
-    : (currentLang === 'hi' ? 'दैनिक कृषि रिपोर्ट के लिए अपना व्हाट्सएप नंबर दर्ज करें:' : 'Enter WhatsApp number for your 6:30 AM IST Daily Farm Report:');
+  const current = localStorage.getItem("agroai_brief_phone") ||
+    (typeof session !== "undefined" && session && session.signedIn && !session.isGuest && session.phone ? session.phone : "");
+  const promptLbl = currentLang === "kn"
+    ? "ದೈನಂದಿನ ಕೃಷಿ ವರದಿಗಾಗಿ ನಿಮ್ಮ 10 ಅಂಕಿಯ ವಾಟ್ಸಾಪ್ ಸಂಖ್ಯೆಯನ್ನು ನಮೂದಿಸಿ (ರದ್ದುಗೊಳಿಸಲು ಖಾಲಿ ಬಿಡಿ):"
+    : (currentLang === "hi"
+      ? "दैनिक कृषि रिपोर्ट के लिए अपना 10 अंकों का व्हाट्सएप नंबर दर्ज करें (हटाने के लिए खाली छोड़ें):"
+      : "Enter your 10-digit WhatsApp number for 6:30 AM IST Daily Farm Reports (leave blank to turn off):");
   const next = prompt(promptLbl, current);
-  if (next && next.trim()) {
-    const cleaned = next.trim();
-    localStorage.setItem('agroai_brief_phone', cleaned);
-    const phoneEl = document.getElementById('dailyBriefPhone');
-    if (phoneEl) phoneEl.textContent = cleaned;
-    showToast(currentLang === 'kn' ? 'ವಾಟ್ಸಾಪ್ ಸಂಖ್ಯೆ ನವೀಕರಿಸಲಾಗಿದೆ' : (currentLang === 'hi' ? 'व्हाट्सएप नंबर अपडेट किया गया' : 'WhatsApp number updated'));
+  if (next !== null) {
+    const cleaned = next.trim().replace(/\D/g, "");
+    if (cleaned.length >= 10) {
+      const formatted = (cleaned.length === 12 && cleaned.startsWith("91")) ? cleaned.slice(2) : cleaned;
+      localStorage.setItem("agroai_brief_phone", formatted);
+      showToast(currentLang === "kn" ? "ವಾಟ್ಸಾಪ್ ಸಂಖ್ಯೆ ನವೀಕರಿಸಲಾಗಿದೆ" : (currentLang === "hi" ? "व्हाट्सएप नंबर अपडेट किया गया" : "WhatsApp notifications enabled"));
+    } else if (cleaned.length === 0) {
+      localStorage.removeItem("agroai_brief_phone");
+      showToast(currentLang === "kn" ? "ವಾಟ್ಸಾಪ್ ಅಧಿಸೂಚನೆ ರದ್ದುಗೊಳಿಸಲಾಗಿದೆ" : (currentLang === "hi" ? "व्हाट्सएप सूचनाएं बंद की गईं" : "WhatsApp notifications turned off"));
+    } else {
+      showToast(currentLang === "kn" ? "ದಯವಿಟ್ಟು ಮಾನ್ಯವಾದ 10 ಅಂಕಿಯ ಮೊಬೈಲ್ ಸಂಖ್ಯೆಯನ್ನು ನಮೂದಿಸಿ" : (currentLang === "hi" ? "कृपया एक मान्य 10 अंकों का मोबाइल नंबर दर्ज करें" : "Please enter a valid 10-digit mobile number"));
+      return;
+    }
+    renderDailyWaBanner();
   }
 }
 
@@ -5994,14 +6120,30 @@ SharedLocationService.subscribe((newLoc) => {
   }
 });
 
-function _formatSunTime(isoOrStr) {
+function _formatSunTime(isoOrStr, tzOffsetSeconds) {
   if (!isoOrStr) return null;
   try {
+    const isExplicitUtc = isoOrStr.endsWith('Z') || isoOrStr.includes('+00:00') || isoOrStr.includes('-00:00');
+    if (isExplicitUtc && typeof tzOffsetSeconds === 'number') {
+      const d = new Date(isoOrStr);
+      if (!isNaN(d.getTime())) {
+        const locDate = new Date(d.getTime() + tzOffsetSeconds * 1000);
+        const hrs = String(locDate.getUTCHours()).padStart(2, '0');
+        const mins = String(locDate.getUTCMinutes()).padStart(2, '0');
+        return `${hrs}:${mins}`;
+      }
+    }
     if (isoOrStr.includes('T') && isoOrStr.length >= 16) {
       return isoOrStr.split('T')[1].slice(0, 5);
     }
     const d = new Date(isoOrStr);
     if (!isNaN(d.getTime())) {
+      if (typeof tzOffsetSeconds === 'number') {
+        const locDate = new Date(d.getTime() + tzOffsetSeconds * 1000);
+        const hrs = String(locDate.getUTCHours()).padStart(2, '0');
+        const mins = String(locDate.getUTCMinutes()).padStart(2, '0');
+        return `${hrs}:${mins}`;
+      }
       return d.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: false });
     }
   } catch (e) {}
@@ -6091,9 +6233,11 @@ async function loadRealWeather(forceRefresh = false){
     const rainMm = data.rain_mm != null ? data.rain_mm : data.rain_1h;
     set('weatherRainMmMetric', rainMm != null ? `${rainMm} mm` : 'N/A');
     set('weatherRainProbMetric', data.rain_probability != null ? `${data.rain_probability}%` : 'N/A');
-    const sr = _formatSunTime(data.sunrise);
-    const ss = _formatSunTime(data.sunset);
-    set('weatherSunMetric', (sr && ss) ? `${sr} / ${ss}` : (sr || ss || 'N/A'));
+    const tzLabel = data.timezone_abbr || ((data.country === 'IN' || data.timezone_offset_seconds === 19800) ? 'IST' : '');
+    const sr = _formatSunTime(data.sunrise, data.timezone_offset_seconds);
+    const ss = _formatSunTime(data.sunset, data.timezone_offset_seconds);
+    const sunTimes = (sr && ss) ? `${sr} / ${ss}` : (sr || ss || 'N/A');
+    set('weatherSunMetric', (sunTimes !== 'N/A' && tzLabel) ? `${sunTimes} ${tzLabel}` : sunTimes);
 
     // Source and observation timestamp metadata
     const srcName = (data.metadata && data.metadata.source) ? data.metadata.source : 'Authorized Weather Service';
@@ -6928,11 +7072,48 @@ function openMoreItem(id){
   const NOT_CONNECTED = {
     satellite: {
       en: 'Not available yet: no satellite imagery provider or registered field boundary is connected. No imagery or NDVI is shown until one is. You can add your land area manually in your Farmer Profile in the meantime.',
-      kn: 'ಇನ್ನೂ ಲಭ್ಯವಿಲ್ಲ: ಉಪಗ್ರಹ ಚಿತ್ರ ಸೇವೆ ಅಥವಾ ನೋಂದಾಯಿತ ಹೊಲದ ಗಡಿ ಸಂಪರ್ಕಗೊಂಡಿಲ್ಲ. ಅದು ಸಂಪರ್ಕವಾಗುವವರೆಗೆ ಯಾವುದೇ ಚಿತ್ರ ಅಥವಾ NDVI ತೋರಿಸಲಾಗುವುದಿಲ್ಲ. ಈ ಮಧ್ಯೆ ನಿಮ್ಮ ರೈತ ಪ್ರೊಫೈಲ್‌ನಲ್ಲಿ ಜಮೀನಿನ ವಿಸ್ತೀರ್ಣವನ್ನು ಕೈಯಾರೆ ಸೇರಿಸಬಹುದು.'
+      kn: 'ಇನ್ನೂ ಲಭ್ಯವಿಲ್ಲ: ಉಪಗ್ರಹ ಚಿತ್ರ ಸೇವೆ ಅಥವಾ ನೋಂದಾಯಿತ ಹೊಲದ ಗಡಿ ಸಂಪರ್ಕಗೊಂಡಿಲ್ಲ. ಅದು ಸಂಪರ್ಕವಾಗುವವರೆಗೆ ಯಾವುದೇ ಚಿತ್ರ ಅಥವಾ NDVI ತೋರಿಸಲಾಗುವುದಿಲ್ಲ. ಈ ಮಧ್ಯೆ ನಿಮ್ಮ ರೈತ ಪ್ರೊಫೈಲ್‌ನಲ್ಲಿ ಜಮೀನಿನ ವಿಸ್ತೀರ್ಣವನ್ನು ಕೈಯಾರೆ ಸೇರಿಸಬಹುದು.',
+      actions: [
+        { label: '✏️ Update Land Area in Profile', labelKn: '✏️ ಪ್ರೊಫೈಲ್‌ನಲ್ಲಿ ಜಮೀನು ನವೀಕರಿಸಿ', action: "go('account')" }
+      ]
     },
-    carbon:    { en: 'Not available yet: this service is not connected.', kn: 'ಇನ್ನೂ ಲಭ್ಯವಿಲ್ಲ: ಈ ಸೇವೆ ಇನ್ನೂ ಸಂಪರ್ಕಗೊಂಡಿಲ್ಲ.' },
-    insurance: { en: 'Not available yet: this service is not connected.', kn: 'ಇನ್ನೂ ಲಭ್ಯವಿಲ್ಲ: ಈ ಸೇವೆ ಇನ್ನೂ ಸಂಪರ್ಕಗೊಂಡಿಲ್ಲ.' },
-    soildna:   { en: 'Not available yet: this service is not connected.', kn: 'ಇನ್ನೂ ಲಭ್ಯವಿಲ್ಲ: ಈ ಸೇವೆ ಇನ್ನೂ ಸಂಪರ್ಕಗೊಂಡಿಲ್ಲ.' },
+    carbon: {
+      en: 'Not available yet: Carbon tracking and credit income estimates require an enrolled farmland boundary and certified sustainable farming records. This service is currently in development and not connected yet.',
+      kn: 'ಇನ್ನೂ ಲಭ್ಯವಿಲ್ಲ: ಕಾರ್ಬನ್ ಟ್ರ್ಯಾಕಿಂಗ್ ಮತ್ತು ಆದಾಯದ ಅಂದಾಜಿಗೆ ನೋಂದಾಯಿತ ಹೊಲದ ಗಡಿ ಮತ್ತು ಪ್ರಮಾಣೀಕೃತ ಕೃಷಿ ದಾಖಲೆಗಳ ಅಗತ್ಯವಿದೆ. ಈ ಸೇವೆ ಸದ್ಯ ಅಭಿವೃದ್ಧಿಯಲ್ಲಿದೆ ಮತ್ತು ಇನ್ನೂ ಸಂಪರ್ಕಗೊಂಡಿಲ್ಲ.'
+    },
+    insurance: {
+      en: 'How to obtain crop insurance:\n\n' +
+          '• Weather-index insurance triggers payouts automatically when local IMD rainfall deficits, heatwaves, or unseasonal downpours exceed policy thresholds.\n' +
+          '• To obtain coverage, enroll before seasonal deadlines (Kharif / Rabi) with your land record (RTC / Pahani) and bank details.\n' +
+          '• You can enroll through your local Raitha Samparka Kendra (RSK), Common Service Center (CSC), or the national PMFBY portal (pmfby.gov.in).\n' +
+          '• Direct in-app automated underwriting in Agro AI is currently in development.',
+      kn: 'ಬೆಳೆ ವಿಮೆ ಪಡೆಯುವ ವಿಧಾನ:\n\n' +
+          '• ಸ್ಥಳೀಯ ಹವಾಮಾನ ಕೇಂದ್ರದ ಮಳೆ ಕೊರತೆ, ತೀವ್ರ ಬಿಸಿಲು ಅಥವಾ ಅಕಾಲಿಕ ಮಳೆಯ ಮಿತಿ ಮೀರಿದಾಗ ಸ್ವಯಂಚಾಲಿತ ಪರಿಹಾರ ಪಾವತಿಯಾಗುತ್ತದೆ.\n' +
+          '• ವಿಮೆ ಪಡೆಯಲು, ಬೆಳೆ ಋತುವಿನ (ಖಾರಿಫ್ / ರಬಿ) ಕೊನೆಯ ದಿನಾಂಕದೊಳಗೆ ನಿಮ್ಮ ಪಹಣಿ (RTC) ಮತ್ತು ಬ್ಯಾಂಕ್ ಖಾತೆ ವಿವರಗಳೊಂದಿಗೆ ನೋಂದಾಯಿಸಿ.\n' +
+          '• ನಿಮ್ಮ ಹತ್ತಿರದ ರೈತ ಸಂಪರ್ಕ ಕೇಂದ್ರ (RSK), ಸಿಎಸ್‌ಸಿ (CSC) ಅಥವಾ ರಾಷ್ಟ್ರೀಯ PMFBY ಪೋರ್ಟಲ್ ಮೂಲಕ ಅರ್ಜಿ ಸಲ್ಲಿಸಬಹುದು.\n' +
+          '• ಆಗ್ರೋ AI ನಲ್ಲಿ ನೇರ ಸ್ವಯಂಚಾಲಿತ ವಿಮಾ ಸೌಲಭ್ಯವು ಸದ್ಯ ಅಭಿವೃದ್ಧಿಯಲ್ಲಿದೆ.',
+      actions: [
+        { label: '📋 View Crop Insurance Schemes', labelKn: '📋 ಬೆಳೆ ವಿಮೆ ಯೋಜನೆಗಳನ್ನು ವೀಕ್ಷಿಸಿ', action: "go('schemes')" },
+        { label: '🌐 Open PMFBY Portal (pmfby.gov.in)', labelKn: '🌐 PMFBY ಅಧಿಕೃತ ಪೋರ್ಟಲ್ ತೆರೆಯಿರಿ', external: 'https://pmfby.gov.in' }
+      ]
+    },
+    soildna: {
+      en: 'Soil DNA Kit Details & Access Instructions:\n\n' +
+          '• Kit contents: 3 sterile sample collection vials, sampling spatula, GPS parcel tags, and pre-addressed courier return mailer.\n' +
+          '• Analysis & Recommendations: Metagenomic sequencing identifies beneficial soil microbes (rhizobia, mycorrhizae), nutrient availability, and fungal pathogen presence to recommend targeted biofertilizers.\n' +
+          '• Direct mail-order kits through Agro AI are currently in development.\n' +
+          '• Government Soil Testing: You can obtain a Soil Health Card (SHC) testing for N-P-K, micronutrients, and pH at your nearest Krishi Vigyan Kendra (KVK) or Raitha Samparka Kendra (RSK).',
+      kn: 'ಮಣ್ಣು DNA ಕಿಟ್ ವಿವರಗಳು ಮತ್ತು ಸೇವೆ ಪಡೆಯುವ ವಿಧಾನ:\n\n' +
+          '• ಕಿಟ್‌ನಲ್ಲಿರುವ ವಸ್ತುಗಳು: 3 ಮಾದರಿ ಸಂಗ್ರಹಣಾ ಬಾಟಲಿಗಳು, ಅಳತೆ ಚಮಚ, ಜಮೀನಿನ ಟ್ಯಾಗ್‌ಗಳು ಮತ್ತು ಕೊರಿಯರ್ ಕವರ್.\n' +
+          '• ವಿಶ್ಲೇಷಣೆ ಮತ್ತು ಶಿಫಾರಸು: ಸೂಕ್ಷ್ಮಾಣು ಜೀವಿಗಳು, ರಂಜಕ ಕರಗಿಸುವ ಮತ್ತು ಸಾರಜನಕ ಸ್ಥಿರೀಕರಿಸುವ ಬ್ಯಾಕ್ಟೀರಿಯಾಗಳನ್ನು ಗುರುತಿಸಿ ಸೂಕ್ತ ಜೈವಿಕ ಗೊಬ್ಬರದ ಸಲಹೆ ನೀಡಲಾಗುತ್ತದೆ.\n' +
+          '• ಆಗ್ರೋ AI ನಲ್ಲಿ ನೇರ ಕಿಟ್ ಆರ್ಡರ್ ಮಾಡುವ ಸೌಲಭ್ಯವು ಸದ್ಯ ಅಭಿವೃದ್ಧಿಯಲ್ಲಿದೆ.\n' +
+          '• ಸರ್ಕಾರಿ ಮಣ್ಣು ಪರೀಕ್ಷೆ: ನಿಮ್ಮ ಹತ್ತಿರದ ಕೃಷಿ ವಿಜ್ಞಾನ ಕೇಂದ್ರ (KVK) ಅಥವಾ ರೈತ ಸಂಪರ್ಕ ಕೇಂದ್ರ (RSK) ಮೂಲಕ ಮಣ್ಣು ಆರೋಗ್ಯ ಕಾರ್ಡ್ (Soil Health Card) ಪಡೆಯಬಹುದು.',
+      actions: [
+        { label: '🌱 Ask Agro GPT for Soil Advisory', labelKn: '🌱 Agro GPT ಯಲ್ಲಿ ಮಣ್ಣು/ಗೊಬ್ಬರದ ಸಲಹೆ ಪಡೆಯಿರಿ', action: "go('agrogpt')" },
+        { label: '📋 View Soil Health Schemes', labelKn: '📋 ಮಣ್ಣು ಆರೋಗ್ಯ ಯೋಜನೆಗಳನ್ನು ವೀಕ್ಷಿಸಿ', action: "go('schemes')" },
+        { label: '🌐 Soil Health Card Portal (soilhealth.dac.gov.in)', labelKn: '🌐 ರಾಷ್ಟ್ರೀಯ ಮಣ್ಣು ಆರೋಗ್ಯ ಪೋರ್ಟಲ್', external: 'https://soilhealth.dac.gov.in' }
+      ]
+    },
     passport:  { en: 'Not available yet: this service is not connected.', kn: 'ಇನ್ನೂ ಲಭ್ಯವಿಲ್ಲ: ಈ ಸೇವೆ ಇನ್ನೂ ಸಂಪರ್ಕಗೊಂಡಿಲ್ಲ.' },
     credit:    { en: 'Not available yet: this service is not connected.', kn: 'ಇನ್ನೂ ಲಭ್ಯವಿಲ್ಲ: ಈ ಸೇವೆ ಇನ್ನೂ ಸಂಪರ್ಕಗೊಂಡಿಲ್ಲ.' }
   };
@@ -6945,6 +7126,24 @@ function openMoreItem(id){
   } else {
     document.getElementById('stubBanner').textContent = isKn ? 'ನೇರ ಸೇವಾ ಸಂಯೋಜನೆ · ಆಗ್ರೋ AI API ಮೂಲಕ' : 'Live Service Integration · Powered by Agro AI APIs';
     document.getElementById('stubBody').textContent = item.body;
+  }
+  const actArea = document.getElementById('stubActionArea');
+  if(actArea){
+    if(nc && Array.isArray(nc.actions) && nc.actions.length > 0){
+      actArea.style.display = 'flex';
+      actArea.style.flexDirection = 'column';
+      actArea.style.gap = '8px';
+      actArea.innerHTML = nc.actions.map(a => {
+        const lbl = isKn ? (a.labelKn || a.label) : a.label;
+        if(a.external){
+          return `<a href="${a.external}" target="_blank" rel="noopener noreferrer" class="btn btn-outline btn-block" style="text-align:center;padding:10px;text-decoration:none;display:block;">${lbl} ↗</a>`;
+        }
+        return `<button type="button" class="btn btn-primary btn-block" style="padding:10px;" onclick="${a.action}">${lbl}</button>`;
+      }).join('');
+    } else {
+      actArea.innerHTML = '';
+      actArea.style.display = 'none';
+    }
   }
   go('stub');
 }
