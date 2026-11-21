@@ -24,6 +24,11 @@
   let client = null;
   let gsiInitialized = false;
 
+  // Keep the restored Supabase session available to the legacy page shell
+  // before its asynchronous Agro AI profile/session exchange completes.
+  window.agroSupabaseAuthState = 'loading';
+  window.agroSupabaseSession = null;
+
   function initSupabase() {
     if (window.supabase && typeof window.supabase.createClient === 'function') {
       try {
@@ -39,10 +44,20 @@
         console.log('⚡ Supabase Client initialized successfully');
 
         // Listen for Auth state changes (OAuth redirects, login, logout)
-        client.auth.onAuthStateChange(async (event, session) => {
-          console.log('[Supabase Auth Event]:', event, session ? session.user?.email : 'No session');
+        client.auth.onAuthStateChange((event, session) => {
+          window.agroSupabaseSession = session || null;
+          if (session?.user) {
+            window.agroSupabaseAuthState = 'authenticated';
+          } else if (event === 'INITIAL_SESSION' || event === 'SIGNED_OUT') {
+            window.agroSupabaseAuthState = 'unauthenticated';
+          }
+
           if ((event === 'SIGNED_IN' || event === 'INITIAL_SESSION') && session && session.user) {
             window.dispatchEvent(new CustomEvent('agro:signed-in', { detail: session }));
+          }
+
+          if (event === 'SIGNED_OUT') {
+            window.dispatchEvent(new CustomEvent('agro:signed-out'));
           }
 
           if (event === 'SIGNED_IN' && session && session.user) {
@@ -68,6 +83,7 @@
         });
 
       } catch (err) {
+        window.agroSupabaseAuthState = 'unauthenticated';
         console.error('Failed to initialize Supabase client:', err);
       }
     } else {
@@ -112,7 +128,7 @@
         });
 
         if (!error && data && data.session) {
-          console.log('⚡ Supabase authenticated successfully via Google ID Token:', data.session.user?.email);
+          console.log('⚡ Supabase authenticated successfully via Google ID Token');
           return; // onAuthStateChange triggers agro:signed-in
         }
         if (error) {
