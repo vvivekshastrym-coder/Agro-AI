@@ -57,6 +57,9 @@ const adminDistSrc = path.join(root, 'admin', 'dist');
 const adminPubSrc = path.join(pub, 'admin');
 
 if (fs.existsSync(adminDistSrc)) {
+  if (fs.existsSync(adminPubSrc)) {
+    fs.rmSync(adminPubSrc, { recursive: true, force: true });
+  }
   fs.cpSync(adminDistSrc, path.join(dist, 'admin'), { recursive: true });
   fs.cpSync(adminDistSrc, adminPubSrc, { recursive: true });
 } else if (fs.existsSync(adminPubSrc)) {
