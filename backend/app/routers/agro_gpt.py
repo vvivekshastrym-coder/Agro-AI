@@ -7,8 +7,9 @@ from typing import Optional, Dict, Any, List
 import uuid
 import json
 import logging
+import time
 from ..database.connection import get_db
-from ..database.models import AgroGPTConversation, AgroGPTMessage, AIContext, DiagnosisReport, User, Farm, FarmCrop
+from ..database.models import AgroGPTConversation, AgroGPTMessage, AIContext, DiagnosisReport, User, Farm, FarmCrop, AgroGPTUsageLog, AgroGPTFeedback
 from ..services.ai_service import generate_agro_gpt_response, stream_agro_gpt_response, generate_guarded_agro_gpt_response
 from ..auth.deps import get_current_user, get_optional_current_user, get_authenticated_user
 from ..auth.entitlements import check_and_consume_entitlement
@@ -110,6 +111,7 @@ async def agro_gpt_chat(req: ChatRequest, db: Session = Depends(get_db), user: U
 
     # 4. Generate AI Response (routed + deterministic safety guard)
     request_id = str(uuid.uuid4())[:8]
+    t0 = time.time()
     try:
         result = await generate_guarded_agro_gpt_response(message_history, context_data, req.language or "en")
     except Exception as e:
@@ -119,9 +121,29 @@ async def agro_gpt_chat(req: ChatRequest, db: Session = Depends(get_db), user: U
         fb = get_contextual_gpt_reply(message_history, context_data, req.language or "en")
         txt, flags = guard_reply(fb, req.language or "en", "rule_based_fallback")
         result = {"text": txt, "tier": "rule_based_fallback", "task": None, "model": None, "guard_flags": flags}
+    latency_ms = int((time.time() - t0) * 1000)
     reply_text = result["text"]
-    logger.info("[%s] agrogpt tier=%s task=%s model=%s flags=%s", request_id, result["tier"], result["task"],
-                result["model"], result["guard_flags"])
+    logger.info("[%s] agrogpt tier=%s task=%s model=%s flags=%s latency_ms=%d", request_id, result["tier"], result["task"],
+                result["model"], result["guard_flags"], latency_ms)
+
+    # Save telemetry (no raw prompt / no PII)
+    try:
+        from ..services.model_registry import model_for
+        spec = model_for(result["task"] or "simple") if result["tier"] == "llm" else None
+        db.add(AgroGPTUsageLog(
+            id=str(uuid.uuid4()),
+            request_id=request_id,
+            user_id=user.id,
+            task_category=result["task"],
+            provider=spec.provider if spec else "local_fallback",
+            model=result["model"] or "rule_based_fallback",
+            source_tier=result["tier"],
+            guard_flags=result["guard_flags"] or [],
+            latency_ms=latency_ms,
+        ))
+        db.commit()
+    except Exception:
+        db.rollback()
 
     # Save Assistant Response to DB
     assistant_msg_id = str(uuid.uuid4())
@@ -151,6 +173,39 @@ async def agro_gpt_chat(req: ChatRequest, db: Session = Depends(get_db), user: U
         "ai_unavailable": result["tier"] == "rule_based_fallback",
         "guard_flags": result["guard_flags"],
     }
+
+
+class FeedbackRequest(BaseModel):
+    message_id: str
+    rating: str = Field(..., pattern=r"^(helpful|not_helpful)$")
+    reason_tag: Optional[str] = Field(None, pattern=r"^(incorrect|not_relevant_to_crop|wrong_language|outdated|unsafe)$")
+    comment: Optional[str] = Field(None, max_length=500)
+
+
+@router.post("/feedback")
+async def submit_agrogpt_feedback(
+    req: FeedbackRequest,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_authenticated_user),
+):
+    """Records farmer feedback on an AgroGPT assistant message (verified ownership)."""
+    msg = db.query(AgroGPTMessage).filter(AgroGPTMessage.id == req.message_id).first()
+    if not msg:
+        raise HTTPException(status_code=404, detail={"error": {"code": "MESSAGE_NOT_FOUND", "message": "Message not found."}})
+    conv = db.query(AgroGPTConversation).filter(AgroGPTConversation.id == msg.conversation_id).first()
+    if not conv or conv.farmer_id != user.id:
+        raise HTTPException(status_code=403, detail={"error": {"code": "FORBIDDEN", "message": "Not permitted."}})
+    fb = AgroGPTFeedback(
+        id=str(uuid.uuid4()),
+        message_id=req.message_id,
+        user_id=user.id,
+        rating=req.rating,
+        reason_tag=req.reason_tag,
+        comment=req.comment,
+    )
+    db.add(fb)
+    db.commit()
+    return {"id": fb.id, "status": "recorded"}
 
 @router.post("/chat/stream")
 async def agro_gpt_chat_stream(req: ChatRequest, db: Session = Depends(get_db), user: User = Depends(get_authenticated_user)):

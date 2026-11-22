@@ -13,7 +13,10 @@ import {
   X,
   Megaphone,
   FileSpreadsheet,
-  ShoppingBag
+  ShoppingBag,
+  Bot,
+  BookOpen,
+  Activity
 } from 'lucide-react';
 
 interface NavItem {
@@ -32,6 +35,9 @@ interface AdminLayoutProps {
 
 const NAV_ITEMS: NavItem[] = [
   { id: 'overview', moduleKey: 'overview', label: 'Overview', icon: <LayoutDashboard size={18} />, roles: ['super_admin', 'admin', 'staff', 'plan_manager', 'payment_manager', 'payment_staff', 'support_agent', 'content_manager', 'listing_reviewer', 'seller_reviewer', 'analyst'] },
+  { id: 'agrogpt', moduleKey: 'overview', label: 'AgroGPT Control', icon: <Bot size={18} />, roles: ['super_admin', 'admin', 'analyst'] },
+  { id: 'knowledge', moduleKey: 'overview', label: 'Knowledge Library', icon: <BookOpen size={18} />, roles: ['super_admin', 'admin', 'content_manager', 'analyst'] },
+  { id: 'system_health', moduleKey: 'overview', label: 'System & Security', icon: <Activity size={18} />, roles: ['super_admin', 'admin', 'analyst'] },
   { id: 'mart', moduleKey: 'mart', label: 'Agro AI Mart', icon: <ShoppingBag size={18} />, roles: ['super_admin', 'admin', 'staff', 'plan_manager', 'payment_manager', 'support_agent', 'content_manager', 'listing_reviewer', 'seller_reviewer', 'analyst'] },
   { id: 'broadcasts', moduleKey: 'posts_offers', label: 'Posts & Offers', icon: <Megaphone size={18} />, roles: ['super_admin', 'admin', 'staff', 'content_manager', 'plan_manager', 'support_agent', 'analyst'] },
   { id: 'farmer_exports', moduleKey: 'excel_registry', label: 'Excel Data Registry', icon: <FileSpreadsheet size={18} />, roles: ['super_admin', 'admin', 'staff', 'support_agent', 'content_manager', 'analyst', 'plan_manager'] },
@@ -43,7 +49,7 @@ const NAV_ITEMS: NavItem[] = [
 ];
 
 export const AdminLayout: React.FC<AdminLayoutProps> = ({ currentTab, onTabChange, children }) => {
-  const { profile, logout } = useAdminAuth();
+  const { profile, logout, logoutAllDevices } = useAdminAuth();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const role = profile?.role || 'staff';
@@ -152,6 +158,12 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ currentTab, onTabChang
                   <ShieldCheck size={12} /> RBAC Enforced
                 </span>
               </div>
+              <button
+                onClick={logoutAllDevices}
+                className="mt-1 text-left text-[10px] text-[#9CA3AF] hover:text-red-300 underline cursor-pointer"
+              >
+                Revoke all admin sessions
+              </button>
             </div>
           </div>
         </div>

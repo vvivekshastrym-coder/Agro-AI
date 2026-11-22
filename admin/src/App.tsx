@@ -11,6 +11,9 @@ import { AuditLogs } from './pages/AuditLogs';
 import { BroadcastManager } from './pages/BroadcastManager';
 import { FarmerDataExport } from './pages/FarmerDataExport';
 import { MartConsole } from './pages/MartConsole';
+import { AgroGPTControlCentre } from './pages/AgroGPTControlCentre';
+import { SystemMonitoring } from './pages/SystemMonitoring';
+import { KnowledgeBaseManager } from './pages/KnowledgeBaseManager';
 
 const AdminAppShell: React.FC = () => {
   const { user, profile, mfaRequired, loading } = useAdminAuth();
@@ -33,6 +36,12 @@ const AdminAppShell: React.FC = () => {
     switch (currentTab) {
       case 'overview':
         return <DashboardOverview />;
+      case 'agrogpt':
+        return <AgroGPTControlCentre />;
+      case 'knowledge':
+        return <KnowledgeBaseManager />;
+      case 'system_health':
+        return <SystemMonitoring />;
       case 'mart':
         return <MartConsole />;
       case 'broadcasts':

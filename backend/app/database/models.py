@@ -1437,4 +1437,28 @@ class AgroGPTFeedback(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now(), index=True)
 
 
+class KnowledgeSource(Base):
+    """Verified agricultural knowledge source registry (ICAR, KVK, SAU, official labels)."""
+    __tablename__ = 'knowledge_sources'
+
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    title = Column(String(255), nullable=False)
+    publisher = Column(String(180), nullable=False)
+    source_url = Column(String(500), nullable=True)
+    crop = Column(String(80), nullable=False, index=True)
+    region = Column(String(120), nullable=False, default='Karnataka')
+    language = Column(String(20), nullable=False, default='en')
+    publication_date = Column(String(30), nullable=True)
+    last_verified_date = Column(String(30), nullable=True)
+    license_status = Column(String(60), nullable=False, default='link_and_summary_only')
+    review_status = Column(String(30), nullable=False, default='draft', index=True)  # draft | under_review | approved | rejected
+    reviewed_by = Column(String, ForeignKey('users.id', ondelete='SET NULL'), nullable=True)
+    summary = Column(Text, nullable=True)
+    version = Column(Integer, default=1, nullable=False)
+    created_by = Column(String, ForeignKey('users.id', ondelete='SET NULL'), nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+
+
+
 

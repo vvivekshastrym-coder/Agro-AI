@@ -40,6 +40,28 @@ CREATE TABLE IF NOT EXISTS agrogpt_feedback (
 );
 CREATE INDEX IF NOT EXISTS idx_agrogpt_feedback_message ON agrogpt_feedback(message_id);
 
+-- 3b. Agricultural Knowledge Sources registry (ICAR / KVK / SAU)
+CREATE TABLE IF NOT EXISTS knowledge_sources (
+  id TEXT PRIMARY KEY,
+  title VARCHAR(255) NOT NULL,
+  publisher VARCHAR(180) NOT NULL,
+  source_url VARCHAR(500),
+  crop VARCHAR(80) NOT NULL,
+  region VARCHAR(120) NOT NULL DEFAULT 'Karnataka',
+  language VARCHAR(20) NOT NULL DEFAULT 'en',
+  publication_date VARCHAR(30),
+  last_verified_date VARCHAR(30),
+  license_status VARCHAR(60) NOT NULL DEFAULT 'link_and_summary_only',
+  review_status VARCHAR(30) NOT NULL DEFAULT 'draft' CHECK (review_status IN ('draft', 'under_review', 'approved', 'rejected')),
+  reviewed_by TEXT REFERENCES users(id) ON DELETE SET NULL,
+  summary TEXT,
+  version INTEGER NOT NULL DEFAULT 1,
+  created_by TEXT REFERENCES users(id) ON DELETE SET NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ
+);
+CREATE INDEX IF NOT EXISTS idx_knowledge_sources_crop_status ON knowledge_sources(crop, review_status);
+
 -- 4. Row Level Security (RLS) — Deny by default for anon / authenticated PostgREST clients.
 --    Backend FastAPI service connects with privileged DB role; browser clients must never
 --    read/write admin tables directly.
@@ -48,6 +70,11 @@ ALTER TABLE admin_audit_logs ENABLE ROW LEVEL SECURITY;
 ALTER TABLE admin_access_requests ENABLE ROW LEVEL SECURITY;
 ALTER TABLE agrogpt_usage_logs ENABLE ROW LEVEL SECURITY;
 ALTER TABLE agrogpt_feedback ENABLE ROW LEVEL SECURITY;
+ALTER TABLE knowledge_sources ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS knowledge_sources_deny_write ON knowledge_sources;
+CREATE POLICY knowledge_sources_deny_write ON knowledge_sources
+  FOR ALL TO anon, authenticated USING (FALSE) WITH CHECK (FALSE);
 
 -- Drop any overly permissive policies if they exist
 DROP POLICY IF EXISTS admin_users_deny_all ON admin_users;

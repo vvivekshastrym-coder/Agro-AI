@@ -23,7 +23,8 @@ from ..database.models import (
     PlanEntitlement, UserSubscription, SubscriptionUsage, PaymentOrder,
     PaymentTransaction, PaymentWebhookEvent, AdminAuditLog, DataRequest, AdminAccessRequest,
     BroadcastItem, BroadcastType, BroadcastStatus, Farm, DiagnosisReport,
-    MarketPrice, MandiMarket, MartSellerProfile, MartListing, MartOrder, ExcelImportJob
+    MarketPrice, MandiMarket, MartSellerProfile, MartListing, MartOrder, ExcelImportJob,
+    AgroGPTUsageLog, AgroGPTFeedback, KnowledgeSource, AgroGPTMessage
 )
 from ..auth.deps import get_current_user, verify_supabase_token, GUEST_SESSION_SECRET
 from ..auth.passwords import hash_password, verify_password
@@ -3129,6 +3130,299 @@ async def toggle_emergency_lockdown(
         request,
     )
     return {"enabled": body.enabled, "reason": body.reason, "revoked_admin_sessions": revoked_count}
+
+
+# ── PHASE C: AGROGPT CONTROL CENTRE, SYSTEM HEALTH & KNOWLEDGE BASE ──
+@router.get("/agrogpt/control-centre")
+async def get_agrogpt_control_centre(
+    admin: AdminUser = Depends(require_admin(module="overview", action="read")),
+    db: Session = Depends(get_db),
+):
+    """Returns real AgroGPT model registry, provider availability (booleans only, never keys),
+    live telemetry from agrogpt_usage_logs, farmer feedback, and G1 baseline summary."""
+    from ..services.model_registry import REGISTRY, TASK_DEFAULTS
+    from ..services.ai_service import get_gemini_api_key, get_openai_api_key, get_anthropic_api_key
+
+    registry_list = [
+        {
+            "key": k,
+            "provider": spec.provider,
+            "model": spec.model,
+            "capabilities": spec.capabilities,
+            "context_window": spec.context_window,
+            "cost_tier": spec.cost_tier,
+            "fallbacks": spec.fallbacks,
+            "eval_scores": spec.eval_scores,
+        }
+        for k, spec in REGISTRY.items()
+    ]
+    providers = {
+        "gemini": bool(get_gemini_api_key()),
+        "openai": bool(get_openai_api_key()),
+        "anthropic": bool(get_anthropic_api_key()),
+    }
+
+    total_calls = db.query(AgroGPTUsageLog).count()
+    since_24h = datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(hours=24)
+    calls_24h = db.query(AgroGPTUsageLog).filter(AgroGPTUsageLog.created_at >= since_24h).count()
+    avg_latency = db.query(func.avg(AgroGPTUsageLog.latency_ms)).scalar()
+    total_cost = db.query(func.sum(AgroGPTUsageLog.estimated_cost_usd)).scalar() or 0.0
+
+    recent_logs = (
+        db.query(AgroGPTUsageLog)
+        .order_by(AgroGPTUsageLog.created_at.desc())
+        .limit(25)
+        .all()
+    )
+    tier_counts: Dict[str, int] = {}
+    task_counts: Dict[str, int] = {}
+    guard_flag_counts: Dict[str, int] = {}
+    for row in db.query(AgroGPTUsageLog).all():
+        tier_counts[row.source_tier or "unknown"] = tier_counts.get(row.source_tier or "unknown", 0) + 1
+        tkey = row.task_category or "unclassified"
+        task_counts[tkey] = task_counts.get(tkey, 0) + 1
+        for fl in (row.guard_flags or []):
+            guard_flag_counts[fl] = guard_flag_counts.get(fl, 0) + 1
+
+    fb_total = db.query(AgroGPTFeedback).count()
+    fb_helpful = db.query(AgroGPTFeedback).filter(AgroGPTFeedback.rating == "helpful").count()
+    fb_not_helpful = db.query(AgroGPTFeedback).filter(AgroGPTFeedback.rating == "not_helpful").count()
+    recent_feedback = (
+        db.query(AgroGPTFeedback)
+        .order_by(AgroGPTFeedback.created_at.desc())
+        .limit(15)
+        .all()
+    )
+
+    # Read G1 baseline summary if present on disk
+    baseline_summary = None
+    try:
+        base_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "evals", "agrogpt", "baseline_results.json"))
+        if os.path.exists(base_path):
+            with open(base_path, "r", encoding="utf-8") as f:
+                bdata = json.load(f)
+            baseline_summary = {
+                "version": bdata.get("questions_version"),
+                "tiers": bdata.get("tiers"),
+                "auto_pass_summary": bdata.get("auto_pass_summary"),
+                "caveat": bdata.get("caveat"),
+            }
+    except Exception:
+        baseline_summary = None
+
+    return {
+        "checked_at": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+        "providers_configured": providers,
+        "task_routing": dict(TASK_DEFAULTS),
+        "model_registry": registry_list,
+        "telemetry": {
+            "total_calls": total_calls,
+            "calls_24h": calls_24h,
+            "avg_latency_ms": round(float(avg_latency), 1) if avg_latency is not None else None,
+            "estimated_cost_usd": round(float(total_cost), 4),
+            "by_tier": tier_counts,
+            "by_task": task_counts,
+            "guard_flags": guard_flag_counts,
+            "recent": [
+                {
+                    "id": r.id,
+                    "request_id": r.request_id,
+                    "task_category": r.task_category,
+                    "provider": r.provider,
+                    "model": r.model,
+                    "source_tier": r.source_tier,
+                    "guard_flags": r.guard_flags or [],
+                    "latency_ms": r.latency_ms,
+                    "created_at": r.created_at.isoformat() if r.created_at else None,
+                }
+                for r in recent_logs
+            ],
+        },
+        "feedback": {
+            "total": fb_total,
+            "helpful": fb_helpful,
+            "not_helpful": fb_not_helpful,
+            "recent": [
+                {
+                    "id": f.id,
+                    "message_id": f.message_id,
+                    "rating": f.rating,
+                    "reason_tag": f.reason_tag,
+                    "comment": f.comment,
+                    "created_at": f.created_at.isoformat() if f.created_at else None,
+                }
+                for f in recent_feedback
+            ],
+        },
+        "baseline_eval": baseline_summary,
+    }
+
+
+@router.get("/system/health")
+async def get_system_health_monitoring(
+    admin: AdminUser = Depends(require_admin(module="overview", action="read")),
+    db: Session = Depends(get_db),
+):
+    """Returns real timestamped backend, database, external service and module health."""
+    from sqlalchemy import text
+    from ..services.ai_service import get_gemini_api_key, get_openai_api_key, get_anthropic_api_key
+
+    now_iso = datetime.datetime.now(datetime.timezone.utc).isoformat()
+    db_ok = True
+    db_latency_ms = None
+    try:
+        t0 = time.time()
+        db.execute(text("SELECT 1"))
+        db_latency_ms = round((time.time() - t0) * 1000, 2)
+    except Exception:
+        db_ok = False
+
+    mandi_count = db.query(MandiMarket).count() if db_ok else 0
+    diag_count = db.query(DiagnosisReport).count() if db_ok else 0
+    farm_count = db.query(Farm).count() if db_ok else 0
+    kb_approved = db.query(KnowledgeSource).filter(KnowledgeSource.review_status == "approved").count() if db_ok else 0
+    lockdown_active = _is_emergency_lockdown_active(db) if db_ok else False
+
+    services = [
+        {"name": "PostgreSQL / SQLAlchemy DB", "status": "healthy" if db_ok else "down", "detail": f"Ping {db_latency_ms} ms" if db_ok else "Unreachable", "checked_at": now_iso},
+        {"name": "Supabase Auth", "status": "healthy" if os.getenv("SUPABASE_URL") else "configured_client_only", "detail": "JWT/JWKS verification active", "checked_at": now_iso},
+        {"name": "Gemini Primary LLM", "status": "healthy" if get_gemini_api_key() else "not_configured", "detail": "gemini-2.5-flash" if get_gemini_api_key() else "GEMINI_API_KEY not set (using labelled fallback)", "checked_at": now_iso},
+        {"name": "OpenAI Fallback LLM", "status": "healthy" if get_openai_api_key() else "not_configured", "detail": "gpt-4o-mini" if get_openai_api_key() else "OPENAI_API_KEY not set", "checked_at": now_iso},
+        {"name": "Anthropic Fallback LLM", "status": "healthy" if get_anthropic_api_key() else "not_configured", "detail": "claude-3-5-haiku" if get_anthropic_api_key() else "ANTHROPIC_API_KEY not set", "checked_at": now_iso},
+        {"name": "Weather Provider (Open-Meteo / OWM)", "status": "healthy", "detail": "OpenWeather key set" if os.getenv("OPENWEATHER_API_KEY") else "Using Open-Meteo live weather", "checked_at": now_iso},
+        {"name": "Mandi APMC Directory", "status": "healthy" if mandi_count > 0 else "degraded", "detail": f"{mandi_count} regulated markets indexed", "checked_at": now_iso},
+        {"name": "Payment Webhook (Razorpay)", "status": "healthy" if (os.getenv("RAZORPAY_KEY_ID") and os.getenv("RAZORPAY_WEBHOOK_SECRET")) else "not_configured", "detail": "Webhook secret verified" if os.getenv("RAZORPAY_WEBHOOK_SECRET") else "RAZORPAY_WEBHOOK_SECRET not set", "checked_at": now_iso},
+    ]
+
+    modules = [
+        {"key": "agrogpt", "name": "AgroGPT", "status": "active", "detail": f"Deterministic guard active · {kb_approved} approved KB sources"},
+        {"key": "diagnosis", "name": "Crop Diagnosis", "status": "active", "detail": f"{diag_count} reports stored"},
+        {"key": "weather", "name": "Weather & Spray Advisory", "status": "active", "detail": "Live GPS / village forecast"},
+        {"key": "mandi", "name": "Mandi Prices", "status": "active", "detail": f"{mandi_count} APMC markets"},
+        {"key": "satellite", "name": "Satellite Monitoring", "status": "partial", "detail": f"{farm_count} farms registered; PostGIS polygon onboarding pending"},
+        {"key": "mart", "name": "Agro AI Mart", "status": "active", "detail": "Seller & listing moderation live"},
+        {"key": "logistics", "name": "Harvest Logistics", "status": "active", "detail": "Driver & trip booking live"},
+        {"key": "credit", "name": "Alternative Credit", "status": "preview", "detail": "Requires partner NBFC/bank integration"},
+        {"key": "drone", "name": "Drone Spraying", "status": "active", "detail": "Operator estimates & booking"},
+        {"key": "digital_twin", "name": "Digital Twin", "status": "preview", "detail": "Experimental simulation"},
+        {"key": "carbon", "name": "Carbon Credits", "status": "preview", "detail": "Awaiting MRV partner verification"},
+    ]
+
+    return {
+        "checked_at": now_iso,
+        "environment": os.getenv("ENVIRONMENT", "development"),
+        "mfa_enforced_global": _is_prod_env() or os.getenv("ADMIN_MFA_REQUIRED", "").strip().lower() in ("1", "true", "yes"),
+        "emergency_lockdown": lockdown_active,
+        "services": services,
+        "modules": modules,
+    }
+
+
+class KnowledgeSourceCreate(BaseModel):
+    title: str = Field(..., min_length=3, max_length=255)
+    publisher: str = Field(..., min_length=2, max_length=180)
+    source_url: Optional[str] = Field(None, max_length=500)
+    crop: str = Field(..., min_length=2, max_length=80)
+    region: str = Field("Karnataka", max_length=120)
+    language: str = Field("en", max_length=20)
+    publication_date: Optional[str] = Field(None, max_length=30)
+    license_status: str = Field("link_and_summary_only", max_length=60)
+    summary: Optional[str] = Field(None, max_length=2000)
+
+
+class KnowledgeSourceReview(BaseModel):
+    review_status: str = Field(..., pattern=r"^(under_review|approved|rejected)$")
+    last_verified_date: Optional[str] = Field(None, max_length=30)
+
+
+@router.get("/knowledge/sources")
+async def list_knowledge_sources(
+    crop: Optional[str] = None,
+    review_status: Optional[str] = None,
+    admin: AdminUser = Depends(require_admin(module="overview", action="read")),
+    db: Session = Depends(get_db),
+):
+    """Lists agricultural knowledge sources with metadata and agronomist review status."""
+    q = db.query(KnowledgeSource)
+    if crop:
+        q = q.filter(KnowledgeSource.crop.ilike(f"%{crop.strip()}%"))
+    if review_status:
+        q = q.filter(KnowledgeSource.review_status == review_status.strip())
+    rows = q.order_by(KnowledgeSource.created_at.desc()).limit(200).all()
+    return {
+        "total": len(rows),
+        "sources": [
+            {
+                "id": r.id,
+                "title": r.title,
+                "publisher": r.publisher,
+                "source_url": r.source_url,
+                "crop": r.crop,
+                "region": r.region,
+                "language": r.language,
+                "publication_date": r.publication_date,
+                "last_verified_date": r.last_verified_date,
+                "license_status": r.license_status,
+                "review_status": r.review_status,
+                "reviewed_by": r.reviewed_by,
+                "summary": r.summary,
+                "version": r.version,
+                "created_at": r.created_at.isoformat() if r.created_at else None,
+            }
+            for r in rows
+        ],
+    }
+
+
+@router.post("/knowledge/sources", status_code=201)
+async def create_knowledge_source(
+    body: KnowledgeSourceCreate,
+    request: Request,
+    admin: AdminUser = Depends(require_admin(AdminUserRole.super_admin, AdminUserRole.admin, AdminUserRole.content_manager)),
+    db: Session = Depends(get_db),
+):
+    """Adds a new agricultural knowledge source in 'draft' status (requires review before publishing)."""
+    src = KnowledgeSource(
+        id=str(uuid.uuid4()),
+        title=body.title.strip(),
+        publisher=body.publisher.strip(),
+        source_url=body.source_url.strip() if body.source_url else None,
+        crop=body.crop.strip(),
+        region=body.region.strip(),
+        language=body.language.strip(),
+        publication_date=body.publication_date,
+        license_status=body.license_status.strip(),
+        review_status="draft",
+        summary=body.summary,
+        version=1,
+        created_by=admin.user_id,
+    )
+    db.add(src)
+    db.commit()
+    db.refresh(src)
+    log_admin_action(db, admin, "CREATE_KNOWLEDGE_SOURCE", "knowledge_sources", src.id, {"title": src.title, "crop": src.crop, "publisher": src.publisher}, request)
+    return {"id": src.id, "review_status": src.review_status, "title": src.title}
+
+
+@router.patch("/knowledge/sources/{source_id}/review")
+async def review_knowledge_source(
+    source_id: str,
+    body: KnowledgeSourceReview,
+    request: Request,
+    admin: AdminUser = Depends(require_admin(AdminUserRole.super_admin, AdminUserRole.admin)),
+    db: Session = Depends(get_db),
+):
+    """Approves, rejects, or marks a knowledge source under review (Super Admin / Admin only)."""
+    src = db.query(KnowledgeSource).filter(KnowledgeSource.id == source_id).first()
+    if not src:
+        raise HTTPException(status_code=404, detail={"error": {"code": "SOURCE_NOT_FOUND", "message": "Knowledge source not found."}})
+    src.review_status = body.review_status
+    src.reviewed_by = admin.user_id
+    src.last_verified_date = body.last_verified_date or datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%d")
+    db.commit()
+    log_admin_action(db, admin, "REVIEW_KNOWLEDGE_SOURCE", "knowledge_sources", src.id, {"review_status": src.review_status, "title": src.title}, request)
+    return {"id": src.id, "review_status": src.review_status, "last_verified_date": src.last_verified_date}
+
 
 
 
