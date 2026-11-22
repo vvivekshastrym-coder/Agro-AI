@@ -4201,6 +4201,65 @@ async def decide_feature_change_request(
     return {"id": req_row.id, "status": req_row.status, "feature_key": req_row.feature_key, "applied_state": req_row.requested_status if body.decision == "approved" else None}
 
 
+# ── STAGE D2: DATA INTEGRITY & SOURCE MONITORING CENTER ────────────
+class DataSourceToggleRequest(BaseModel):
+    is_enabled: bool
+    reason: str = Field(..., min_length=5, max_length=300)
+
+
+@router.get("/data-integrity/overview")
+async def get_admin_data_integrity(
+    admin: AdminUser = Depends(require_admin(AdminUserRole.super_admin, AdminUserRole.admin, AdminUserRole.analyst)),
+    db: Session = Depends(get_db),
+):
+    """Super Admin sees all data sources; Dept Admins see only their assigned departments' sources."""
+    from ..services.data_integrity import get_data_integrity_overview
+    allowed = None if admin.role == AdminUserRole.super_admin else (getattr(admin, "departments", None) or [])
+    return get_data_integrity_overview(db, allowed_departments=allowed)
+
+
+@router.post("/data-integrity/sources/{source_key}/toggle")
+async def toggle_data_source(
+    source_key: str,
+    body: DataSourceToggleRequest,
+    request: Request,
+    admin: AdminUser = Depends(require_admin(AdminUserRole.super_admin, AdminUserRole.admin)),
+    db: Session = Depends(get_db),
+):
+    from ..database.models import DataSourceRegistry
+    from ..services.data_integrity import ensure_default_data_sources
+    ensure_default_data_sources(db)
+    src = db.query(DataSourceRegistry).filter(DataSourceRegistry.key == source_key).first()
+    if not src:
+        raise HTTPException(status_code=404, detail={"error": {"code": "SOURCE_NOT_FOUND", "message": f"Unknown data source '{source_key}'."}})
+    _enforce_department_scope(admin, src.department_slug, db, request)
+    src.is_enabled = body.is_enabled
+    src.updated_by = admin.user_id
+    db.commit()
+    log_admin_action(db, admin, "TOGGLE_DATA_SOURCE", "data_sources", source_key, {"is_enabled": body.is_enabled, "reason": body.reason.strip()}, request)
+    return {"key": source_key, "is_enabled": src.is_enabled}
+
+
+@router.post("/data-integrity/sources/{source_key}/sync")
+async def sync_data_source(
+    source_key: str,
+    request: Request,
+    admin: AdminUser = Depends(require_admin(AdminUserRole.super_admin, AdminUserRole.admin)),
+    db: Session = Depends(get_db),
+):
+    from ..database.models import DataSourceRegistry
+    from ..services.data_integrity import ensure_default_data_sources, trigger_source_sync
+    ensure_default_data_sources(db)
+    src = db.query(DataSourceRegistry).filter(DataSourceRegistry.key == source_key).first()
+    if not src:
+        raise HTTPException(status_code=404, detail={"error": {"code": "SOURCE_NOT_FOUND", "message": f"Unknown data source '{source_key}'."}})
+    _enforce_department_scope(admin, src.department_slug, db, request)
+    res = await trigger_source_sync(source_key, db, admin.user_id)
+    log_admin_action(db, admin, "MANUAL_DATA_SOURCE_SYNC", "data_sources", source_key, res, request)
+    return res
+
+
+
 
 
 

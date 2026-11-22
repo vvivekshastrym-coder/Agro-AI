@@ -44,6 +44,37 @@ CREATE TABLE IF NOT EXISTS feature_change_requests (
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+CREATE TABLE IF NOT EXISTS data_sources (
+  key VARCHAR(60) PRIMARY KEY,
+  provider_name VARCHAR(150) NOT NULL,
+  provider_type VARCHAR(50) NOT NULL,
+  department_slug VARCHAR(50) NOT NULL,
+  endpoint_reference VARCHAR(300),
+  supported_modules JSONB NOT NULL DEFAULT '[]'::jsonb,
+  priority INTEGER NOT NULL DEFAULT 1,
+  freshness_threshold_hours INTEGER NOT NULL DEFAULT 24,
+  is_enabled BOOLEAN NOT NULL DEFAULT TRUE,
+  last_retrieved_at TIMESTAMPTZ,
+  last_source_reporting_date VARCHAR(40),
+  last_status VARCHAR(30) NOT NULL DEFAULT 'unverified',
+  last_error TEXT,
+  updated_by TEXT REFERENCES users(id) ON DELETE SET NULL,
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS data_sync_logs (
+  id TEXT PRIMARY KEY,
+  source_key VARCHAR(60) NOT NULL REFERENCES data_sources(key) ON DELETE CASCADE,
+  triggered_by TEXT REFERENCES users(id) ON DELETE SET NULL,
+  status VARCHAR(30) NOT NULL,
+  records_fetched INTEGER NOT NULL DEFAULT 0,
+  records_saved INTEGER NOT NULL DEFAULT 0,
+  source_reporting_date VARCHAR(40),
+  error_message TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_data_sync_logs_source_created ON data_sync_logs(source_key, created_at DESC);
+
 -- 2. AgroGPT telemetry (cost, routing, latency, guard flags; no raw prompts or PII)
 CREATE TABLE IF NOT EXISTS agrogpt_usage_logs (
   id TEXT PRIMARY KEY,

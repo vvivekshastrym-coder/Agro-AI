@@ -1505,6 +1505,43 @@ class FeatureChangeRequest(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
 
+class DataSourceRegistry(Base):
+    """Central registry of external agricultural, weather, market, AI and payment data providers."""
+    __tablename__ = 'data_sources'
+
+    key = Column(String(60), primary_key=True)
+    provider_name = Column(String(150), nullable=False)
+    provider_type = Column(String(50), nullable=False)  # govt_api | weather_api | llm_api | routing_api | payment_api | satellite_api
+    department_slug = Column(String(50), nullable=False, index=True)
+    endpoint_reference = Column(String(300), nullable=True)
+    supported_modules = Column(JSON, default=list, nullable=False)
+    priority = Column(Integer, default=1, nullable=False)
+    freshness_threshold_hours = Column(Integer, default=24, nullable=False)
+    is_enabled = Column(Boolean, default=True, nullable=False)
+    last_retrieved_at = Column(DateTime(timezone=True), nullable=True)
+    last_source_reporting_date = Column(String(40), nullable=True)
+    last_status = Column(String(30), default='unverified', nullable=False)  # healthy | delayed | stale | unconfigured | failed
+    last_error = Column(Text, nullable=True)
+    updated_by = Column(String, ForeignKey('users.id', ondelete='SET NULL'), nullable=True)
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+
+class DataSyncLog(Base):
+    """Traceable history of every data source synchronization attempt."""
+    __tablename__ = 'data_sync_logs'
+
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    source_key = Column(String(60), ForeignKey('data_sources.key', ondelete='CASCADE'), nullable=False, index=True)
+    triggered_by = Column(String, ForeignKey('users.id', ondelete='SET NULL'), nullable=True)
+    status = Column(String(30), nullable=False)  # success | no_new_data | unconfigured | failed
+    records_fetched = Column(Integer, default=0, nullable=False)
+    records_saved = Column(Integer, default=0, nullable=False)
+    source_reporting_date = Column(String(40), nullable=True)
+    error_message = Column(Text, nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), index=True)
+
+
+
 
 
 

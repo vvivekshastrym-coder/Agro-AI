@@ -197,11 +197,18 @@ def _ensure_master_mandi_directory(db: Session):
 
 def _ensure_reference_mandi_prices(db: Session):
     """
-    Populates genuine baseline APMC mandi records across India.
-    Ensures that farmers always have verified market intelligence available.
+    Populates baseline APMC records ONLY in non-production / explicit ALLOW_DEMO_SEED=1 environments.
+    In production, real data must come exclusively from AGMARKNET / data.gov.in or verified admin imports.
     """
     global _REFERENCE_CHECKED
     if _REFERENCE_CHECKED:
+        return
+    is_prod = (
+        os.getenv("ENVIRONMENT", "development").strip().lower() in ("production", "prod")
+        or os.getenv("VERCEL_ENV", "").strip().lower() == "production"
+    )
+    if is_prod and os.getenv("ALLOW_DEMO_SEED", "0") != "1":
+        _REFERENCE_CHECKED = True
         return
     if db.query(MarketPrice).count() >= 50:
         _REFERENCE_CHECKED = True

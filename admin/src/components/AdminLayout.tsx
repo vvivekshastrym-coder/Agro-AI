@@ -18,7 +18,8 @@ import {
   BookOpen,
   Activity,
   Sliders,
-  Building2
+  Building2,
+  Database
 } from 'lucide-react';
 
 interface NavItem {
@@ -41,6 +42,7 @@ const NAV_ITEMS: NavItem[] = [
   { id: 'departments', moduleKey: 'overview', label: 'Departments & Teams', icon: <Building2 size={18} />, roles: ['super_admin', 'admin', 'supervisor', 'staff'] },
   { id: 'agrogpt', moduleKey: 'overview', label: 'AgroGPT Control', icon: <Bot size={18} />, roles: ['super_admin', 'admin', 'analyst'] },
   { id: 'knowledge', moduleKey: 'overview', label: 'Knowledge Library', icon: <BookOpen size={18} />, roles: ['super_admin', 'admin', 'content_manager', 'analyst'] },
+  { id: 'data_integrity', moduleKey: 'overview', label: 'Data Integrity', icon: <Database size={18} />, roles: ['super_admin', 'admin', 'analyst'] },
   { id: 'system_health', moduleKey: 'overview', label: 'System & Security', icon: <Activity size={18} />, roles: ['super_admin', 'admin', 'analyst'] },
   { id: 'mart', moduleKey: 'mart', label: 'Agro AI Mart', icon: <ShoppingBag size={18} />, roles: ['super_admin', 'admin', 'staff', 'plan_manager', 'payment_manager', 'support_agent', 'content_manager', 'listing_reviewer', 'seller_reviewer', 'analyst'] },
   { id: 'broadcasts', moduleKey: 'posts_offers', label: 'Posts & Offers', icon: <Megaphone size={18} />, roles: ['super_admin', 'admin', 'staff', 'content_manager', 'plan_manager', 'support_agent', 'analyst'] },

@@ -16,6 +16,7 @@ import { SystemMonitoring } from './pages/SystemMonitoring';
 import { KnowledgeBaseManager } from './pages/KnowledgeBaseManager';
 import { FeatureControlCentre } from './pages/FeatureControlCentre';
 import { DepartmentsTeams } from './pages/DepartmentsTeams';
+import { DataIntegrityCenter } from './pages/DataIntegrityCenter';
 
 const AdminAppShell: React.FC = () => {
   const { user, profile, mfaRequired, loading } = useAdminAuth();
@@ -46,6 +47,8 @@ const AdminAppShell: React.FC = () => {
         return <AgroGPTControlCentre />;
       case 'knowledge':
         return <KnowledgeBaseManager />;
+      case 'data_integrity':
+        return <DataIntegrityCenter />;
       case 'system_health':
         return <SystemMonitoring />;
       case 'mart':

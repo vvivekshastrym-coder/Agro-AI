@@ -15,6 +15,13 @@ def haversine_km(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
     return round(R * 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a)), 1)
 
 def _ensure_default_drone_operators(db: Session) -> None:
+    import os
+    is_prod = (
+        os.getenv("ENVIRONMENT", "development").strip().lower() in ("production", "prod")
+        or os.getenv("VERCEL_ENV", "").strip().lower() == "production"
+    )
+    if is_prod and os.getenv("ALLOW_DEMO_SEED", "0") != "1":
+        return
     if db.query(DroneOperator).count() > 0:
         return
     defaults = [
