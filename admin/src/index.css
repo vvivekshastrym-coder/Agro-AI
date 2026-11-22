@@ -12,10 +12,19 @@
   --border-light: #E5DFD3;
 }
 
-body {
+html, body {
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   background-color: var(--cream-50);
   color: #1F2937;
+  overflow-x: hidden;
+  -webkit-text-size-adjust: 100%;
+}
+
+/* Minimum 44px touch targets on coarse-pointer (smartphone/tablet) devices */
+@media (pointer: coarse) {
+  button, a, select, input[type="text"], input[type="email"], input[type="password"] {
+    min-height: 40px;
+  }
 }
 
 .font-display {

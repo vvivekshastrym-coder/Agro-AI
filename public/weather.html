@@ -294,7 +294,7 @@
     .nav-item.active{ background:var(--forest); color:#fff; }
     .nav-item .icon{ font-size:20px; }
     .grid2{ grid-template-columns:repeat(4,1fr); gap:16px; }
-    .chat-scroll{ max-height:calc(100vh - 280px); }
+    .chat-scroll{ max-height:calc(100dvh - 280px); }
 
     /* Two-panel sign-in on desktop: brand panel left, form card right */
     body.authing .app-shell::before{
@@ -388,8 +388,10 @@
   .more-list{ display:flex; flex-direction:column; gap:8px; }
   .more-row{
     display:flex; align-items:center; gap:13px; padding:13px 14px; background:var(--white);
-    border:1px solid var(--line); border-radius:16px; cursor:pointer;
+    border:1px solid var(--line); border-radius:16px; cursor:pointer; width:100%;
+    color:var(--ink); text-align:left; font:inherit;
   }
+  .more-row:focus-visible{outline:3px solid var(--forest);outline-offset:2px;}
   .more-row .emoji{ font-size:19px; width:28px; text-align:center; }
   .more-row .txt{ flex:1; }
   .more-row .txt .t{ font-weight:600; font-size:14px; }
@@ -970,7 +972,9 @@
 
     <!-- ============ AGRO GPT ============ -->
     <section class="view" data-view="kisangpt" style="display:none;">
-      <!-- Dedicated Guest Access Gate (Mandatory Authentication Screen) -->
+      <div id="agroGptAuthLoading" role="status" aria-live="polite" style="display:none;padding:20px 14px;text-align:center;color:var(--ink-soft);">Connecting to Agro GPT…</div>
+
+      <!-- Dedicated Guest Access Gate -->
       <div id="agroGptGuestGate" style="display:none;background:#FFFFFF;border:1.5px solid var(--line);border-radius:24px;padding:36px 22px;text-align:center;box-shadow:0 8px 30px rgba(31,77,43,0.08);margin:16px auto;max-width:520px;">
         <!-- Friendly AI Farming Assistant Illustration & Robot Icon -->
         <div style="position:relative;width:88px;height:88px;margin:0 auto 18px;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg, #E8F5E9 0%, #C8E6C9 100%);border-radius:50%;box-shadow:0 8px 24px rgba(31,77,43,0.15);border:2px solid #A5D6A7;">
@@ -1046,7 +1050,7 @@
 
             <!-- Main Input Box Card -->
             <div style="background:#fff;border:1.5px solid var(--line);border-radius:16px;padding:12px 14px;box-shadow:0 3px 12px rgba(0,0,0,0.03);margin-bottom:12px;">
-              <textarea id="chatInput" rows="2" placeholder="Ask about crops, weather, mandi prices, schemes..." style="width:100%;border:none;outline:none;resize:none;font-family:inherit;font-size:14px;color:var(--ink);background:transparent;margin-bottom:8px;" onfocus="if(!isRegisteredFarmer()){this.blur();showAgroGptLoginNotice();}" onkeydown="if(event.key==='Enter' && !event.shiftKey){event.preventDefault();sendChat();}"></textarea>
+              <textarea id="chatInput" rows="2" aria-label="Ask Agro GPT a question" placeholder="Ask about crops, weather, mandi prices, schemes..." style="width:100%;border:none;outline:none;resize: none;font-family:inherit;font-size:14px;color:var(--ink);background:transparent;margin-bottom:8px;" onkeydown="if(event.key==='Enter' && !event.shiftKey){event.preventDefault();sendChat();}"></textarea>
               <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;">
                 <button id="micBtn" onclick="toggleMic()" style="background:#F7F4EB;border:1px solid #E6E1D2;color:var(--ink);padding:7px 14px;border-radius:999px;font-size:12.5px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:6px;">
                   <span>🎙️</span> <span id="gptSpeakInsteadTxt">Speak instead</span>
@@ -4169,6 +4173,23 @@ function getCleanPhone(){
 }
 
 function isRegisteredFarmer(){
+  const supabaseUser = window.agroSupabaseSession?.user;
+  if (supabaseUser) {
+    if (session) {
+      session.signedIn = true;
+      session.isGuest = false;
+      session.userId = session.userId || supabaseUser.id;
+      session.token = window.agroSupabaseSession.access_token || session.token;
+      if (supabaseUser.email) {
+        session.google = session.google || {
+          name: supabaseUser.user_metadata?.full_name || supabaseUser.email.split('@')[0],
+          email: supabaseUser.email
+        };
+      }
+      if (supabaseUser.phone) session.phone = session.phone || supabaseUser.phone;
+    }
+    return true;
+  }
   if (session && session.signedIn && !session.isGuest && (session.phone || session.google || (session.userId && !String(session.userId).includes('guest')))) {
     return true;
   }
@@ -4239,16 +4260,16 @@ function applyAgroGptGateTranslations(lang){
 
 function updateAgroGptAccessUI(){
   let isAuthed = isRegisteredFarmer();
+  const loading = document.getElementById('agroGptAuthLoading');
   const gate = document.getElementById('agroGptGuestGate');
   const chat = document.getElementById('agroGptChatContainer');
   const banner = document.getElementById('agroGptLoginBanner');
-  if(gate) gate.style.display = isAuthed ? 'none' : 'block';
+  const isLoading = !isAuthed && window.agroSupabaseAuthState === 'loading';
+  if(loading) loading.style.display = isLoading ? 'block' : 'none';
+  if(gate) gate.style.display = isAuthed || isLoading ? 'none' : 'block';
   if(chat) chat.style.display = isAuthed ? 'block' : 'none';
-  if(banner){
-    if(isAuthed) banner.style.display = 'none';
-  }
-  if(!isAuthed){
-    if(banner) banner.style.display = 'none';
+  if(banner) banner.style.display = 'none';
+  if(!isAuthed && !isLoading){
     applyAgroGptGateTranslations(typeof currentLang !== 'undefined' ? currentLang : 'en');
   }
 }
@@ -5458,94 +5479,102 @@ function renderSuggestChips(){
 }
 
 async function sendChat(preset, isVoice = false){
-  if (!isRegisteredFarmer()) {
-    showAgroGptLoginNotice();
-    return;
-  }
   const input = document.getElementById('chatInput');
   const msg = preset || (input ? input.value.trim() : '');
   if(!msg) return;
+
+  let accessToken = null;
+  let authenticated = false;
+  if(window.supabaseClient?.auth){
+    try {
+      const { data, error } = await window.supabaseClient.auth.getSession();
+      if(error) throw error;
+      const authSession = data?.session || null;
+      window.agroSupabaseSession = authSession;
+      window.agroSupabaseAuthState = authSession?.user ? 'authenticated' : 'unauthenticated';
+      authenticated = Boolean(authSession?.user);
+      accessToken = authSession?.access_token || null;
+    } catch(e) {
+      console.warn('Could not verify Agro GPT session:', e);
+    }
+  }
+  if(!authenticated && typeof session !== 'undefined' && session && session.signedIn && !session.isGuest){
+    accessToken = session.token || null;
+    authenticated = Boolean(accessToken);
+  }
+  updateAgroGptAccessUI();
+  if(!authenticated){
+    showAgroGptLoginNotice();
+    return;
+  }
+  if(!accessToken){
+    showToast('Your sign-in could not be verified. Please sign in again before using Agro GPT.');
+    return;
+  }
+
   chatHistory.push({role:'user', text: msg});
-  if(input) input.value = '';
+  if(input && !preset) input.value = '';
   renderChat();
-  saveCurrentConversationToHistory(isVoice ? 'Voice conversation' : msg, isVoice);
-
   const scroll = document.getElementById('chatScroll');
-  const typingMsg = currentLang === 'kn' ? 'ಆಗ್ರೋ ಜಿಪಿಟಿ ಯೋಚಿಸುತ್ತಿದೆ…' : (currentLang === 'hi' ? 'एग्रो जीपीटी सोच रहा है…' : 'Agro GPT is thinking…');
-  scroll.insertAdjacentHTML('beforeend', `<div class="typing" id="typingIndicator">${typingMsg}</div>`);
-  scroll.scrollTop = scroll.scrollHeight;
+  const typingMsg = currentLang === 'kn' ? 'Agro GPT ಯೋಚಿಸುತ್ತಿದೆ…' : (currentLang === 'hi' ? 'Agro GPT सोच रहा है…' : 'Agro GPT is thinking…');
+  scroll?.insertAdjacentHTML('beforeend', `<div class="typing" id="typingIndicator" role="status">${typingMsg}</div>`);
+  if(scroll) scroll.scrollTop = scroll.scrollHeight;
 
-  // Real backend call
+  const request = (token) => fetch('/api/agro-gpt/chat', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json', 'Authorization': `Bearer ${token}`},
+    body: JSON.stringify({
+      message: msg,
+      language: currentLang,
+      conversation_id: conversationId,
+      context: {
+        location: (farmerProfile && farmerProfile.village) ? farmerProfile.village : '',
+        crop: (farmerProfile && farmerProfile.crop) ? farmerProfile.crop : ''
+      }
+    })
+  });
   try {
-    const headers = {'Content-Type': 'application/json'};
-    let bearerToken = null;
-    if (window.supabaseClient?.auth) {
-      try {
-        const { data } = await window.supabaseClient.auth.getSession();
-        if (data?.session?.access_token) {
-          bearerToken = data.session.access_token;
-        }
-      } catch(e) {}
+    let res = await request(accessToken);
+    if(res.status === 401 && window.supabaseClient?.auth?.refreshSession){
+      const { data, error } = await window.supabaseClient.auth.refreshSession();
+      if(!error && data?.session?.access_token){
+        window.agroSupabaseSession = data.session;
+        window.agroSupabaseAuthState = 'authenticated';
+        res = await request(data.session.access_token);
+      }
     }
-    if (!bearerToken && typeof session !== 'undefined' && session && session.token) {
-      bearerToken = session.token;
-    }
-    if (!bearerToken) {
-      bearerToken = localStorage.getItem('kisanToken');
-    }
-    if (bearerToken) {
-      headers['Authorization'] = 'Bearer ' + bearerToken;
-    }
-    const res = await fetch('/api/agro-gpt/chat', {
-      method: 'POST',
-      headers: headers,
-      body: JSON.stringify({
-        message: msg,
-        language: currentLang,
-        farmer_id: (session.google && session.google.email) ? session.google.email : (session.phone || 'default_farmer'),
-        conversation_id: conversationId,
-        context: {
-          location: (farmerProfile && farmerProfile.village) ? farmerProfile.village : 'Mandya',
-          crop: (farmerProfile && farmerProfile.crop) ? farmerProfile.crop : 'Tomato'
-        }
-      })
-    });
-    if(res.status === 401) {
-      document.getElementById('typingIndicator')?.remove();
+    document.getElementById('typingIndicator')?.remove();
+    if(res.status === 401){
       chatHistory.pop();
       renderChat();
-      if (!isRegisteredFarmer()) {
-        showToast('🔒 Please log in to continue using AgroGPT. Your AI farming assistant is available after signing in.');
-        updateAgroGptAccessUI();
-        showAgroGptLoginNotice();
-      } else {
-        showToast('Session needs refresh. Please retry in a moment.');
-      }
+      if(input && !preset) input.value = msg;
+      showToast(window.agroSupabaseSession?.user ? 'Agro GPT could not verify your session. Please sign in again.' : 'Please sign in to use Agro GPT.');
+      updateAgroGptAccessUI();
       return;
     }
-    if(res.ok) {
-      const data = await res.json();
-      document.getElementById('typingIndicator')?.remove();
-      const replyTxt = (data.reply || data.response || pickFallbackReply(msg)).replace(/Kisan GPT/gi, 'Agro GPT').replace(/KisanGPT/gi, 'Agro GPT');
-      chatHistory.push({role:'ai', text: replyTxt});
+    if(res.status === 403){
+      chatHistory.pop();
       renderChat();
-      saveCurrentConversationToHistory(msg, isVoice);
+      if(input && !preset) input.value = msg;
+      showToast('Your account does not currently have access to this Agro GPT feature.');
       return;
     }
-  } catch(e) {
+    if(!res.ok) throw new Error(`Agro GPT service returned ${res.status}`);
+    const data = await res.json();
+    const reply = data.reply || data.response;
+    if(typeof reply !== 'string' || !reply.trim()) throw new Error('Agro GPT returned an empty response');
+    chatHistory.push({role:'ai', text: reply.replace(/Kisan GPT/gi, 'Agro GPT').replace(/KisanGPT/gi, 'Agro GPT')});
+    renderChat();
+    saveCurrentConversationToHistory(isVoice ? 'Voice conversation' : msg, isVoice);
+  } catch(e){
     console.warn('Backend agro-gpt chat error:', e);
-  }
-
-  if (isRegisteredFarmer()) {
-    setTimeout(()=>{
-      document.getElementById('typingIndicator')?.remove();
-      chatHistory.push({role:'ai', text: pickFallbackReply(msg)});
-      renderChat();
-      saveCurrentConversationToHistory(msg, isVoice);
-    }, 550);
+    document.getElementById('typingIndicator')?.remove();
+    chatHistory.pop();
+    renderChat();
+    if(input && !preset) input.value = msg;
+    showToast('Agro GPT is temporarily unavailable. Your question is still in the box; please try again.');
   }
 }
-
 function pickFallbackReply(msg){
   const m = msg.trim().toLowerCase();
   const isKn = currentLang === 'kn';
@@ -7154,63 +7183,59 @@ function setInputsCategory(cat, btn){
 async function loadInputsProducts(cat){
   const area = document.getElementById('inputsProductsArea');
   if(!area) return;
-  const isKn = currentLang === 'kn';
-  const dict = I18N[currentLang] || I18N.en;
   const category = cat !== undefined ? cat : currentInputsCategory;
-
-  area.innerHTML = '<div class="card"><div class="skeleton" style="width:50%;height:24px;margin-bottom:8px;"></div><div class="skeleton" style="width:100%;"></div></div>';
-
+  area.setAttribute('aria-live', 'polite');
+  area.innerHTML = '<div class="card" role="status">Loading verified products…</div>';
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 15000);
+  const renderStatus = (message, isError = false) => {
+    area.innerHTML = `<div class="card" ${isError ? 'role="alert"' : 'role="status"'}><p class="muted">${message}</p><button type="button" class="btn btn-outline" onclick="loadInputsProducts()">Try again</button></div>`;
+  };
   try {
     const url = category ? `/api/market/inputs?category=${encodeURIComponent(category)}` : '/api/market/inputs';
-    const res = await fetch(url);
+    const res = await fetch(url, { signal: controller.signal });
     if(!res.ok){
-      area.innerHTML = `<div class="card" style="border-color:var(--danger);"><div class="muted">${isKn ? 'ಕೃಷಿ ಪರಿಕರಗಳ ಸೇವೆ ಲಭ್ಯವಿಲ್ಲ.' : 'Inputs service is unavailable.'}</div></div>`;
+      renderStatus('The product service is temporarily unavailable. No inquiry was sent.', true);
       return;
     }
     const data = await res.json();
     const products = Array.isArray(data) ? data : (data.products || []);
     if(!Array.isArray(products) || !products.length){
-      area.innerHTML = `
-        <div class="card">
-          <div style="font-weight:700;margin-bottom:6px;">${isKn ? 'ಈ ವರ್ಗಕ್ಕೆ ಯಾವುದೇ ಉತ್ಪನ್ನಗಳು ಸದ್ಯಕ್ಕೆ ಪಟ್ಟಿ ಮಾಡಲಾಗಿಲ್ಲ' : 'No inputs currently listed in this category'}</div>
-          <p class="muted" style="font-size:13px;margin-bottom:12px;">${isKn ? 'ನಿಮ್ಮ ಹತ್ತಿರದ ಕೃಷಿ ಕೇಂದ್ರಗಳಲ್ಲಿ ಲಭ್ಯವಿರುವ ಸ್ಟಾಕ್ ಮತ್ತು ದರಗಳ ವಿವರವನ್ನು ತಿಳಿಯಲು ವಿಚಾರಿಸಿ.' : 'Check stock and wholesale rates across verified agri kendras near your farm.'}</p>
-          <button class="btn btn-outline btn-block" onclick="showToast('${isKn ? 'ಕೃಷಿ ಕೇಂದ್ರ ವಿಚಾರಣೆ ಕಳುಹಿಸಲಾಗಿದೆ!' : 'Inquiry sent to nearby agri stores!'}')">${isKn ? 'ಹತ್ತಿರದ ಅಂಗಡಿಯಲ್ಲಿ ವಿಚಾರಿಸಿ' : 'Inquire nearby shop'}</button>
-        </div>`;
+      renderStatus(`No verified products are listed${category ? ` in ${escHtml(category)}` : ''} yet. Try another category or check again later. No inquiry has been sent.`);
       return;
     }
     area.innerHTML = products.map(p => `
       <div class="card" style="margin-bottom:12px;">
         <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px;">
           <div>
-            <div style="font-weight:700;font-size:15px;">${escHtml(p.title)}</div>
+            <div style="font-weight:700;font-size:15px;">${escHtml(p.title || 'Product')}</div>
             <div class="muted" style="font-size:12px;">${escHtml(p.brand || '')} · ${escHtml(p.pack_size || '')}</div>
           </div>
-          ${p.discount_pct > 0 ? `<span class="pill pill-forest">${p.discount_pct}% ${isKn ? 'ರಿಯಾಯಿತಿ' : 'OFF'}</span>` : ''}
+          ${p.discount_pct > 0 ? `<span class="pill pill-forest">${Number(p.discount_pct)}% OFF</span>` : ''}
         </div>
         <div style="margin:8px 0;display:flex;align-items:baseline;gap:8px;">
-          <span style="font-size:20px;font-weight:700;color:var(--forest);">₹${p.current_price}</span>
-          ${p.mrp > p.current_price ? `<span class="muted" style="text-decoration:line-through;font-size:13px;">₹${p.mrp}</span>` : ''}
+          <span style="font-size:20px;font-weight:700;color:var(--forest);">₹${escHtml(p.current_price ?? '')}</span>
+          ${p.mrp > p.current_price ? `<span class="muted" style="text-decoration:line-through;font-size:13px;">₹${escHtml(p.mrp)}</span>` : ''}
         </div>
-        <div class="muted" style="font-size:12px;margin-bottom:10px;">
-          🏪 ${escHtml(p.seller_name || p.seller?.name || (isKn ? 'ದೃಢೀಕೃತ ಕೃಷಿ ಕೇಂದ್ರ' : 'Verified Agri Store'))} · 🚚 ${isKn ? 'ಅಂದಾಜು ವಿತರಣೆ' : 'Delivery'}: ${p.delivery_estimate_days || p.delivery?.estimated_days || 1} ${isKn ? 'ದಿನ' : 'day(s)'}
-        </div>
-        <button class="btn btn-primary btn-block" onclick="showToast('${isKn ? 'ಉತ್ಪನ್ನ ವಿಚಾರಣೆಯನ್ನು ಕಳುಹಿಸಲಾಗಿದೆ!' : 'Order inquiry sent to vendor!'}')">${dict.inputs_buy_btn || (isKn ? 'ಆರ್ಡರ್ / ವಿಚಾರಣೆ' : 'Order / Inquire')}</button>
+        <div class="muted" style="font-size:12px;margin-bottom:10px;">${escHtml(p.seller_name || p.seller?.name || 'Verified Agri Store')} · Delivery: ${escHtml(p.delivery_estimate_days || p.delivery?.estimated_days || 1)} day(s)</div>
+        <button type="button" class="btn btn-outline btn-block" disabled aria-disabled="true">Ordering unavailable</button>
       </div>
     `).join('');
   } catch(e){
     console.warn('Inputs fetch failed:', e);
-    area.innerHTML = `<div class="card"><div class="muted">${isKn ? 'ಕೃಷಿ ಪರಿಕರಗಳ ಸೇವೆಯನ್ನು ತಲುಪಲಾಗಲಿಲ್ಲ.' : 'Could not reach inputs service.'}</div></div>`;
+    renderStatus(controller.signal.aborted ? 'The product request timed out. Please try again.' : 'Could not reach the product service. Please try again.', true);
+  } finally {
+    clearTimeout(timeoutId);
   }
 }
-
 /* ================= MORE SERVICES ================= */
 function renderMoreList(){
   document.getElementById('moreList').innerHTML = MORE_ITEMS.map(m=>`
-    <div class="more-row" onclick="openMoreItem('${m.id}')">
+    <button type="button" class="more-row" aria-label="${escHtml(m.t)}: ${escHtml(m.s)}" onclick="openMoreItem('${m.id}')">
       <div class="emoji">${m.emoji}</div>
       <div class="txt"><div class="t">${m.t}</div><div class="s">${m.s}</div></div>
       <div style="color:var(--ink-soft);">›</div>
-    </div>`).join('');
+    </button>`).join('');
 }
 
 function getFarmPassportDetails(lang) {

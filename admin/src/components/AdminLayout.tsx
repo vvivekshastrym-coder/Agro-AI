@@ -86,10 +86,21 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ currentTab, onTabChang
     return item.roles.includes(role);
   });
 
+  const mobileQuickTabs = allowedNav.slice(0, 4);
+
   return (
-    <div className="flex h-screen overflow-hidden bg-[#FAF8F5]">
+    <div className="flex h-[100dvh] overflow-hidden bg-[#FAF8F5]">
+      {/* Mobile Drawer Backdrop */}
+      {mobileMenuOpen && (
+        <div
+          className="fixed inset-0 z-40 bg-black/50 backdrop-blur-[2px] md:hidden"
+          onClick={() => setMobileMenuOpen(false)}
+          aria-hidden="true"
+        />
+      )}
+
       {/* ── SIDEBAR ─────────────────────────────────── */}
-      <aside className={`fixed inset-y-0 left-0 z-50 w-64 bg-[#081C15] text-[#E5E7EB] transform transition-transform duration-200 ease-in-out md:relative md:translate-x-0 ${mobileMenuOpen ? 'translate-x-0' : '-translate-x-64'}`}>
+      <aside className={`fixed inset-y-0 left-0 z-50 w-72 max-w-[85vw] md:w-64 bg-[#081C15] text-[#E5E7EB] transform transition-transform duration-200 ease-in-out md:relative md:translate-x-0 ${mobileMenuOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}`}>
         <div className="flex flex-col h-full border-r border-[#1B4332]">
           {/* Logo & Platform Name */}
           <div className="p-5 border-b border-[#1B4332]/60 flex items-center justify-between">
@@ -178,41 +189,71 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ currentTab, onTabChang
       {/* ── MAIN CONTENT AREA ────────────────────────── */}
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
         {/* Top Header */}
-        <header className="h-16 bg-white border-b border-[#E5DFD3] flex items-center justify-between px-6 z-10">
-          <div className="flex items-center gap-3">
+        <header className="h-14 md:h-16 bg-white border-b border-[#E5DFD3] flex items-center justify-between px-4 md:px-6 z-10 shrink-0">
+          <div className="flex items-center gap-2.5 min-w-0">
             <button
               onClick={() => setMobileMenuOpen(true)}
-              className="md:hidden p-2 rounded-lg text-[#374151] hover:bg-[#F3EFE6]"
+              aria-label="Open navigation menu"
+              className="md:hidden p-2 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-xl text-[#374151] hover:bg-[#F3EFE6]"
             >
               <Menu size={20} />
             </button>
-            <h2 className="font-display text-lg font-semibold text-[#1B4332] capitalize">
+            <h2 className="font-display text-base md:text-lg font-semibold text-[#1B4332] capitalize truncate">
               {allowedNav.find(n => n.id === currentTab)?.label || currentTab.replace('_', ' ')}
             </h2>
           </div>
 
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-3 shrink-0">
             <div className="hidden sm:flex items-center gap-2 px-3 py-1 rounded-full bg-[#E8F5E9] text-[#2D6A4F] text-xs font-semibold border border-[#C8E6C9]">
               <span className="w-2 h-2 rounded-full bg-[#2D6A4F] animate-pulse"></span>
               {tierLabelMap[hierarchyLevel]}
             </div>
             <a
-              href="http://127.0.0.1:8080"
+              href="/"
               target="_blank"
               rel="noreferrer"
-              className="text-xs font-medium text-[#2D6A4F] hover:text-[#1B4332] underline"
+              className="text-xs font-medium text-[#2D6A4F] hover:text-[#1B4332] underline whitespace-nowrap"
             >
-              ↗ Open Farmer App
+              ↗ Farmer App
             </a>
           </div>
         </header>
 
         {/* Scrollable View Container */}
-        <main className="flex-1 overflow-y-auto p-6 md:p-8">
+        <main className="flex-1 overflow-y-auto overflow-x-hidden p-4 pb-24 md:p-8 md:pb-8">
           <div className="max-w-7xl mx-auto">
             {children}
           </div>
         </main>
+
+        {/* Mobile Bottom Navigation Bar (<768px) — Role-Scoped */}
+        <nav
+          aria-label="Mobile admin navigation"
+          className="md:hidden fixed bottom-0 inset-x-0 z-30 bg-[#081C15] border-t border-[#1B4332] px-1 pt-1 pb-[max(0.35rem,env(safe-area-inset-bottom))] flex items-center justify-around"
+        >
+          {mobileQuickTabs.map((item) => {
+            const active = currentTab === item.id;
+            return (
+              <button
+                key={item.id}
+                onClick={() => onTabChange(item.id)}
+                className={`flex-1 flex flex-col items-center justify-center min-h-[48px] px-1 py-1 rounded-lg text-[10px] font-semibold transition ${
+                  active ? 'text-[#A7F3D0] bg-[#1B4332]/70' : 'text-[#9CA3AF]'
+                }`}
+              >
+                <span>{item.icon}</span>
+                <span className="mt-0.5 truncate max-w-[68px]">{item.label.split(' ')[0]}</span>
+              </button>
+            );
+          })}
+          <button
+            onClick={() => setMobileMenuOpen(true)}
+            className="flex-1 flex flex-col items-center justify-center min-h-[48px] px-1 py-1 rounded-lg text-[10px] font-semibold text-[#9CA3AF]"
+          >
+            <Menu size={18} />
+            <span className="mt-0.5">More</span>
+          </button>
+        </nav>
       </div>
     </div>
   );
