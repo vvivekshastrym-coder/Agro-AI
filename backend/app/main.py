@@ -146,19 +146,19 @@ async def add_security_headers(request: Request, call_next):
 
 @app.middleware('http')
 async def enforce_global_feature_controls(request: Request, call_next):
-    """Server-authoritative global feature gate: blocks disabled/maintenance/emergency-shutdown
-    features on all API requests without affecting auth, admin, or unrelated modules."""
-    if request.method != "OPTIONS" and (request.url.path or "").startswith("/api/"):
-        from .services.feature_control import feature_for_api_path, check_path_allowed
-        if feature_for_api_path(request.url.path):
-            from .database.connection import SessionLocal
-            db = SessionLocal()
-            try:
-                allowed, block_payload = check_path_allowed(request.url.path, db)
-            finally:
-                db.close()
-            if not allowed and block_payload:
-                return JSONResponse(status_code=503, content={"detail": block_payload})
+    """Server-authoritative global feature & platform maintenance gate: blocks disabled/maintenance/
+    emergency-shutdown features on API requests without affecting auth recovery, admin, or unrelated modules."""
+    path = request.url.path or ""
+    if request.method != "OPTIONS" and path.startswith("/api/") and not path.startswith(("/api/admin", "/api/privacy", "/api/health", "/api/public", "/api/base-url")):
+        from .services.feature_control import check_path_allowed
+        from .database.connection import SessionLocal
+        db = SessionLocal()
+        try:
+            allowed, block_payload = check_path_allowed(path, db)
+        finally:
+            db.close()
+        if not allowed and block_payload:
+            return JSONResponse(status_code=503, content={"detail": block_payload})
     return await call_next(request)
 
 @app.middleware('http')
@@ -296,15 +296,17 @@ async def get_base_url():
 
 @app.get('/api/public/features', tags=['Configuration'])
 async def get_public_feature_statuses():
-    """Read-only feature availability map for the Farmer App UI (no admin metadata exposed)."""
-    from .services.feature_control import get_all_feature_states
+    """Read-only feature availability & maintenance map for the Farmer App UI (no admin metadata exposed)."""
+    from .services.feature_control import get_all_feature_states, get_platform_maintenance
     from .database.connection import SessionLocal
     db = SessionLocal()
     try:
         states = get_all_feature_states(db, use_cache=True)
+        pm = get_platform_maintenance(db)
     finally:
         db.close()
     return {
+        "platform_maintenance": {"enabled": pm["enabled"], "message": pm["message"], "estimated_restore_at": pm["estimated_restore_at"]},
         "features": {
             k: {
                 "name": v["name"],

@@ -44,19 +44,77 @@ export const FeatureControlCentre: React.FC = () => {
   const [busyKey, setBusyKey] = useState<string | null>(null);
   const [scheduleKey, setScheduleKey] = useState<string | null>(null);
   const [schedForm, setSchedForm] = useState({ shutdownAt: '', restoreAt: '', targetState: 'MAINTENANCE', reason: '' });
+  const [platformMaint, setPlatformMaint] = useState<{ enabled: boolean; message: string | null }>({ enabled: false, message: null });
 
   const load = async () => {
     setLoading(true);
     setError(null);
     try {
-      const res = await adminFetch('/api/admin/features');
+      const [res, pmRes] = await Promise.all([
+        adminFetch('/api/admin/features'),
+        adminFetch('/api/admin/security/platform-maintenance'),
+      ]);
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const d = await res.json();
       setFeatures(d.features || []);
+      if (pmRes.ok) {
+        const pm = await pmRes.json();
+        setPlatformMaint({ enabled: Boolean(pm.enabled), message: pm.message || null });
+      }
     } catch (e: any) {
       setError(e.message || 'Failed to load global feature controls');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const runBulkAction = async (action: 'enable_all' | 'disable_all_farmer' | 'restore_previous') => {
+    if (!isSuperAdmin) return;
+    const label =
+      action === 'disable_all_farmer' ? 'DISABLE ALL farmer-facing modules (saves rollback snapshot; auth/admin stay safe)' :
+      action === 'restore_previous' ? 'RESTORE previous feature snapshot' :
+      'ENABLE ALL farmer-facing features';
+    const reason = window.prompt(`Confirm bulk action: ${label}\nEnter audit reason (min 5 chars):`, `Super Admin bulk ${action}`);
+    if (!reason || reason.trim().length < 5) return;
+    setBusyKey('__bulk__');
+    setError(null);
+    try {
+      const res = await adminFetch('/api/admin/features/bulk', {
+        method: 'POST',
+        body: JSON.stringify({ action, reason: reason.trim() }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err?.detail?.error?.message || `HTTP ${res.status}`);
+      }
+      await load();
+    } catch (e: any) {
+      setError(e.message || 'Bulk action failed');
+    } finally {
+      setBusyKey(null);
+    }
+  };
+
+  const togglePlatformMaintenance = async (enable: boolean) => {
+    if (!isSuperAdmin) return;
+    const reason = window.prompt(
+      enable ? 'Enable PLATFORM-WIDE MAINTENANCE MODE? Blocks all farmer APIs while keeping admin recovery active.\nReason:' : 'Disable Platform Maintenance Mode?\nReason:',
+      enable ? 'Scheduled platform maintenance window' : 'Platform maintenance completed'
+    );
+    if (!reason || reason.trim().length < 5) return;
+    setBusyKey('__pm__');
+    setError(null);
+    try {
+      const res = await adminFetch('/api/admin/security/platform-maintenance', {
+        method: 'POST',
+        body: JSON.stringify({ enabled: enable, reason: reason.trim() }),
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      await load();
+    } catch (e: any) {
+      setError(e.message || 'Platform maintenance update failed');
+    } finally {
+      setBusyKey(null);
     }
   };
 
@@ -201,6 +259,35 @@ export const FeatureControlCentre: React.FC = () => {
           <div className={`text-2xl font-bold mt-1 ${haltedCount > 0 ? 'text-red-700' : 'text-[#081C15]'}`}>{haltedCount}</div>
         </div>
       </div>
+
+      {isSuperAdmin && (
+        <div className={`rounded-2xl p-4 border flex flex-wrap items-center justify-between gap-3 ${platformMaint.enabled ? 'bg-amber-50 border-amber-300' : 'bg-white border-[#E5E7EB]'}`}>
+          <div>
+            <div className="text-xs font-bold text-[#081C15] uppercase tracking-wider">Master Bulk & Platform Maintenance Controls</div>
+            <div className="text-[11px] text-[#4B5563] mt-0.5">
+              Platform Maintenance: <span className={`font-bold ${platformMaint.enabled ? 'text-amber-800' : 'text-[#065F46]'}`}>{platformMaint.enabled ? 'ACTIVE (Farmer APIs paused)' : 'Off'}</span> · Admin & Auth recovery always remain accessible
+            </div>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <button disabled={busyKey !== null} onClick={() => runBulkAction('enable_all')} className="px-3 py-1.5 rounded-lg bg-[#1B4332] text-white text-xs font-semibold hover:bg-[#2D6A4F] cursor-pointer">
+              Enable All
+            </button>
+            <button disabled={busyKey !== null} onClick={() => runBulkAction('restore_previous')} className="px-3 py-1.5 rounded-lg border border-[#D1D5DB] bg-white text-[#1F2937] text-xs font-semibold hover:bg-gray-50 cursor-pointer">
+              Restore Snapshot
+            </button>
+            <button disabled={busyKey !== null} onClick={() => runBulkAction('disable_all_farmer')} className="px-3 py-1.5 rounded-lg bg-amber-600 text-white text-xs font-semibold hover:bg-amber-700 cursor-pointer">
+              Pause All Farmer Modules
+            </button>
+            <button
+              disabled={busyKey !== null}
+              onClick={() => togglePlatformMaintenance(!platformMaint.enabled)}
+              className={`px-3 py-1.5 rounded-lg text-white text-xs font-semibold cursor-pointer ${platformMaint.enabled ? 'bg-[#1B4332] hover:bg-[#2D6A4F]' : 'bg-red-700 hover:bg-red-800'}`}
+            >
+              {platformMaint.enabled ? 'Lift Platform Maintenance' : 'Platform Maintenance Mode'}
+            </button>
+          </div>
+        </div>
+      )}
 
       {!isSuperAdmin && (
         <div className="p-3.5 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-800 flex items-center gap-2">

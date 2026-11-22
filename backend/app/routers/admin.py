@@ -3628,6 +3628,206 @@ async def get_feature_history(
     }
 
 
+# ── MASTER BULK FEATURE ACTIONS, PLATFORM MAINTENANCE & USER CONTROLS ──
+class BulkFeatureActionRequest(BaseModel):
+    action: str = Field(..., pattern=r"^(enable_all|disable_all_farmer|restore_previous)$")
+    reason: str = Field(..., min_length=5, max_length=300)
+    maintenance_message: Optional[str] = Field(None, max_length=400)
+
+
+class PlatformMaintenanceRequest(BaseModel):
+    enabled: bool
+    reason: str = Field(..., min_length=5, max_length=300)
+    maintenance_message: Optional[str] = Field(None, max_length=400)
+    estimated_restore_at: Optional[str] = Field(None, max_length=60)
+
+
+class UserModerationReason(BaseModel):
+    reason: str = Field(..., min_length=5, max_length=300)
+
+
+@router.post("/features/bulk")
+async def bulk_feature_control(
+    body: BulkFeatureActionRequest,
+    request: Request,
+    admin: AdminUser = Depends(require_admin(AdminUserRole.super_admin)),
+    db: Session = Depends(get_db),
+):
+    """Super Admin ONLY: Enable all, disable all farmer-facing modules (with rollback snapshot),
+    or restore the previous feature configuration. Never touches auth/admin/security/audit."""
+    from ..services.feature_control import FEATURE_REGISTRY, get_all_feature_states, invalidate_feature_cache
+
+    snap_key = "feature_bulk_snapshot"
+    current = get_all_feature_states(db, use_cache=False)
+    affected: List[str] = []
+
+    if body.action == "disable_all_farmer":
+        # Save rollback snapshot first
+        snapshot = {k: v["status"] for k, v in current.items()}
+        snap_row = db.query(PlatformFeature).filter(PlatformFeature.key == snap_key).first()
+        if not snap_row:
+            db.add(PlatformFeature(key=snap_key, name="Bulk Rollback Snapshot", state="snapshot", implemented=True, config={"states": snapshot}, changed_by=admin.user_id, reason=body.reason.strip()))
+        else:
+            snap_row.config = {"states": snapshot}
+            snap_row.changed_by = admin.user_id
+            snap_row.reason = body.reason.strip()
+        for key, meta in FEATURE_REGISTRY.items():
+            row = db.query(PlatformFeature).filter(PlatformFeature.key == key).first()
+            cfg = dict((row.config if row else None) or {})
+            if body.maintenance_message:
+                cfg["maintenance_message"] = body.maintenance_message.strip()
+            if not row:
+                db.add(PlatformFeature(key=key, name=meta["name"], state="MAINTENANCE", implemented=True, config=cfg, revision=1, changed_by=admin.user_id, reason=body.reason.strip()))
+            else:
+                row.state = "MAINTENANCE"
+                row.config = cfg
+                row.revision = (row.revision or 1) + 1
+                row.changed_by = admin.user_id
+                row.reason = body.reason.strip()
+            affected.append(key)
+    elif body.action == "enable_all":
+        for key, meta in FEATURE_REGISTRY.items():
+            row = db.query(PlatformFeature).filter(PlatformFeature.key == key).first()
+            if row:
+                row.state = "ENABLED"
+                row.revision = (row.revision or 1) + 1
+                row.changed_by = admin.user_id
+                row.reason = body.reason.strip()
+            else:
+                db.add(PlatformFeature(key=key, name=meta["name"], state="ENABLED", implemented=True, config={}, revision=1, changed_by=admin.user_id, reason=body.reason.strip()))
+            affected.append(key)
+    elif body.action == "restore_previous":
+        snap_row = db.query(PlatformFeature).filter(PlatformFeature.key == snap_key).first()
+        if not snap_row or not isinstance((snap_row.config or {}).get("states"), dict):
+            raise HTTPException(status_code=404, detail={"error": {"code": "NO_SNAPSHOT", "message": "No previous feature snapshot available to restore."}})
+        saved = snap_row.config["states"]
+        for key, target_state in saved.items():
+            if key not in FEATURE_REGISTRY:
+                continue
+            row = db.query(PlatformFeature).filter(PlatformFeature.key == key).first()
+            if row:
+                row.state = target_state
+                row.revision = (row.revision or 1) + 1
+                row.changed_by = admin.user_id
+                row.reason = body.reason.strip()
+                affected.append(key)
+
+    db.commit()
+    invalidate_feature_cache()
+    log_admin_action(db, admin, f"BULK_FEATURE_{body.action.upper()}", "platform_features", "bulk", {"action": body.action, "affected_count": len(affected), "reason": body.reason.strip()}, request)
+    return {"action": body.action, "affected_count": len(affected), "affected_features": affected}
+
+
+@router.get("/security/platform-maintenance")
+async def get_platform_maintenance_status(
+    admin: AdminUser = Depends(require_admin(AdminUserRole.super_admin, AdminUserRole.admin, AdminUserRole.analyst)),
+    db: Session = Depends(get_db),
+):
+    from ..services.feature_control import get_platform_maintenance
+    return get_platform_maintenance(db)
+
+
+@router.post("/security/platform-maintenance")
+async def set_platform_maintenance_status(
+    body: PlatformMaintenanceRequest,
+    request: Request,
+    admin: AdminUser = Depends(require_admin(AdminUserRole.super_admin)),
+    db: Session = Depends(get_db),
+):
+    """Super Admin ONLY: Platform-wide maintenance mode (blocks all farmer-facing APIs while keeping
+    /api/admin and /api/auth recovery routes fully operational)."""
+    from ..services.feature_control import PLATFORM_MAINTENANCE_KEY, invalidate_feature_cache
+
+    row = db.query(PlatformFeature).filter(PlatformFeature.key == PLATFORM_MAINTENANCE_KEY).first()
+    cfg = {
+        "maintenance_message": (body.maintenance_message or "Agro AI is undergoing scheduled platform maintenance. Your farm data is safe.").strip(),
+        "estimated_restore_at": body.estimated_restore_at,
+    }
+    state_str = "ENABLED" if body.enabled else "DISABLED"
+    if not row:
+        db.add(PlatformFeature(key=PLATFORM_MAINTENANCE_KEY, name="Platform Maintenance Mode", state=state_str, implemented=True, config=cfg, revision=1, changed_by=admin.user_id, reason=body.reason.strip()))
+    else:
+        row.state = state_str
+        row.config = cfg
+        row.revision = (row.revision or 1) + 1
+        row.changed_by = admin.user_id
+        row.reason = body.reason.strip()
+    db.commit()
+    invalidate_feature_cache()
+    action = "PLATFORM_MAINTENANCE_ENABLED" if body.enabled else "PLATFORM_MAINTENANCE_DISABLED"
+    log_admin_action(db, admin, action, "platform_security", PLATFORM_MAINTENANCE_KEY, {"enabled": body.enabled, "reason": body.reason.strip()}, request)
+    return {"enabled": body.enabled, "message": cfg["maintenance_message"], "estimated_restore_at": body.estimated_restore_at}
+
+
+@router.post("/users/{user_id}/ban")
+async def ban_user_account(
+    user_id: str,
+    body: UserModerationReason,
+    request: Request,
+    admin: AdminUser = Depends(require_admin(AdminUserRole.super_admin)),
+    db: Session = Depends(get_db),
+):
+    """Super Admin ONLY: Permanently ban a user account with documented reason (revokes admin sessions if applicable)."""
+    if user_id == admin.user_id:
+        raise HTTPException(status_code=400, detail={"error": {"code": "SELF_BAN_FORBIDDEN", "message": "Cannot ban your own Super Admin account."}})
+    u = db.query(User).filter(User.id == user_id).first()
+    if not u:
+        raise HTTPException(status_code=404, detail={"error": {"code": "USER_NOT_FOUND", "message": "User not found."}})
+    u.is_active = False
+    if hasattr(u, "account_status"):
+        u.account_status = "banned"
+    adm = db.query(AdminUser).filter(AdminUser.user_id == user_id).first()
+    if adm:
+        adm.is_active = False
+        adm.session_version = (getattr(adm, "session_version", 1) or 1) + 1
+    db.commit()
+    log_admin_action(db, admin, "BAN_USER_ACCOUNT", "users", user_id, {"reason": body.reason.strip()}, request)
+    return {"user_id": user_id, "status": "banned", "is_active": False}
+
+
+@router.post("/users/{user_id}/reinstate")
+async def reinstate_user_account(
+    user_id: str,
+    body: UserModerationReason,
+    request: Request,
+    admin: AdminUser = Depends(require_admin(AdminUserRole.super_admin, AdminUserRole.admin)),
+    db: Session = Depends(get_db),
+):
+    """Reinstates a suspended or banned farmer account with audit logging."""
+    u = db.query(User).filter(User.id == user_id).first()
+    if not u:
+        raise HTTPException(status_code=404, detail={"error": {"code": "USER_NOT_FOUND", "message": "User not found."}})
+    u.is_active = True
+    if hasattr(u, "account_status"):
+        u.account_status = "active"
+    db.commit()
+    log_admin_action(db, admin, "REINSTATE_USER_ACCOUNT", "users", user_id, {"reason": body.reason.strip()}, request)
+    return {"user_id": user_id, "status": "active", "is_active": True}
+
+
+@router.post("/users/{user_id}/revoke-sessions")
+async def force_logout_user_sessions(
+    user_id: str,
+    body: UserModerationReason,
+    request: Request,
+    admin: AdminUser = Depends(require_admin(AdminUserRole.super_admin, AdminUserRole.admin)),
+    db: Session = Depends(get_db),
+):
+    """Forces logout from all devices for a user (increments admin session_version if an admin account)."""
+    u = db.query(User).filter(User.id == user_id).first()
+    if not u:
+        raise HTTPException(status_code=404, detail={"error": {"code": "USER_NOT_FOUND", "message": "User not found."}})
+    adm = db.query(AdminUser).filter(AdminUser.user_id == user_id).first()
+    new_sv = None
+    if adm:
+        adm.session_version = (getattr(adm, "session_version", 1) or 1) + 1
+        new_sv = adm.session_version
+    db.commit()
+    log_admin_action(db, admin, "FORCE_LOGOUT_USER_SESSIONS", "users", user_id, {"reason": body.reason.strip(), "admin_session_version": new_sv}, request)
+    return {"user_id": user_id, "status": "sessions_revoked", "admin_session_version": new_sv}
+
+
+
 
 
 

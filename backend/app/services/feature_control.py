@@ -108,6 +108,34 @@ FEATURE_REGISTRY: Dict[str, Dict[str, Any]] = {
         "api_prefixes": ["/api/plans"],
         "depends_on": [],
     },
+    "farm_passport": {
+        "name": "Farm Passport",
+        "description": "Verified farm identity, crop history and land passport records.",
+        "category": "operations",
+        "api_prefixes": ["/api/farm-passport"],
+        "depends_on": [],
+    },
+    "voice_ai": {
+        "name": "Voice AI",
+        "description": "Multilingual voice-to-text and spoken advisory interactions.",
+        "category": "ai",
+        "api_prefixes": ["/api/voice"],
+        "depends_on": ["agrogpt"],
+    },
+    "notifications": {
+        "name": "Notifications & Broadcasts",
+        "description": "Farmer alerts, SMS/WhatsApp advisories and platform announcements.",
+        "category": "advisory",
+        "api_prefixes": ["/api/notifications"],
+        "depends_on": [],
+    },
+    "farmer_registration": {
+        "name": "Farmer Registration",
+        "description": "New farmer OTP registration (disabling pauses new signups without affecting admin recovery).",
+        "category": "operations",
+        "api_prefixes": ["/api/auth/phone-otp/send"],
+        "depends_on": [],
+    },
 }
 
 # Short-lived in-process cache invalidated immediately on any Super Admin mutation
@@ -241,9 +269,30 @@ def get_all_feature_states(db: Session, use_cache: bool = True) -> Dict[str, Dic
     return result
 
 
+PLATFORM_MAINTENANCE_KEY = "platform_global_maintenance"
+
+
+def get_platform_maintenance(db: Session) -> Dict[str, Any]:
+    row = db.query(PlatformFeature).filter(PlatformFeature.key == PLATFORM_MAINTENANCE_KEY).first()
+    if not row or (row.state or "").upper() != "ENABLED":
+        return {"enabled": False, "message": None, "estimated_restore_at": None, "reason": None}
+    cfg = row.config or {}
+    return {
+        "enabled": True,
+        "message": cfg.get("maintenance_message") or "Agro AI is temporarily in scheduled maintenance. Your farm data is safe.",
+        "estimated_restore_at": cfg.get("estimated_restore_at"),
+        "reason": row.reason,
+        "changed_by": row.changed_by,
+        "changed_at": row.changed_at.isoformat() if row.changed_at else None,
+    }
+
+
 def feature_for_api_path(path: str) -> Optional[str]:
     p = (path or "").lower()
-    if p.startswith(("/api/admin", "/api/auth", "/api/privacy", "/api/health", "/api/public", "/api/base-url")):
+    if p.startswith(("/api/admin", "/api/privacy", "/api/health", "/api/public", "/api/base-url")):
+        return None
+    # Allow farmer_registration toggle on /api/auth/phone-otp/send while protecting all other /api/auth recovery routes
+    if p.startswith("/api/auth") and not p.startswith("/api/auth/phone-otp/send"):
         return None
     for key, meta in FEATURE_REGISTRY.items():
         for pref in meta["api_prefixes"]:
@@ -254,10 +303,26 @@ def feature_for_api_path(path: str) -> Optional[str]:
 
 def check_path_allowed(path: str, db: Session) -> Tuple[bool, Optional[Dict[str, Any]]]:
     """Returns (allowed, block_payload). Safe fallback: if DB fails, allows traffic without breaking auth."""
-    key = feature_for_api_path(path)
-    if not key:
+    p = (path or "").lower()
+    if p.startswith(("/api/admin", "/api/privacy", "/api/health", "/api/public", "/api/base-url")):
         return True, None
     try:
+        # 1. Platform-wide maintenance mode (blocks all farmer-facing APIs while keeping admin/auth recovery open)
+        if not p.startswith("/api/auth"):
+            pm = get_platform_maintenance(db)
+            if pm.get("enabled"):
+                return False, {
+                    "error": {
+                        "code": "PLATFORM_MAINTENANCE",
+                        "status": "MAINTENANCE",
+                        "message": pm["message"],
+                        "estimated_restore_at": pm.get("estimated_restore_at"),
+                    }
+                }
+        # 2. Individual feature check
+        key = feature_for_api_path(path)
+        if not key:
+            return True, None
         states = get_all_feature_states(db, use_cache=True)
         info = states.get(key)
         if not info:
