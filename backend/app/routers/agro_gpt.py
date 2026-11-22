@@ -1,14 +1,15 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Request
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
+import re
 from typing import Optional, Dict, Any, List
 import uuid
 import json
 import logging
 from ..database.connection import get_db
 from ..database.models import AgroGPTConversation, AgroGPTMessage, AIContext, DiagnosisReport, User, Farm, FarmCrop
-from ..services.ai_service import generate_agro_gpt_response, stream_agro_gpt_response
+from ..services.ai_service import generate_agro_gpt_response, stream_agro_gpt_response, generate_guarded_agro_gpt_response
 from ..auth.deps import get_current_user, get_optional_current_user, get_authenticated_user
 from ..auth.entitlements import check_and_consume_entitlement
 
@@ -22,10 +23,17 @@ class DiagnosisContextRequest(BaseModel):
 
 class ChatRequest(BaseModel):
     conversation_id: Optional[str] = None
-    message: str
+    message: str = Field(..., min_length=1, max_length=2000)
     language: Optional[str] = "en"
-    farmer_id: Optional[str] = None
-    context: Optional[Dict[str, Any]] = None
+    farmer_id: Optional[str] = None  # ignored: identity always comes from the verified token
+    context: Optional[Dict[str, Any]] = None  # only whitelisted keys are ever read
+
+def _safe_location(value) -> Optional[str]:
+    """Client-supplied location is data: letters/digits/space/comma only, max 60 chars."""
+    if not isinstance(value, str):
+        return None
+    cleaned = re.sub(r"[^\w\s,\-]", "", value, flags=re.UNICODE).strip()[:60]
+    return cleaned or None
 
 @router.post("/context/diagnosis")
 async def attach_diagnosis_context(req: DiagnosisContextRequest, db: Session = Depends(get_db), user: User = Depends(get_authenticated_user)):
@@ -100,12 +108,20 @@ async def agro_gpt_chat(req: ChatRequest, db: Session = Depends(get_db), user: U
     except Exception:
         db.rollback()
 
-    # 4. Generate AI Response
+    # 4. Generate AI Response (routed + deterministic safety guard)
+    request_id = str(uuid.uuid4())[:8]
     try:
-        reply_text = await generate_agro_gpt_response(message_history, context_data, req.language or "en")
+        result = await generate_guarded_agro_gpt_response(message_history, context_data, req.language or "en")
     except Exception as e:
-        logger.error(f"Error in Agro GPT chat: {e}")
-        reply_text = get_contextual_gpt_reply(message_history, context_data, req.language or "en")
+        logger.error(f"[{request_id}] Error in Agro GPT chat: {type(e).__name__}")
+        from ..services.answer_guard import guard_reply
+        from ..services.ai_service import get_contextual_gpt_reply
+        fb = get_contextual_gpt_reply(message_history, context_data, req.language or "en")
+        txt, flags = guard_reply(fb, req.language or "en", "rule_based_fallback")
+        result = {"text": txt, "tier": "rule_based_fallback", "task": None, "model": None, "guard_flags": flags}
+    reply_text = result["text"]
+    logger.info("[%s] agrogpt tier=%s task=%s model=%s flags=%s", request_id, result["tier"], result["task"],
+                result["model"], result["guard_flags"])
 
     # Save Assistant Response to DB
     assistant_msg_id = str(uuid.uuid4())
@@ -126,10 +142,14 @@ async def agro_gpt_chat(req: ChatRequest, db: Session = Depends(get_db), user: U
     return {
         "conversation_id": conversation_id,
         "message_id": assistant_msg_id,
+        "request_id": request_id,
         "reply": reply_text,
         "response": reply_text,
         "language": req.language or "en",
-        "context_used": bool(context_data)
+        "context_used": bool(context_data),
+        "source_tier": result["tier"],
+        "ai_unavailable": result["tier"] == "rule_based_fallback",
+        "guard_flags": result["guard_flags"],
     }
 
 @router.post("/chat/stream")
@@ -147,19 +167,47 @@ async def agro_gpt_chat_stream(req: ChatRequest, db: Session = Depends(get_db), 
     conv = db.query(AgroGPTConversation).filter(AgroGPTConversation.id == conversation_id).first()
     if conv and conv.farmer_id != user.id:
         raise HTTPException(status_code=403, detail={"error": {"code": "FORBIDDEN", "message": "Not permitted."}})
+    if not conv:
+        db.add(AgroGPTConversation(id=conversation_id, farmer_id=farmer_id, language=req.language or "en"))
+        try:
+            db.commit()
+        except Exception:
+            db.rollback()
 
     context_data = await fetch_farmer_context(db, farmer_id, req.context)
     past_msgs = db.query(AgroGPTMessage).filter(AgroGPTMessage.conversation_id == conversation_id).order_by(AgroGPTMessage.created_at.asc()).all()
     message_history = [{"role": m.role, "content": m.content} for m in past_msgs]
     message_history.append({"role": "user", "content": req.message})
+    try:
+        db.add(AgroGPTMessage(id=str(uuid.uuid4()), conversation_id=conversation_id, role="user",
+                              content=req.message, language=req.language or "en"))
+        db.commit()
+    except Exception:
+        db.rollback()
 
     async def event_generator():
         yield f"data: {json.dumps({'conversation_id': conversation_id, 'type': 'start'})}\n\n"
-        full_reply = ""
-        async for chunk in stream_agro_gpt_response(message_history, context_data, req.language or "en"):
-            full_reply += chunk
-            yield f"data: {json.dumps({'text': chunk})}\n\n"
-        yield f"data: {json.dumps({'type': 'end', 'full_text': full_reply})}\n\n"
+        # Safety first: the guard needs the whole answer, so generate, validate, then emit in chunks.
+        try:
+            result = await generate_guarded_agro_gpt_response(message_history, context_data, req.language or "en")
+        except Exception as e:
+            logger.error(f"Agro GPT stream error: {type(e).__name__}")
+            from ..services.answer_guard import guard_reply
+            from ..services.ai_service import get_contextual_gpt_reply
+            txt, flags = guard_reply(get_contextual_gpt_reply(message_history, context_data, req.language or "en"),
+                                     req.language or "en", "rule_based_fallback")
+            result = {"text": txt, "tier": "rule_based_fallback", "guard_flags": flags}
+        full_reply = result["text"]
+        words = full_reply.split(" ")
+        for i in range(0, len(words), 4):
+            yield f"data: {json.dumps({'text': ' '.join(words[i:i+4]) + ' '})}\n\n"
+        try:
+            db.add(AgroGPTMessage(id=str(uuid.uuid4()), conversation_id=conversation_id, role="assistant",
+                                  content=full_reply, language=req.language or "en"))
+            db.commit()
+        except Exception:
+            db.rollback()
+        yield f"data: {json.dumps({'type': 'end', 'full_text': full_reply, 'source_tier': result['tier'], 'guard_flags': result['guard_flags']})}\n\n"
 
     return StreamingResponse(event_generator(), media_type="text/event-stream")
 
@@ -206,7 +254,7 @@ async def fetch_farmer_context(db: Session, farmer_id: str, req_context: Optiona
             }
 
     # 4. Fetch Live Weather for Farmer's Location
-    loc = ctx.get("village") or (req_context.get("location") if req_context else None) or "Mandya"
+    loc = ctx.get("village") or _safe_location(req_context.get("location") if req_context else None) or "Mandya"
     try:
         from .weather import get_current_weather
         w_data = await get_current_weather(q=loc)
