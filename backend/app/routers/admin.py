@@ -15,16 +15,17 @@ import os
 import csv
 import io
 import json
+import hmac
 
 from ..database.connection import get_db
 from ..database.models import (
-    User, UserRole, AdminUser, AdminUserRole, SubscriptionPlan, SubscriptionPlanVersion,
+    User, UserRole, AdminUser, AdminUserRole, PlatformFeature, SubscriptionPlan, SubscriptionPlanVersion,
     PlanEntitlement, UserSubscription, SubscriptionUsage, PaymentOrder,
     PaymentTransaction, PaymentWebhookEvent, AdminAuditLog, DataRequest, AdminAccessRequest,
     BroadcastItem, BroadcastType, BroadcastStatus, Farm, DiagnosisReport,
     MarketPrice, MandiMarket, MartSellerProfile, MartListing, MartOrder, ExcelImportJob
 )
-from ..auth.deps import get_current_user, GUEST_SESSION_SECRET
+from ..auth.deps import get_current_user, verify_supabase_token, GUEST_SESSION_SECRET
 from ..auth.passwords import hash_password, verify_password
 from ..services.excel_exporter import fetch_farmer_export_data, generate_farmers_excel_bytes, generate_farmers_csv_bytes, EXPORT_DIR
 
@@ -238,56 +239,127 @@ def _log_unauthorized_attempt(db: Session, user: Optional[User], role_str: str, 
         db.rollback()
 
 
+_ADMIN_LOGIN_FAILURES: Dict[str, List[float]] = {}
+_LOCKDOWN_FEATURE_KEY = "admin_emergency_lockdown"
+
+
+def _is_prod_env() -> bool:
+    return (
+        os.getenv("ENVIRONMENT", "development").strip().lower() in ("production", "prod")
+        or os.getenv("VERCEL_ENV", "").strip().lower() == "production"
+    )
+
+
+def _is_mfa_enforced(admin: AdminUser) -> bool:
+    if not getattr(admin, "mfa_enforced", True):
+        return False
+    if _is_prod_env():
+        return True
+    return os.getenv("ADMIN_MFA_REQUIRED", "").strip().lower() in ("1", "true", "yes")
+
+
+def _claims_have_mfa(claims: Optional[dict]) -> bool:
+    if not isinstance(claims, dict):
+        return False
+    if str(claims.get("aal", "")).lower() == "aal2" or claims.get("mfa_verified") is True:
+        return True
+    amr = claims.get("amr") or []
+    if isinstance(amr, list):
+        for entry in amr:
+            method = entry.get("method", "") if isinstance(entry, dict) else str(entry)
+            if str(method).lower() in ("totp", "webauthn", "mfa", "otp"):
+                return True
+    return False
+
+
+def _extract_bearer_claims(request: Request) -> Dict[str, Any]:
+    auth_hdr = request.headers.get("authorization") or ""
+    if auth_hdr.lower().startswith("bearer "):
+        try:
+            return verify_supabase_token(auth_hdr[7:].strip())
+        except Exception:
+            return {}
+    return {}
+
+
+def _is_emergency_lockdown_active(db: Session) -> bool:
+    feat = db.query(PlatformFeature).filter(PlatformFeature.key == _LOCKDOWN_FEATURE_KEY).first()
+    return bool(feat and feat.state == "enabled")
+
+
 def require_admin(*allowed_roles: AdminUserRole, module: Optional[str] = None, action: Optional[str] = None):
-    """Enforces that caller has an active record in admin_users with permitted role or module/action permission."""
+    """Zero-Trust server-side admin gate: verifies active AdminUser record, session revocation,
+    emergency lockdown, MFA assurance level, and granular role/module permissions."""
     async def _dependency(request: Request, user: User = Depends(get_current_user), db: Session = Depends(get_db)) -> AdminUser:
+        is_prod = _is_prod_env()
         admin = db.query(AdminUser).filter(AdminUser.user_id == user.id, AdminUser.is_active == True).first()
         if not admin:
-            is_prod = os.getenv("ENVIRONMENT", "development").strip().lower() in ("production", "prod") or os.getenv("VERCEL_ENV") == "production"
-            # If user is the designated head super admin, ensure verified identity and active record
-            if user.email and user.email.lower() == SUPER_ADMIN_EMAIL:
-                if not getattr(user, "is_verified", False):
-                    _log_unauthorized_attempt(db, user, "unverified_email", "Super admin email is not verified", request)
-                    raise HTTPException(
-                        status_code=status.HTTP_403_FORBIDDEN,
-                        detail={"error": {"code": "ADMIN_EMAIL_UNVERIFIED", "message": "Administrative access requires a cryptographically verified email address."}}
-                    )
-
-                admin = db.query(AdminUser).filter(AdminUser.user_id == user.id).first()
-                if not admin:
-                    bootstrap_secret = os.getenv("ADMIN_BOOTSTRAP_TOKEN", "")
-                    provided_token = request.headers.get("x-admin-bootstrap-token", "")
-                    if is_prod and bootstrap_secret and provided_token != bootstrap_secret:
-                        _log_unauthorized_attempt(db, user, "unauthorized_bootstrap", "Missing valid X-Admin-Bootstrap-Token in production", request)
-                        raise HTTPException(
-                            status_code=status.HTTP_403_FORBIDDEN,
-                            detail={"error": {"code": "ADMIN_BOOTSTRAP_LOCKED", "message": "Super admin initialization in production requires explicit server bootstrap verification."}}
-                        )
+            super_admin_count = db.query(AdminUser).filter(AdminUser.role == AdminUserRole.super_admin, AdminUser.is_active == True).count()
+            # Production: NEVER auto-promote by email alone. Require explicit server bootstrap token AND zero existing super admins.
+            if is_prod:
+                bootstrap_secret = os.getenv("ADMIN_BOOTSTRAP_TOKEN", "").strip()
+                provided_token = request.headers.get("x-admin-bootstrap-token", "").strip()
+                if (
+                    super_admin_count == 0
+                    and bootstrap_secret
+                    and provided_token
+                    and hmac.compare_digest(provided_token, bootstrap_secret)
+                    and getattr(user, "is_verified", False)
+                ):
                     admin = AdminUser(
                         id=str(uuid.uuid4()),
                         user_id=user.id,
                         role=AdminUserRole.super_admin,
                         hierarchy_level="SUPER_ADMIN_HEAD",
-                        is_active=True
+                        is_active=True,
+                        mfa_enforced=True,
+                        session_version=1,
                     )
                     db.add(admin)
+                    db.commit()
+                    db.refresh(admin)
                 else:
-                    admin.role = AdminUserRole.super_admin
-                    admin.hierarchy_level = "SUPER_ADMIN_HEAD"
-                    admin.is_active = True
-                db.commit()
-                db.refresh(admin)
+                    _log_unauthorized_attempt(db, user, user.role.value if user.role else "farmer", "No active AdminUser record in production", request)
+                    raise HTTPException(
+                        status_code=status.HTTP_403_FORBIDDEN,
+                        detail={"error": {"code": "ADMIN_FORBIDDEN", "message": "Administrative privileges required."}}
+                    )
             else:
-                # Allow initial test bootstrap only in non-production environments
-                is_prod = os.getenv("ENVIRONMENT", "development").strip().lower() == "production"
-                super_admin_count = db.query(AdminUser).filter(AdminUser.role == AdminUserRole.super_admin, AdminUser.is_active == True).count()
-                if not is_prod and super_admin_count == 0:
+                # Non-production local dev/test bootstrap (only when no active super_admin exists or designated dev founder)
+                if user.email and user.email.lower() == SUPER_ADMIN_EMAIL:
+                    if not getattr(user, "is_verified", False):
+                        _log_unauthorized_attempt(db, user, "unverified_email", "Super admin email is not verified", request)
+                        raise HTTPException(
+                            status_code=status.HTTP_403_FORBIDDEN,
+                            detail={"error": {"code": "ADMIN_EMAIL_UNVERIFIED", "message": "Administrative access requires a cryptographically verified email address."}}
+                        )
+                    admin = db.query(AdminUser).filter(AdminUser.user_id == user.id).first()
+                    if not admin:
+                        admin = AdminUser(
+                            id=str(uuid.uuid4()),
+                            user_id=user.id,
+                            role=AdminUserRole.super_admin,
+                            hierarchy_level="SUPER_ADMIN_HEAD",
+                            is_active=True,
+                            mfa_enforced=True,
+                            session_version=1,
+                        )
+                        db.add(admin)
+                    else:
+                        admin.role = AdminUserRole.super_admin
+                        admin.hierarchy_level = "SUPER_ADMIN_HEAD"
+                        admin.is_active = True
+                    db.commit()
+                    db.refresh(admin)
+                elif super_admin_count == 0:
                     admin = AdminUser(
                         id=str(uuid.uuid4()),
                         user_id=user.id,
                         role=AdminUserRole.super_admin,
                         hierarchy_level="SUPER_ADMIN_HEAD",
-                        is_active=True
+                        is_active=True,
+                        mfa_enforced=True,
+                        session_version=1,
                     )
                     db.add(admin)
                     db.commit()
@@ -296,8 +368,36 @@ def require_admin(*allowed_roles: AdminUserRole, module: Optional[str] = None, a
                     _log_unauthorized_attempt(db, user, user.role.value if user.role else "farmer", "No active AdminUser record", request)
                     raise HTTPException(
                         status_code=status.HTTP_403_FORBIDDEN,
-                        detail={"error": {"code": "ADMIN_FORBIDDEN", "message": f"Administrative privileges required. Access must be approved by Head Super Admin ({SUPER_ADMIN_EMAIL})."}}
+                        detail={"error": {"code": "ADMIN_FORBIDDEN", "message": "Administrative privileges required. Access must be approved by a Super Admin."}}
                     )
+
+        # 1. Server-side session revocation check (for local admin JWTs carrying session_version 'sv')
+        claims = _extract_bearer_claims(request)
+        token_sv = claims.get("sv")
+        current_sv = getattr(admin, "session_version", 1) or 1
+        if token_sv is not None and int(token_sv) != int(current_sv):
+            _log_unauthorized_attempt(db, user, admin.role.value, "Revoked admin session token", request)
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail={"error": {"code": "SESSION_REVOKED", "message": "Your administrator session has been revoked. Please sign in again."}},
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+
+        # 2. Emergency lockdown check (blocks all non-Super-Admin access immediately while preserving audit logs)
+        if admin.role != AdminUserRole.super_admin and _is_emergency_lockdown_active(db):
+            _log_unauthorized_attempt(db, user, admin.role.value, "Blocked by emergency lockdown", request)
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail={"error": {"code": "ADMIN_EMERGENCY_LOCKDOWN", "message": "Admin access is temporarily suspended due to an active security lockdown."}}
+            )
+
+        # 3. Server-side MFA enforcement (mandatory in production, configurable via ADMIN_MFA_REQUIRED in dev)
+        if _is_mfa_enforced(admin) and not _claims_have_mfa(claims):
+            _log_unauthorized_attempt(db, user, admin.role.value, "MFA assurance level (aal2) required", request)
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail={"error": {"code": "MFA_REQUIRED", "message": "Multi-factor authentication (TOTP/Passkey) is required for administrative access."}}
+            )
 
         if admin.role == AdminUserRole.super_admin:
             return admin
@@ -316,7 +416,7 @@ def require_admin(*allowed_roles: AdminUserRole, module: Optional[str] = None, a
             )
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
-                detail={"error": {"code": "INSUFFICIENT_ROLE", "message": f"Required roles: {[r.value for r in allowed_roles]}. Executive decisions require Head Super Admin ({SUPER_ADMIN_EMAIL}) approval."}}
+                detail={"error": {"code": "INSUFFICIENT_ROLE", "message": f"Required roles: {[r.value for r in allowed_roles]}."}}
             )
 
         if module and action and not has_permission(admin, module, action):
@@ -334,17 +434,28 @@ def require_admin(*allowed_roles: AdminUserRole, module: Optional[str] = None, a
     return _dependency
 
 
-def create_admin_jwt(user_id: str, email: str, full_name: Optional[str], role: str) -> str:
-    """Creates a local session token signed by GUEST_SESSION_SECRET accepted by deps.py."""
+def create_admin_jwt(
+    user_id: str,
+    email: str,
+    full_name: Optional[str],
+    role: str,
+    session_version: int = 1,
+    mfa_verified: bool = False,
+) -> str:
+    """Creates a short-lived local admin session token with session_version & MFA assurance claims."""
     now = int(time.time())
+    max_ttl = int(os.getenv("ADMIN_SESSION_MAX_SECONDS", "28800"))  # default 8 hours
     payload = {
         "sub": user_id,
         "email": email,
         "iss": "agro-ai-local",
         "aud": "authenticated",
         "role": role,
+        "sv": session_version,
+        "aal": "aal2" if mfa_verified else "aal1",
+        "mfa_verified": bool(mfa_verified),
         "iat": now,
-        "exp": now + (86400 * 7),  # 7-day token
+        "exp": now + max_ttl,
         "user_metadata": {
             "full_name": full_name or (email.split("@")[0] if email else "Admin"),
             "name": full_name or (email.split("@")[0] if email else "Admin"),
@@ -352,6 +463,8 @@ def create_admin_jwt(user_id: str, email: str, full_name: Optional[str], role: s
             "role": role
         }
     }
+    if mfa_verified:
+        payload["mfa_verified_at"] = now
     return jwt.encode(payload, GUEST_SESSION_SECRET, algorithm="HS256")
 
 
@@ -434,14 +547,38 @@ class RoleAssignRequest(BaseModel):
     is_active: bool = True
 
 
+def _check_admin_login_rate_limit(key: str, db: Session, request: Request):
+    now = time.time()
+    window = int(os.getenv("ADMIN_LOGIN_LOCKOUT_SECONDS", "900"))  # 15 minutes
+    max_attempts = int(os.getenv("ADMIN_LOGIN_MAX_ATTEMPTS", "5"))
+    attempts = [t for t in _ADMIN_LOGIN_FAILURES.get(key, []) if now - t < window]
+    _ADMIN_LOGIN_FAILURES[key] = attempts
+    if len(attempts) >= max_attempts:
+        _log_unauthorized_attempt(db, None, "login_lockout", f"Admin login locked after {len(attempts)} failed attempts", request)
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail={"error": {"code": "LOGIN_RATE_LIMITED", "message": "Too many failed login attempts. Please wait 15 minutes before trying again."}}
+        )
+
+
+def _record_admin_login_failure(key: str):
+    now = time.time()
+    attempts = [t for t in _ADMIN_LOGIN_FAILURES.get(key, []) if now - t < 900]
+    attempts.append(now)
+    _ADMIN_LOGIN_FAILURES[key] = attempts
+
+
 # ── AUTHENTICATION & ACCESS APPROVAL ROUTES ───────────────────────
 @router.post("/login")
-async def admin_login(req: AdminLoginRequest, db: Session = Depends(get_db)):
-    """Direct secure admin login with password verification and Super Admin access gate."""
+async def admin_login(req: AdminLoginRequest, request: Request, db: Session = Depends(get_db)):
+    """Direct secure admin login with rate limiting, password verification and Super Admin access gate."""
     email_clean = req.email.strip().lower()
+    client_ip = request.client.host if request and request.client else "unknown"
+    rate_key = f"{email_clean}:{client_ip}"
+    _check_admin_login_rate_limit(rate_key, db, request)
 
     if email_clean == SUPER_ADMIN_EMAIL:
-        is_prod = os.getenv("ENVIRONMENT", "development").strip().lower() == "production"
+        is_prod = _is_prod_env()
         configured_super_pwd = os.getenv("SUPER_ADMIN_PASSWORD", "" if is_prod else "Vivek@123")
         user = db.query(User).filter(User.email == email_clean).first()
         if not user:
@@ -463,16 +600,17 @@ async def admin_login(req: AdminLoginRequest, db: Session = Depends(get_db)):
             db.commit()
             db.refresh(user)
 
-        pwd_valid = (bool(configured_super_pwd) and req.password == configured_super_pwd) or (
+        pwd_valid = (bool(configured_super_pwd) and hmac.compare_digest(req.password, configured_super_pwd)) or (
             bool(user.password_hash) and verify_password(req.password, user.password_hash)
         )
         if not pwd_valid:
+            _record_admin_login_failure(rate_key)
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail={"error": {"code": "INVALID_CREDENTIALS", "message": "Invalid password for Head Super Admin."}}
             )
 
-        if configured_super_pwd and (not user.password_hash or req.password == configured_super_pwd):
+        if configured_super_pwd and (not user.password_hash or hmac.compare_digest(req.password, configured_super_pwd)):
             user.password_hash = hash_password(configured_super_pwd)
 
         admin_rec = db.query(AdminUser).filter(AdminUser.user_id == user.id).first()
@@ -481,19 +619,29 @@ async def admin_login(req: AdminLoginRequest, db: Session = Depends(get_db)):
                 id=str(uuid.uuid4()),
                 user_id=user.id,
                 role=AdminUserRole.super_admin,
-                is_active=True
+                hierarchy_level="SUPER_ADMIN_HEAD",
+                is_active=True,
+                mfa_enforced=True,
+                session_version=1,
             )
             db.add(admin_rec)
         else:
             admin_rec.role = AdminUserRole.super_admin
             admin_rec.is_active = True
         db.commit()
+        db.refresh(admin_rec)
 
-        token = create_admin_jwt(user.id, user.email, user.full_name, "super_admin")
+        _ADMIN_LOGIN_FAILURES.pop(rate_key, None)
+        token = create_admin_jwt(
+            user.id, user.email, user.full_name, "super_admin",
+            session_version=getattr(admin_rec, "session_version", 1) or 1,
+            mfa_verified=False,
+        )
         return {
             "access_token": token,
             "token_type": "bearer",
             "role": "super_admin",
+            "mfa_required": _is_mfa_enforced(admin_rec),
             "user": {
                 "id": user.id,
                 "email": user.email,
@@ -505,18 +653,20 @@ async def admin_login(req: AdminLoginRequest, db: Session = Depends(get_db)):
     # Other company staff accounts
     user = db.query(User).filter(User.email == email_clean).first()
     if not user or not user.password_hash:
+        _record_admin_login_failure(rate_key)
         pending = db.query(AdminAccessRequest).filter(AdminAccessRequest.email == email_clean, AdminAccessRequest.status == "pending").first()
         if pending:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
-                detail={"error": {"code": "APPROVAL_REQUIRED", "message": f"Access Denied: Your staff account is awaiting approval from Head Super Admin ({SUPER_ADMIN_EMAIL})."}}
+                detail={"error": {"code": "APPROVAL_REQUIRED", "message": "Access Denied: Your staff account is awaiting Super Admin approval."}}
             )
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail={"error": {"code": "INVALID_CREDENTIALS", "message": "Invalid email or password. Company staff must submit an access request to be approved by Head Super Admin."}}
+            detail={"error": {"code": "INVALID_CREDENTIALS", "message": "Invalid email or password."}}
         )
 
     if not verify_password(req.password, user.password_hash):
+        _record_admin_login_failure(rate_key)
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail={"error": {"code": "INVALID_CREDENTIALS", "message": "Invalid email or password."}}
@@ -524,12 +674,18 @@ async def admin_login(req: AdminLoginRequest, db: Session = Depends(get_db)):
 
     admin_rec = db.query(AdminUser).filter(AdminUser.user_id == user.id, AdminUser.is_active == True).first()
     if not admin_rec:
+        _record_admin_login_failure(rate_key)
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail={"error": {"code": "APPROVAL_REQUIRED", "message": f"Access Denied: Your account has not been approved by Head Super Admin ({SUPER_ADMIN_EMAIL}). Only approved company staff may access the admin panel."}}
+            detail={"error": {"code": "APPROVAL_REQUIRED", "message": "Access Denied: Your account has not been approved by a Super Admin."}}
         )
 
-    token = create_admin_jwt(user.id, user.email, user.full_name, admin_rec.role.value)
+    _ADMIN_LOGIN_FAILURES.pop(rate_key, None)
+    token = create_admin_jwt(
+        user.id, user.email, user.full_name, admin_rec.role.value,
+        session_version=getattr(admin_rec, "session_version", 1) or 1,
+        mfa_verified=False,
+    )
     return {
         "access_token": token,
         "token_type": "bearer",
@@ -2895,5 +3051,84 @@ async def rollback_excel_import_job(
 
     log_admin_action(db, admin, "ROLLBACK_EXCEL_IMPORT_JOB", "excel_import_jobs", j.id, {"filename": j.filename, "removed_records": removed}, request)
     return {"id": j.id, "status": j.status, "removed_records": removed}
+
+
+# ── ZERO-TRUST SESSION REVOCATION & EMERGENCY LOCKDOWN ─────────────
+class LockdownToggleRequest(BaseModel):
+    enabled: bool
+    reason: str = Field(..., min_length=5, max_length=300)
+
+
+@router.post("/sessions/revoke-all")
+async def revoke_my_admin_sessions(
+    request: Request,
+    admin: AdminUser = Depends(require_admin()),
+    db: Session = Depends(get_db),
+):
+    """Immediately invalidates all active local admin tokens for the signed-in administrator."""
+    admin.session_version = (getattr(admin, "session_version", 1) or 1) + 1
+    db.commit()
+    db.refresh(admin)
+    log_admin_action(db, admin, "ADMIN_SESSIONS_REVOKED", "admin_users", admin.id, {"session_version": admin.session_version}, request)
+    return {"status": "revoked", "session_version": admin.session_version}
+
+
+@router.get("/security/lockdown")
+async def get_emergency_lockdown_status(
+    admin: AdminUser = Depends(require_admin(AdminUserRole.super_admin, AdminUserRole.admin)),
+    db: Session = Depends(get_db),
+):
+    """Returns whether administrative emergency lockdown is currently active."""
+    feat = db.query(PlatformFeature).filter(PlatformFeature.key == _LOCKDOWN_FEATURE_KEY).first()
+    return {
+        "enabled": bool(feat and feat.state == "enabled"),
+        "reason": (feat.config or {}).get("reason") if feat else None,
+        "updated_by": feat.changed_by if feat else None,
+        "updated_at": feat.updated_at.isoformat() if feat and getattr(feat, "updated_at", None) else None,
+    }
+
+
+@router.post("/security/lockdown")
+async def toggle_emergency_lockdown(
+    body: LockdownToggleRequest,
+    request: Request,
+    admin: AdminUser = Depends(require_admin(AdminUserRole.super_admin)),
+    db: Session = Depends(get_db),
+):
+    """Super Admin emergency lockdown: suspends all non-Super-Admin access, revokes their active
+    sessions, and preserves all audit logs."""
+    feat = db.query(PlatformFeature).filter(PlatformFeature.key == _LOCKDOWN_FEATURE_KEY).first()
+    if not feat:
+        feat = PlatformFeature(
+            key=_LOCKDOWN_FEATURE_KEY,
+            name="Admin Emergency Lockdown",
+            state="enabled" if body.enabled else "disabled",
+            implemented=True,
+            config={"reason": body.reason},
+            changed_by=admin.user_id,
+        )
+        db.add(feat)
+    else:
+        feat.state = "enabled" if body.enabled else "disabled"
+        feat.config = {"reason": body.reason}
+        feat.changed_by = admin.user_id
+        feat.revision = (feat.revision or 1) + 1
+
+    revoked_count = 0
+    if body.enabled:
+        other_admins = db.query(AdminUser).filter(AdminUser.role != AdminUserRole.super_admin, AdminUser.is_active == True).all()
+        for other in other_admins:
+            other.session_version = (getattr(other, "session_version", 1) or 1) + 1
+            revoked_count += 1
+
+    db.commit()
+    action = "EMERGENCY_LOCKDOWN_ENABLED" if body.enabled else "EMERGENCY_LOCKDOWN_DISABLED"
+    log_admin_action(
+        db, admin, action, "platform_security", _LOCKDOWN_FEATURE_KEY,
+        {"enabled": body.enabled, "reason": body.reason, "revoked_admin_sessions": revoked_count},
+        request,
+    )
+    return {"enabled": body.enabled, "reason": body.reason, "revoked_admin_sessions": revoked_count}
+
 
 

@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
+import { resolveAdminApiUrl } from '../lib/api';
 
 export type AdminRole =
   | 'super_admin'
@@ -41,6 +42,7 @@ interface AdminAuthContextType {
   hasPermission: (module: string, action: string) => boolean;
   login: (email: string, password?: string) => Promise<void>;
   logout: () => Promise<void>;
+  logoutAllDevices: () => Promise<void>;
   verifyMfa: (code: string) => Promise<boolean>;
   refreshProfile: () => Promise<void>;
 }
@@ -57,7 +59,7 @@ export const AdminAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
   const fetchAdminRole = async (tokenToUse: string, userHint?: any) => {
     try {
-      const res = await fetch('/api/admin/me', {
+      const res = await fetch(resolveAdminApiUrl('/api/admin/me'), {
         headers: {
           Authorization: `Bearer ${tokenToUse}`,
         },
@@ -65,6 +67,16 @@ export const AdminAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
       if (res.ok) {
         const data = await res.json();
+        // Check Supabase MFA assurance level when a Supabase session is active
+        let needsMfa = false;
+        try {
+          const { data: aalData } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+          if (aalData && aalData.nextLevel === 'aal2' && aalData.currentLevel !== 'aal2') {
+            needsMfa = true;
+          }
+        } catch {
+          // Non-Supabase local token path; backend enforces MFA_REQUIRED directly
+        }
         const roleVal = (data.role || 'staff') as AdminRole;
         const hLevel: HierarchyLevel =
           data.hierarchy_level ||
@@ -79,8 +91,9 @@ export const AdminAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chi
           permissions: data.permissions || {},
           authorized_modules: data.authorized_modules || [],
           is_active: data.is_active ?? true,
-          mfa_verified: true,
+          mfa_verified: !needsMfa,
         };
+        setMfaRequired(needsMfa);
         setProfile(profileObj);
         setUser(userHint || { id: data.user_id, email: data.email, full_name: profileObj.full_name });
         setError(null);
@@ -89,6 +102,12 @@ export const AdminAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
       if (res.status === 401 || res.status === 403) {
         const errJson = await res.json().catch(() => ({}));
+        const errCode = errJson?.detail?.error?.code;
+        if (errCode === 'MFA_REQUIRED') {
+          setMfaRequired(true);
+          setError('Multi-factor authentication (TOTP/Passkey) is required.');
+          return false;
+        }
         const errMsg = errJson?.detail?.error?.message || errJson?.detail || 'Access Denied: Administrative privileges required.';
         setError(errMsg);
         return false;
@@ -156,7 +175,7 @@ export const AdminAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch('/api/admin/login', {
+      const res = await fetch(resolveAdminApiUrl('/api/admin/login'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email: email.trim(), password: password || '' })
@@ -262,6 +281,53 @@ export const AdminAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     setMfaRequired(false);
   };
 
+  const logoutAllDevices = async () => {
+    const activeToken = token || localStorage.getItem('agro_admin_token');
+    if (activeToken) {
+      try {
+        await fetch(resolveAdminApiUrl('/api/admin/sessions/revoke-all'), {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${activeToken}` },
+        });
+      } catch {
+        // continue local cleanup
+      }
+    }
+    localStorage.removeItem('agro_admin_token');
+    try {
+      await supabase.auth.signOut({ scope: 'global' });
+    } catch {
+      // ignore
+    }
+    setUser(null);
+    setProfile(null);
+    setToken(null);
+    setError(null);
+    setMfaRequired(false);
+  };
+
+  // Configurable idle session timeout (default 15 minutes)
+  useEffect(() => {
+    if (!user || !profile) return;
+    const idleMs = Number((import.meta as any).env?.VITE_ADMIN_IDLE_TIMEOUT_MS || 900000);
+    if (!Number.isFinite(idleMs) || idleMs <= 0) return;
+    let timer = window.setTimeout(() => {
+      logout();
+    }, idleMs);
+    const reset = () => {
+      window.clearTimeout(timer);
+      timer = window.setTimeout(() => {
+        logout();
+      }, idleMs);
+    };
+    const events = ['mousemove', 'keydown', 'click', 'scroll', 'touchstart'];
+    events.forEach((ev) => window.addEventListener(ev, reset, { passive: true }));
+    return () => {
+      window.clearTimeout(timer);
+      events.forEach((ev) => window.removeEventListener(ev, reset));
+    };
+  }, [user, profile]);
+
   const isSuperAdmin = profile?.role === 'super_admin' || profile?.hierarchy_level === 'SUPER_ADMIN_HEAD';
   const isAdminOrAbove = isSuperAdmin || profile?.role === 'admin' || profile?.hierarchy_level === 'ADMIN';
 
@@ -289,6 +355,7 @@ export const AdminAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         hasPermission,
         login,
         logout,
+        logoutAllDevices,
         verifyMfa,
         refreshProfile: checkSession,
       }}

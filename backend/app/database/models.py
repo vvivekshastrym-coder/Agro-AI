@@ -665,6 +665,8 @@ class AdminUser(Base):
     permissions = Column(JSON, default=dict, nullable=True) # granular module->actions matrix
     assigned_by = Column(String, nullable=True)
     is_active = Column(Boolean, default=True)
+    mfa_enforced = Column(Boolean, default=True, nullable=False)
+    session_version = Column(Integer, default=1, nullable=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
 
@@ -1401,5 +1403,38 @@ class PhoneOtpRecord(Base):
     window_start = Column(Float, nullable=False)
     attempts = Column(Integer, default=0, nullable=False)
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+
+class AgroGPTUsageLog(Base):
+    """Per-request AgroGPT telemetry for cost, routing, latency and safety guard monitoring (no raw prompts/PII)."""
+    __tablename__ = 'agrogpt_usage_logs'
+
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    request_id = Column(String(64), nullable=False, index=True)
+    user_id = Column(String, ForeignKey('users.id', ondelete='SET NULL'), nullable=True, index=True)
+    task_category = Column(String(40), nullable=True)
+    provider = Column(String(40), nullable=True)
+    model = Column(String(80), nullable=True)
+    source_tier = Column(String(40), nullable=False, default='llm')
+    guard_flags = Column(JSON, default=list, nullable=False)
+    latency_ms = Column(Integer, nullable=True)
+    tokens_in = Column(Integer, default=0, nullable=False)
+    tokens_out = Column(Integer, default=0, nullable=False)
+    estimated_cost_usd = Column(Float, default=0.0, nullable=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), index=True)
+
+
+class AgroGPTFeedback(Base):
+    """Structured farmer feedback on AgroGPT responses for evaluation and quality review."""
+    __tablename__ = 'agrogpt_feedback'
+
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    message_id = Column(String, ForeignKey('agro_gpt_messages.id', ondelete='CASCADE'), nullable=False, index=True)
+    user_id = Column(String, ForeignKey('users.id', ondelete='SET NULL'), nullable=True, index=True)
+    rating = Column(String(20), nullable=False)  # helpful | not_helpful
+    reason_tag = Column(String(50), nullable=True)  # incorrect | not_relevant_to_crop | wrong_language | outdated | unsafe
+    comment = Column(Text, nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), index=True)
+
 
 

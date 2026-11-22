@@ -3,7 +3,7 @@ import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
 
 export default defineConfig({
-  base: '/admin/',
+  base: process.env.VITE_BASE_PATH || '/admin/',
   plugins: [react(), tailwindcss()],
   server: {
     port: 8082,

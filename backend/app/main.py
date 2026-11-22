@@ -41,6 +41,8 @@ elif _ACTIVE_DB_URL.startswith("sqlite"):
     try:
         from .database import models  # noqa: F401
         Base.metadata.create_all(bind=engine)
+        from .database.schema_sync import sync_missing_columns
+        sync_missing_columns(engine, Base.metadata)
     except Exception:
         pass
 else:
@@ -135,7 +137,10 @@ async def add_security_headers(request: Request, call_next):
     response.headers['Strict-Transport-Security'] = 'max-age=31536000; includeSubDomains'
     response.headers['Cross-Origin-Opener-Policy'] = 'same-origin-allow-popups'
     response.headers['Content-Security-Policy'] = "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://apis.google.com https://accounts.google.com https://www.gstatic.com https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://checkout.razorpay.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdnjs.cloudflare.com https://accounts.google.com; font-src 'self' https://fonts.gstatic.com https://cdnjs.cloudflare.com data:; img-src 'self' data: blob: https:; connect-src 'self' https://*.supabase.co https://*.googleapis.com https://accounts.google.com https://www.gstatic.com https://agroai.live https://www.agroai.live https://api.open-meteo.com https://nominatim.openstreetmap.org; frame-src 'self' https://accounts.google.com https://gen-lang-client-0224945015.firebaseapp.com https://api.razorpay.com https://checkout.razorpay.com; frame-ancestors 'none'; object-src 'none'; base-uri 'self';"
-    if raw_path in ('/', '/index.html', '/sw.js', '/privacy', '/delete-account') or raw_path.endswith(('.html', '.js')):
+    if norm_path.startswith('/api/admin') or norm_path == '/admin' or norm_path.startswith('/admin/'):
+        response.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, private, max-age=0'
+        response.headers['Pragma'] = 'no-cache'
+    elif raw_path in ('/', '/index.html', '/sw.js', '/privacy', '/delete-account') or raw_path.endswith(('.html', '.js')):
         response.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
     return response
 
