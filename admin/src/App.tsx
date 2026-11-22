@@ -15,6 +15,7 @@ import { AgroGPTControlCentre } from './pages/AgroGPTControlCentre';
 import { SystemMonitoring } from './pages/SystemMonitoring';
 import { KnowledgeBaseManager } from './pages/KnowledgeBaseManager';
 import { FeatureControlCentre } from './pages/FeatureControlCentre';
+import { DepartmentsTeams } from './pages/DepartmentsTeams';
 
 const AdminAppShell: React.FC = () => {
   const { user, profile, mfaRequired, loading } = useAdminAuth();
@@ -39,6 +40,8 @@ const AdminAppShell: React.FC = () => {
         return <DashboardOverview />;
       case 'feature_control':
         return <FeatureControlCentre />;
+      case 'departments':
+        return <DepartmentsTeams />;
       case 'agrogpt':
         return <AgroGPTControlCentre />;
       case 'knowledge':

@@ -608,6 +608,7 @@ class WeatherCache(Base):
 class AdminUserRole(str, enum.Enum):
     super_admin = 'super_admin'
     admin = 'admin'
+    supervisor = 'supervisor'
     staff = 'staff'
     listing_reviewer = 'listing_reviewer'
     seller_reviewer = 'seller_reviewer'
@@ -661,8 +662,11 @@ class AdminUser(Base):
     id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
     user_id = Column(String, ForeignKey('users.id', ondelete='CASCADE'), unique=True, index=True)
     role = Column(Enum(AdminUserRole), nullable=False)
-    hierarchy_level = Column(String(30), default='STAFF', nullable=True) # SUPER_ADMIN_HEAD, ADMIN, STAFF
+    hierarchy_level = Column(String(30), default='STAFF', nullable=True) # SUPER_ADMIN_HEAD, ADMIN, SUPERVISOR, STAFF
     permissions = Column(JSON, default=dict, nullable=True) # granular module->actions matrix
+    departments = Column(JSON, default=list, nullable=True) # assigned department slugs for Level 2/3/4 scoping
+    team_id = Column(String(64), nullable=True, index=True) # assigned team for Level 3/4 scoping
+    permission_expires_at = Column(DateTime(timezone=True), nullable=True)
     assigned_by = Column(String, nullable=True)
     is_active = Column(Boolean, default=True)
     mfa_enforced = Column(Boolean, default=True, nullable=False)
@@ -1458,6 +1462,48 @@ class KnowledgeSource(Base):
     created_by = Column(String, ForeignKey('users.id', ondelete='SET NULL'), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+
+
+class AdminDepartment(Base):
+    """Departments for Level 2 Admin scoping (Mandi, Finance, AgroGPT, Weather, etc.)."""
+    __tablename__ = 'admin_departments'
+
+    slug = Column(String(50), primary_key=True)
+    name = Column(String(120), nullable=False)
+    description = Column(Text, nullable=True)
+    is_active = Column(Boolean, default=True, nullable=False)
+    created_by = Column(String, ForeignKey('users.id', ondelete='SET NULL'), nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+
+class AdminTeam(Base):
+    """Teams inside departments managed by Level 3 Supervisors."""
+    __tablename__ = 'admin_teams'
+
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    name = Column(String(120), nullable=False)
+    department_slug = Column(String(50), ForeignKey('admin_departments.slug', ondelete='CASCADE'), nullable=False, index=True)
+    supervisor_user_id = Column(String, ForeignKey('users.id', ondelete='SET NULL'), nullable=True)
+    is_active = Column(Boolean, default=True, nullable=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+
+class FeatureChangeRequest(Base):
+    """Department Admin requests for global feature shutdown/maintenance; only Super Admin can approve."""
+    __tablename__ = 'feature_change_requests'
+
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    feature_key = Column(String(50), nullable=False, index=True)
+    requested_status = Column(String(30), nullable=False)
+    reason = Column(Text, nullable=False)
+    department_slug = Column(String(50), nullable=True)
+    requested_by = Column(String, ForeignKey('users.id', ondelete='SET NULL'), nullable=True)
+    status = Column(String(20), default='pending', nullable=False, index=True)  # pending | approved | rejected
+    reviewed_by = Column(String, ForeignKey('users.id', ondelete='SET NULL'), nullable=True)
+    reviewed_at = Column(DateTime(timezone=True), nullable=True)
+    review_notes = Column(Text, nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
 
 
 

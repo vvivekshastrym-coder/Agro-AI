@@ -5,6 +5,7 @@ import { resolveAdminApiUrl } from '../lib/api';
 export type AdminRole =
   | 'super_admin'
   | 'admin'
+  | 'supervisor'
   | 'staff'
   | 'plan_manager'
   | 'payment_manager'
@@ -15,7 +16,7 @@ export type AdminRole =
   | 'seller_reviewer'
   | 'analyst';
 
-export type HierarchyLevel = 'SUPER_ADMIN_HEAD' | 'ADMIN' | 'STAFF';
+export type HierarchyLevel = 'SUPER_ADMIN_HEAD' | 'ADMIN' | 'SUPERVISOR' | 'STAFF';
 
 export interface AdminProfile {
   id: string;
@@ -26,6 +27,8 @@ export interface AdminProfile {
   hierarchy_level: HierarchyLevel;
   permissions: Record<string, string[]>;
   authorized_modules: string[];
+  departments?: string[];
+  team_id?: string | null;
   is_active: boolean;
   mfa_verified: boolean;
 }
@@ -90,6 +93,8 @@ export const AdminAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chi
           hierarchy_level: hLevel,
           permissions: data.permissions || {},
           authorized_modules: data.authorized_modules || [],
+          departments: data.departments || [],
+          team_id: data.team_id || null,
           is_active: data.is_active ?? true,
           mfa_verified: !needsMfa,
         };

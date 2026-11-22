@@ -4,10 +4,45 @@
 
 BEGIN;
 
--- 1. AdminUser session revocation & MFA enforcement columns
+-- 1. AdminUser session revocation, MFA enforcement & 4-level department/team scoping columns
 ALTER TABLE admin_users
   ADD COLUMN IF NOT EXISTS mfa_enforced BOOLEAN NOT NULL DEFAULT TRUE,
-  ADD COLUMN IF NOT EXISTS session_version INTEGER NOT NULL DEFAULT 1;
+  ADD COLUMN IF NOT EXISTS session_version INTEGER NOT NULL DEFAULT 1,
+  ADD COLUMN IF NOT EXISTS departments JSONB DEFAULT '[]'::jsonb,
+  ADD COLUMN IF NOT EXISTS team_id VARCHAR(64),
+  ADD COLUMN IF NOT EXISTS permission_expires_at TIMESTAMPTZ;
+
+CREATE TABLE IF NOT EXISTS admin_departments (
+  slug VARCHAR(50) PRIMARY KEY,
+  name VARCHAR(120) NOT NULL,
+  description TEXT,
+  is_active BOOLEAN NOT NULL DEFAULT TRUE,
+  created_by TEXT REFERENCES users(id) ON DELETE SET NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS admin_teams (
+  id TEXT PRIMARY KEY,
+  name VARCHAR(120) NOT NULL,
+  department_slug VARCHAR(50) NOT NULL REFERENCES admin_departments(slug) ON DELETE CASCADE,
+  supervisor_user_id TEXT REFERENCES users(id) ON DELETE SET NULL,
+  is_active BOOLEAN NOT NULL DEFAULT TRUE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS feature_change_requests (
+  id TEXT PRIMARY KEY,
+  feature_key VARCHAR(50) NOT NULL,
+  requested_status VARCHAR(30) NOT NULL,
+  reason TEXT NOT NULL,
+  department_slug VARCHAR(50),
+  requested_by TEXT REFERENCES users(id) ON DELETE SET NULL,
+  status VARCHAR(20) NOT NULL DEFAULT 'pending',
+  reviewed_by TEXT REFERENCES users(id) ON DELETE SET NULL,
+  reviewed_at TIMESTAMPTZ,
+  review_notes TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
 
 -- 2. AgroGPT telemetry (cost, routing, latency, guard flags; no raw prompts or PII)
 CREATE TABLE IF NOT EXISTS agrogpt_usage_logs (

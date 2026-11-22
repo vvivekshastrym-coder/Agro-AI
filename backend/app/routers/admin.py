@@ -24,7 +24,8 @@ from ..database.models import (
     PaymentTransaction, PaymentWebhookEvent, AdminAuditLog, DataRequest, AdminAccessRequest,
     BroadcastItem, BroadcastType, BroadcastStatus, Farm, DiagnosisReport,
     MarketPrice, MandiMarket, MartSellerProfile, MartListing, MartOrder, ExcelImportJob,
-    AgroGPTUsageLog, AgroGPTFeedback, KnowledgeSource, AgroGPTMessage
+    AgroGPTUsageLog, AgroGPTFeedback, KnowledgeSource, AgroGPTMessage,
+    AdminDepartment, AdminTeam, FeatureChangeRequest
 )
 from ..auth.deps import get_current_user, verify_supabase_token, GUEST_SESSION_SECRET
 from ..auth.passwords import hash_password, verify_password
@@ -174,16 +175,29 @@ DEFAULT_ROLE_PERMISSIONS: Dict[str, Dict[str, List[str]]] = {
         "data_requests": ["read"],
         "audit_logs": ["read"],
     },
+    AdminUserRole.supervisor.value: {
+        "overview": ["read"],
+        "mart": ["read", "create", "edit", "submit"],
+        "posts_offers": ["read", "create", "edit", "submit"],
+        "excel_registry": ["read", "create", "submit"],
+        "subscription_plans": ["read"],
+        "users_roles": ["read"],
+        "payment_orders": ["read"],
+        "data_requests": ["read", "create", "edit", "submit"],
+        "audit_logs": [],
+    },
 }
 
 
 def get_hierarchy_level(admin: AdminUser) -> str:
-    """Returns canonical 3-tier hierarchy level: SUPER_ADMIN_HEAD (Level 1), ADMIN (Level 2), or STAFF (Level 3)."""
+    """Returns canonical 4-level hierarchy: SUPER_ADMIN_HEAD (L1), ADMIN (L2), SUPERVISOR (L3), STAFF (L4)."""
     if admin.role == AdminUserRole.super_admin:
         return "SUPER_ADMIN_HEAD"
     if admin.role == AdminUserRole.admin:
         return "ADMIN"
-    if admin.hierarchy_level in ("SUPER_ADMIN_HEAD", "ADMIN", "STAFF"):
+    if admin.role == AdminUserRole.supervisor:
+        return "SUPERVISOR"
+    if admin.hierarchy_level in ("SUPER_ADMIN_HEAD", "ADMIN", "SUPERVISOR", "STAFF"):
         if admin.hierarchy_level == "SUPER_ADMIN_HEAD" and admin.role != AdminUserRole.super_admin:
             return "ADMIN"
         return admin.hierarchy_level
@@ -371,6 +385,17 @@ def require_admin(*allowed_roles: AdminUserRole, module: Optional[str] = None, a
                         status_code=status.HTTP_403_FORBIDDEN,
                         detail={"error": {"code": "ADMIN_FORBIDDEN", "message": "Administrative privileges required. Access must be approved by a Super Admin."}}
                     )
+
+        # 0. Permission expiry check (revokes access automatically once expired)
+        exp_at = getattr(admin, "permission_expires_at", None)
+        if exp_at is not None:
+            exp_aware = exp_at if exp_at.tzinfo else exp_at.replace(tzinfo=datetime.timezone.utc)
+            if datetime.datetime.now(datetime.timezone.utc) >= exp_aware:
+                _log_unauthorized_attempt(db, user, admin.role.value, "Administrator permission expired", request)
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail={"error": {"code": "PERMISSION_EXPIRED", "message": "Your administrative permissions have expired. Contact Super Admin."}}
+                )
 
         # 1. Server-side session revocation check (for local admin JWTs carrying session_version 'sv')
         claims = _extract_bearer_claims(request)
@@ -901,6 +926,9 @@ async def get_admin_profile(admin: AdminUser = Depends(require_admin()), user: U
         "is_super_admin": admin.role == AdminUserRole.super_admin,
         "permissions": eff_perms,
         "authorized_modules": auth_modules,
+        "departments": getattr(admin, "departments", None) or [],
+        "team_id": getattr(admin, "team_id", None),
+        "permission_expires_at": admin.permission_expires_at.isoformat() if getattr(admin, "permission_expires_at", None) else None,
         "is_active": admin.is_active,
         "created_at": admin.created_at.isoformat() if admin.created_at else None
     }
@@ -3825,6 +3853,353 @@ async def force_logout_user_sessions(
     db.commit()
     log_admin_action(db, admin, "FORCE_LOGOUT_USER_SESSIONS", "users", user_id, {"reason": body.reason.strip(), "admin_session_version": new_sv}, request)
     return {"user_id": user_id, "status": "sessions_revoked", "admin_session_version": new_sv}
+
+
+# ── FOUR-LEVEL HIERARCHY: DEPARTMENTS, TEAMS & FEATURE CHANGE REQUESTS ──
+DEFAULT_DEPARTMENTS = [
+    ("farmer_ops", "Farmer Operations", "Farmer accounts, onboarding and farmer support."),
+    ("agrogpt", "AgroGPT", "AI quality, safety guards, knowledge base and telemetry."),
+    ("mandi", "Mandi", "APMC prices, market directory and price synchronization."),
+    ("weather", "Weather", "Weather provider health, forecasts and spray advisories."),
+    ("finance", "Finance", "Payments, subscriptions, refunds and revenue reconciliation."),
+    ("marketplace", "Marketplace", "Inputs store, seller verification and Agro AI Mart listings."),
+    ("logistics", "Logistics", "Harvest transport drivers, bookings and delivery tracking."),
+    ("technical", "Technical Operations", "API health, system monitoring and integrations."),
+    ("content", "Content Management", "Agricultural advisories, broadcasts and knowledge library."),
+]
+
+
+def _ensure_default_departments(db: Session):
+    if db.query(AdminDepartment).count() == 0:
+        for slug, name, desc in DEFAULT_DEPARTMENTS:
+            db.add(AdminDepartment(slug=slug, name=name, description=desc, is_active=True))
+        db.commit()
+
+
+def _enforce_department_scope(admin: AdminUser, dept_slug: str, db: Session, request: Request):
+    """Blocks Level 2/3/4 users from accessing unassigned departments (prevents cross-department IDOR)."""
+    if admin.role == AdminUserRole.super_admin:
+        return
+    assigned = [d.lower() for d in (getattr(admin, "departments", None) or [])]
+    if dept_slug.lower() not in assigned:
+        _log_unauthorized_attempt(db, admin.user, admin.role.value, f"Cross-department access denied for '{dept_slug}'", request)
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail={"error": {"code": "DEPARTMENT_ACCESS_DENIED", "message": f"You are not authorized to access department '{dept_slug}'."}},
+        )
+
+
+class DepartmentUpsertRequest(BaseModel):
+    slug: str = Field(..., min_length=2, max_length=50, pattern=r"^[a-z0-9_-]+$")
+    name: str = Field(..., min_length=2, max_length=120)
+    description: Optional[str] = Field(None, max_length=400)
+    is_active: bool = True
+
+
+class DepartmentAssignMemberRequest(BaseModel):
+    user_id: str
+    role: AdminUserRole = AdminUserRole.admin
+    departments: List[str] = Field(default_factory=list)
+    team_id: Optional[str] = None
+    permission_expires_at: Optional[str] = None
+    reason: str = Field(..., min_length=5, max_length=300)
+
+
+class TeamCreateRequest(BaseModel):
+    name: str = Field(..., min_length=2, max_length=120)
+    department_slug: str
+    supervisor_user_id: Optional[str] = None
+
+
+class FeatureChangeRequestCreate(BaseModel):
+    feature_key: str
+    requested_status: str = Field(..., pattern=r"^(ENABLED|DISABLED|MAINTENANCE|EMERGENCY_SHUTDOWN)$")
+    department_slug: Optional[str] = None
+    reason: str = Field(..., min_length=5, max_length=300)
+
+
+class FeatureChangeDecisionRequest(BaseModel):
+    decision: str = Field(..., pattern=r"^(approved|rejected)$")
+    review_notes: Optional[str] = Field(None, max_length=300)
+
+
+@router.get("/departments")
+async def list_departments(
+    admin: AdminUser = Depends(require_admin()),
+    db: Session = Depends(get_db),
+):
+    """Super Admin sees all departments; Level 2/3/4 see only their assigned departments."""
+    _ensure_default_departments(db)
+    rows = db.query(AdminDepartment).order_by(AdminDepartment.name.asc()).all()
+    if admin.role != AdminUserRole.super_admin:
+        assigned = {d.lower() for d in (getattr(admin, "departments", None) or [])}
+        rows = [r for r in rows if r.slug.lower() in assigned]
+
+    members = db.query(AdminUser).filter(AdminUser.is_active == True).all()
+    teams = db.query(AdminTeam).filter(AdminTeam.is_active == True).all()
+
+    return {
+        "hierarchy_level": get_hierarchy_level(admin),
+        "departments": [
+            {
+                "slug": r.slug,
+                "name": r.name,
+                "description": r.description,
+                "is_active": r.is_active,
+                "member_count": sum(1 for m in members if r.slug in (getattr(m, "departments", None) or [])),
+                "team_count": sum(1 for t in teams if t.department_slug == r.slug),
+            }
+            for r in rows
+        ],
+    }
+
+
+@router.post("/departments")
+async def upsert_department(
+    body: DepartmentUpsertRequest,
+    request: Request,
+    admin: AdminUser = Depends(require_admin(AdminUserRole.super_admin)),
+    db: Session = Depends(get_db),
+):
+    """Super Admin ONLY: Create, rename or suspend a department."""
+    _ensure_default_departments(db)
+    dept = db.query(AdminDepartment).filter(AdminDepartment.slug == body.slug).first()
+    if not dept:
+        dept = AdminDepartment(slug=body.slug, name=body.name.strip(), description=body.description, is_active=body.is_active, created_by=admin.user_id)
+        db.add(dept)
+    else:
+        dept.name = body.name.strip()
+        dept.description = body.description
+        dept.is_active = body.is_active
+    db.commit()
+    log_admin_action(db, admin, "UPSERT_DEPARTMENT", "admin_departments", dept.slug, {"name": dept.name, "is_active": dept.is_active}, request)
+    return {"slug": dept.slug, "name": dept.name, "is_active": dept.is_active}
+
+
+@router.post("/departments/{slug}/assign")
+async def assign_member_to_department(
+    slug: str,
+    body: DepartmentAssignMemberRequest,
+    request: Request,
+    admin: AdminUser = Depends(require_admin(AdminUserRole.super_admin)),
+    db: Session = Depends(get_db),
+):
+    """Super Admin ONLY: Assigns an Admin (L2), Supervisor (L3) or Staff (L4) member to department(s)
+    with optional permission expiry. Prevents promoting to super_admin via this endpoint."""
+    _ensure_default_departments(db)
+    if body.role == AdminUserRole.super_admin:
+        raise HTTPException(status_code=403, detail={"error": {"code": "SUPER_ADMIN_PROMOTION_BLOCKED", "message": "Super Admin role cannot be assigned through department assignment."}})
+    dept = db.query(AdminDepartment).filter(AdminDepartment.slug == slug).first()
+    if not dept:
+        raise HTTPException(status_code=404, detail={"error": {"code": "DEPARTMENT_NOT_FOUND", "message": f"Department '{slug}' not found."}})
+
+    u = db.query(User).filter(User.id == body.user_id).first()
+    if not u:
+        raise HTTPException(status_code=404, detail={"error": {"code": "USER_NOT_FOUND", "message": "User not found."}})
+
+    dept_list = sorted(set([slug] + [d.strip().lower() for d in body.departments if d.strip()]))
+    exp_dt = None
+    if body.permission_expires_at:
+        try:
+            exp_dt = datetime.datetime.fromisoformat(body.permission_expires_at.replace("Z", "+00:00"))
+        except Exception:
+            raise HTTPException(status_code=400, detail={"error": {"code": "INVALID_EXPIRY", "message": "Invalid ISO timestamp for permission_expires_at."}})
+
+    level_map = {
+        AdminUserRole.admin: "ADMIN",
+        AdminUserRole.supervisor: "SUPERVISOR",
+    }
+    h_level = level_map.get(body.role, "STAFF")
+
+    rec = db.query(AdminUser).filter(AdminUser.user_id == body.user_id).first()
+    if not rec:
+        rec = AdminUser(
+            id=str(uuid.uuid4()),
+            user_id=body.user_id,
+            role=body.role,
+            hierarchy_level=h_level,
+            departments=dept_list,
+            team_id=body.team_id,
+            permission_expires_at=exp_dt,
+            assigned_by=admin.user_id,
+            is_active=True,
+            mfa_enforced=True,
+            session_version=1,
+        )
+        db.add(rec)
+    else:
+        rec.role = body.role
+        rec.hierarchy_level = h_level
+        rec.departments = dept_list
+        rec.team_id = body.team_id
+        rec.permission_expires_at = exp_dt
+        rec.assigned_by = admin.user_id
+        rec.is_active = True
+    db.commit()
+    log_admin_action(db, admin, "ASSIGN_DEPARTMENT_MEMBER", "admin_users", rec.id, {"user_id": body.user_id, "role": body.role.value, "hierarchy_level": h_level, "departments": dept_list, "reason": body.reason.strip()}, request)
+    return {"user_id": body.user_id, "role": rec.role.value, "hierarchy_level": h_level, "departments": dept_list}
+
+
+@router.get("/departments/{slug}/workspace")
+async def get_department_workspace(
+    slug: str,
+    request: Request,
+    admin: AdminUser = Depends(require_admin()),
+    db: Session = Depends(get_db),
+):
+    """Department-scoped workspace. Strictly blocks Level 2/3/4 users from unassigned departments."""
+    _ensure_default_departments(db)
+    _enforce_department_scope(admin, slug, db, request)
+    dept = db.query(AdminDepartment).filter(AdminDepartment.slug == slug).first()
+    if not dept:
+        raise HTTPException(status_code=404, detail={"error": {"code": "DEPARTMENT_NOT_FOUND", "message": "Department not found."}})
+
+    teams = db.query(AdminTeam).filter(AdminTeam.department_slug == slug, AdminTeam.is_active == True).all()
+    if get_hierarchy_level(admin) == "SUPERVISOR" and getattr(admin, "team_id", None):
+        teams = [t for t in teams if t.id == admin.team_id]
+
+    return {
+        "department": {"slug": dept.slug, "name": dept.name, "description": dept.description, "is_active": dept.is_active},
+        "viewer_level": get_hierarchy_level(admin),
+        "teams": [{"id": t.id, "name": t.name, "supervisor_user_id": t.supervisor_user_id} for t in teams],
+    }
+
+
+@router.get("/teams")
+async def list_admin_teams(
+    department_slug: Optional[str] = None,
+    admin: AdminUser = Depends(require_admin(AdminUserRole.super_admin, AdminUserRole.admin, AdminUserRole.supervisor)),
+    db: Session = Depends(get_db),
+):
+    q = db.query(AdminTeam).filter(AdminTeam.is_active == True)
+    if department_slug:
+        q = q.filter(AdminTeam.department_slug == department_slug)
+    rows = q.all()
+    if admin.role != AdminUserRole.super_admin:
+        assigned = {d.lower() for d in (getattr(admin, "departments", None) or [])}
+        rows = [r for r in rows if r.department_slug.lower() in assigned]
+        if admin.role == AdminUserRole.supervisor and getattr(admin, "team_id", None):
+            rows = [r for r in rows if r.id == admin.team_id]
+    return {"teams": [{"id": r.id, "name": r.name, "department_slug": r.department_slug, "supervisor_user_id": r.supervisor_user_id} for r in rows]}
+
+
+@router.post("/teams", status_code=201)
+async def create_admin_team(
+    body: TeamCreateRequest,
+    request: Request,
+    admin: AdminUser = Depends(require_admin(AdminUserRole.super_admin, AdminUserRole.admin)),
+    db: Session = Depends(get_db),
+):
+    """Super Admin (any dept) or Department Admin (assigned dept only) creates a team."""
+    _ensure_default_departments(db)
+    _enforce_department_scope(admin, body.department_slug, db, request)
+    team = AdminTeam(
+        id=str(uuid.uuid4()),
+        name=body.name.strip(),
+        department_slug=body.department_slug,
+        supervisor_user_id=body.supervisor_user_id,
+        is_active=True,
+    )
+    db.add(team)
+    db.commit()
+    log_admin_action(db, admin, "CREATE_ADMIN_TEAM", "admin_teams", team.id, {"name": team.name, "department_slug": team.department_slug}, request)
+    return {"id": team.id, "name": team.name, "department_slug": team.department_slug}
+
+
+@router.get("/features/requests")
+async def list_feature_change_requests(
+    admin: AdminUser = Depends(require_admin(AdminUserRole.super_admin, AdminUserRole.admin)),
+    db: Session = Depends(get_db),
+):
+    q = db.query(FeatureChangeRequest).order_by(FeatureChangeRequest.created_at.desc())
+    if admin.role != AdminUserRole.super_admin:
+        q = q.filter(FeatureChangeRequest.requested_by == admin.user_id)
+    rows = q.limit(100).all()
+    return {
+        "requests": [
+            {
+                "id": r.id,
+                "feature_key": r.feature_key,
+                "requested_status": r.requested_status,
+                "reason": r.reason,
+                "department_slug": r.department_slug,
+                "requested_by": r.requested_by,
+                "status": r.status,
+                "reviewed_by": r.reviewed_by,
+                "review_notes": r.review_notes,
+                "created_at": r.created_at.isoformat() if r.created_at else None,
+            }
+            for r in rows
+        ]
+    }
+
+
+@router.post("/features/requests", status_code=201)
+async def request_feature_change(
+    body: FeatureChangeRequestCreate,
+    request: Request,
+    admin: AdminUser = Depends(require_admin(AdminUserRole.super_admin, AdminUserRole.admin)),
+    db: Session = Depends(get_db),
+):
+    """Department Admins request a global feature status change; only Super Admin can approve/execute it."""
+    from ..services.feature_control import FEATURE_REGISTRY
+    key = body.feature_key.strip().lower()
+    if key not in FEATURE_REGISTRY:
+        raise HTTPException(status_code=404, detail={"error": {"code": "FEATURE_NOT_FOUND", "message": f"Unknown feature '{key}'."}})
+    req_row = FeatureChangeRequest(
+        id=str(uuid.uuid4()),
+        feature_key=key,
+        requested_status=body.requested_status,
+        reason=body.reason.strip(),
+        department_slug=body.department_slug,
+        requested_by=admin.user_id,
+        status="pending",
+    )
+    db.add(req_row)
+    db.commit()
+    log_admin_action(db, admin, "REQUEST_FEATURE_CHANGE", "feature_change_requests", req_row.id, {"feature_key": key, "requested_status": body.requested_status, "reason": body.reason.strip()}, request)
+    return {"id": req_row.id, "status": "pending", "feature_key": key, "requested_status": body.requested_status}
+
+
+@router.post("/features/requests/{req_id}/decide")
+async def decide_feature_change_request(
+    req_id: str,
+    body: FeatureChangeDecisionRequest,
+    request: Request,
+    admin: AdminUser = Depends(require_admin(AdminUserRole.super_admin)),
+    db: Session = Depends(get_db),
+):
+    """Super Admin ONLY: Approve (and immediately execute) or reject a Department Admin's feature change request."""
+    from ..services.feature_control import FEATURE_REGISTRY, invalidate_feature_cache
+    req_row = db.query(FeatureChangeRequest).filter(FeatureChangeRequest.id == req_id).first()
+    if not req_row:
+        raise HTTPException(status_code=404, detail={"error": {"code": "REQUEST_NOT_FOUND", "message": "Feature change request not found."}})
+    if req_row.status != "pending":
+        raise HTTPException(status_code=400, detail={"error": {"code": "ALREADY_DECIDED", "message": "Request already processed."}})
+
+    req_row.status = body.decision
+    req_row.reviewed_by = admin.user_id
+    req_row.reviewed_at = datetime.datetime.now(datetime.timezone.utc)
+    req_row.review_notes = body.review_notes
+
+    if body.decision == "approved" and req_row.feature_key in FEATURE_REGISTRY:
+        meta = FEATURE_REGISTRY[req_row.feature_key]
+        row = db.query(PlatformFeature).filter(PlatformFeature.key == req_row.feature_key).first()
+        if not row:
+            row = PlatformFeature(key=req_row.feature_key, name=meta["name"], state=req_row.requested_status, implemented=True, config={}, revision=1, changed_by=admin.user_id, reason=req_row.reason)
+            db.add(row)
+        else:
+            row.state = req_row.requested_status
+            row.revision = (row.revision or 1) + 1
+            row.changed_by = admin.user_id
+            row.reason = req_row.reason
+        db.add(PlatformFeatureHistory(id=str(uuid.uuid4()), feature_key=req_row.feature_key, state=row.state, config=row.config or {}, revision=row.revision, changed_by=admin.user_id, reason=req_row.reason))
+
+    db.commit()
+    invalidate_feature_cache()
+    log_admin_action(db, admin, f"FEATURE_REQUEST_{body.decision.upper()}", "feature_change_requests", req_row.id, {"feature_key": req_row.feature_key, "requested_status": req_row.requested_status, "decision": body.decision}, request)
+    return {"id": req_row.id, "status": req_row.status, "feature_key": req_row.feature_key, "applied_state": req_row.requested_status if body.decision == "approved" else None}
+
 
 
 

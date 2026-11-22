@@ -17,7 +17,8 @@ import {
   Bot,
   BookOpen,
   Activity,
-  Sliders
+  Sliders,
+  Building2
 } from 'lucide-react';
 
 interface NavItem {
@@ -37,6 +38,7 @@ interface AdminLayoutProps {
 const NAV_ITEMS: NavItem[] = [
   { id: 'overview', moduleKey: 'overview', label: 'Overview', icon: <LayoutDashboard size={18} />, roles: ['super_admin', 'admin', 'staff', 'plan_manager', 'payment_manager', 'payment_staff', 'support_agent', 'content_manager', 'listing_reviewer', 'seller_reviewer', 'analyst'] },
   { id: 'feature_control', moduleKey: 'overview', label: 'Feature Controls', icon: <Sliders size={18} />, roles: ['super_admin', 'admin', 'analyst'] },
+  { id: 'departments', moduleKey: 'overview', label: 'Departments & Teams', icon: <Building2 size={18} />, roles: ['super_admin', 'admin', 'supervisor', 'staff'] },
   { id: 'agrogpt', moduleKey: 'overview', label: 'AgroGPT Control', icon: <Bot size={18} />, roles: ['super_admin', 'admin', 'analyst'] },
   { id: 'knowledge', moduleKey: 'overview', label: 'Knowledge Library', icon: <BookOpen size={18} />, roles: ['super_admin', 'admin', 'content_manager', 'analyst'] },
   { id: 'system_health', moduleKey: 'overview', label: 'System & Security', icon: <Activity size={18} />, roles: ['super_admin', 'admin', 'analyst'] },
@@ -58,14 +60,16 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ currentTab, onTabChang
   const hierarchyLevel = profile?.hierarchy_level || (role === 'super_admin' ? 'SUPER_ADMIN_HEAD' : role === 'admin' ? 'ADMIN' : 'STAFF');
 
   const tierLabelMap: Record<string, string> = {
-    SUPER_ADMIN_HEAD: 'Level 1 · Super Admin Head',
-    ADMIN: 'Level 2 · Admin',
-    STAFF: 'Level 3 · Staff',
+    SUPER_ADMIN_HEAD: 'Level 1 · Super Admin',
+    ADMIN: 'Level 2 · Dept Admin',
+    SUPERVISOR: 'Level 3 · Supervisor',
+    STAFF: 'Level 4 · Staff',
   };
 
   const roleBadgeColors: Record<string, string> = {
     super_admin: 'bg-[#B91C1C]/20 text-[#FCA5A5] border-[#B91C1C]/40',
     admin: 'bg-[#2D6A4F]/25 text-[#A7F3D0] border-[#40916C]/50',
+    supervisor: 'bg-[#D97706]/20 text-[#FDE68A] border-[#F59E0B]/40',
     staff: 'bg-[#1D4ED8]/20 text-[#93C5FD] border-[#3B82F6]/40',
     plan_manager: 'bg-[#2D6A4F]/20 text-[#A7F3D0] border-[#2D6A4F]/40',
     payment_manager: 'bg-[#B26E28]/20 text-[#FCD34D] border-[#B26E28]/40',
