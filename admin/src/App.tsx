@@ -14,6 +14,7 @@ import { MartConsole } from './pages/MartConsole';
 import { AgroGPTControlCentre } from './pages/AgroGPTControlCentre';
 import { SystemMonitoring } from './pages/SystemMonitoring';
 import { KnowledgeBaseManager } from './pages/KnowledgeBaseManager';
+import { FeatureControlCentre } from './pages/FeatureControlCentre';
 
 const AdminAppShell: React.FC = () => {
   const { user, profile, mfaRequired, loading } = useAdminAuth();
@@ -36,6 +37,8 @@ const AdminAppShell: React.FC = () => {
     switch (currentTab) {
       case 'overview':
         return <DashboardOverview />;
+      case 'feature_control':
+        return <FeatureControlCentre />;
       case 'agrogpt':
         return <AgroGPTControlCentre />;
       case 'knowledge':

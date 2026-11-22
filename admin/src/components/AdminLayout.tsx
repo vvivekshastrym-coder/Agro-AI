@@ -16,7 +16,8 @@ import {
   ShoppingBag,
   Bot,
   BookOpen,
-  Activity
+  Activity,
+  Sliders
 } from 'lucide-react';
 
 interface NavItem {
@@ -35,6 +36,7 @@ interface AdminLayoutProps {
 
 const NAV_ITEMS: NavItem[] = [
   { id: 'overview', moduleKey: 'overview', label: 'Overview', icon: <LayoutDashboard size={18} />, roles: ['super_admin', 'admin', 'staff', 'plan_manager', 'payment_manager', 'payment_staff', 'support_agent', 'content_manager', 'listing_reviewer', 'seller_reviewer', 'analyst'] },
+  { id: 'feature_control', moduleKey: 'overview', label: 'Feature Controls', icon: <Sliders size={18} />, roles: ['super_admin', 'admin', 'analyst'] },
   { id: 'agrogpt', moduleKey: 'overview', label: 'AgroGPT Control', icon: <Bot size={18} />, roles: ['super_admin', 'admin', 'analyst'] },
   { id: 'knowledge', moduleKey: 'overview', label: 'Knowledge Library', icon: <BookOpen size={18} />, roles: ['super_admin', 'admin', 'content_manager', 'analyst'] },
   { id: 'system_health', moduleKey: 'overview', label: 'System & Security', icon: <Activity size={18} />, roles: ['super_admin', 'admin', 'analyst'] },

@@ -19,7 +19,7 @@ import hmac
 
 from ..database.connection import get_db
 from ..database.models import (
-    User, UserRole, AdminUser, AdminUserRole, PlatformFeature, SubscriptionPlan, SubscriptionPlanVersion,
+    User, UserRole, AdminUser, AdminUserRole, PlatformFeature, PlatformFeatureHistory, SubscriptionPlan, SubscriptionPlanVersion,
     PlanEntitlement, UserSubscription, SubscriptionUsage, PaymentOrder,
     PaymentTransaction, PaymentWebhookEvent, AdminAuditLog, DataRequest, AdminAccessRequest,
     BroadcastItem, BroadcastType, BroadcastStatus, Farm, DiagnosisReport,
@@ -3422,6 +3422,211 @@ async def review_knowledge_source(
     db.commit()
     log_admin_action(db, admin, "REVIEW_KNOWLEDGE_SOURCE", "knowledge_sources", src.id, {"review_status": src.review_status, "title": src.title}, request)
     return {"id": src.id, "review_status": src.review_status, "last_verified_date": src.last_verified_date}
+
+
+# ── SUPER ADMIN GLOBAL FEATURE CONTROL CENTRE ──────────────────────
+class FeatureStatusUpdateRequest(BaseModel):
+    status: str = Field(..., pattern=r"^(ENABLED|DISABLED|MAINTENANCE|EMERGENCY_SHUTDOWN)$")
+    reason: str = Field(..., min_length=5, max_length=300)
+    maintenance_message: Optional[str] = Field(None, max_length=400)
+    estimated_restore_at: Optional[str] = Field(None, max_length=60)
+
+
+class FeatureScheduleRequest(BaseModel):
+    scheduled_shutdown_at: Optional[str] = Field(None, max_length=60)
+    scheduled_restore_at: Optional[str] = Field(None, max_length=60)
+    scheduled_target_state: str = Field("MAINTENANCE", pattern=r"^(DISABLED|MAINTENANCE)$")
+    reason: str = Field(..., min_length=5, max_length=300)
+    cancel: bool = False
+
+
+@router.get("/features")
+async def list_global_features(
+    admin: AdminUser = Depends(require_admin(AdminUserRole.super_admin, AdminUserRole.admin, AdminUserRole.analyst)),
+    db: Session = Depends(get_db),
+):
+    """Lists all Agro AI platform features with real DB status, dependencies and schedule."""
+    from ..services.feature_control import get_all_feature_states
+    states = get_all_feature_states(db, use_cache=False)
+    return {
+        "checked_at": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+        "total": len(states),
+        "features": list(states.values()),
+    }
+
+
+@router.post("/features/{feature_key}/status")
+async def set_global_feature_status(
+    feature_key: str,
+    body: FeatureStatusUpdateRequest,
+    request: Request,
+    admin: AdminUser = Depends(require_admin(AdminUserRole.super_admin)),
+    db: Session = Depends(get_db),
+):
+    """Super Admin ONLY: Enable, Disable, Maintenance Mode, Emergency Shutdown or Restore a feature."""
+    from ..services.feature_control import (
+        FEATURE_REGISTRY, PROTECTED_SECURITY_KEYS, invalidate_feature_cache, get_dependents,
+    )
+    from ..database.models import PlatformFeatureHistory
+
+    key = feature_key.strip().lower()
+    if key in PROTECTED_SECURITY_KEYS:
+        raise HTTPException(
+            status_code=400,
+            detail={"error": {"code": "SECURITY_FEATURE_PROTECTED", "message": "Authentication, authorization, audit logs and core security controls cannot be disabled."}},
+        )
+    if key not in FEATURE_REGISTRY:
+        raise HTTPException(
+            status_code=404,
+            detail={"error": {"code": "FEATURE_NOT_FOUND", "message": f"Unknown platform feature '{feature_key}'."}},
+        )
+
+    meta = FEATURE_REGISTRY[key]
+    row = db.query(PlatformFeature).filter(PlatformFeature.key == key).first()
+    prev_state = row.state if row else "ENABLED"
+    cfg = dict((row.config if row else None) or {})
+    if body.maintenance_message is not None:
+        cfg["maintenance_message"] = body.maintenance_message.strip() or None
+    if body.estimated_restore_at is not None:
+        cfg["estimated_restore_at"] = body.estimated_restore_at.strip() or None
+    if body.status == "ENABLED":
+        cfg.pop("scheduled_shutdown_at", None)
+        cfg.pop("scheduled_restore_at", None)
+
+    if not row:
+        row = PlatformFeature(
+            key=key,
+            name=meta["name"],
+            state=body.status,
+            implemented=True,
+            config=cfg,
+            revision=1,
+            changed_by=admin.user_id,
+            reason=body.reason.strip(),
+        )
+        db.add(row)
+    else:
+        row.state = body.status
+        row.config = cfg
+        row.revision = (row.revision or 1) + 1
+        row.changed_by = admin.user_id
+        row.reason = body.reason.strip()
+
+    db.add(PlatformFeatureHistory(
+        id=str(uuid.uuid4()),
+        feature_key=key,
+        state=row.state,
+        config=cfg,
+        revision=row.revision,
+        changed_by=admin.user_id,
+        reason=row.reason,
+    ))
+    db.commit()
+    invalidate_feature_cache()
+
+    action = "FEATURE_EMERGENCY_SHUTDOWN" if body.status == "EMERGENCY_SHUTDOWN" else "UPDATE_FEATURE_STATUS"
+    log_admin_action(
+        db, admin, action, "platform_features", key,
+        {"previous_state": prev_state, "new_state": body.status, "reason": body.reason.strip(), "dependents": get_dependents(key)},
+        request,
+    )
+    return {
+        "key": key,
+        "status": row.state,
+        "previous_state": prev_state,
+        "revision": row.revision,
+        "dependents": get_dependents(key),
+        "reason": row.reason,
+    }
+
+
+@router.post("/features/{feature_key}/schedule")
+async def schedule_global_feature_change(
+    feature_key: str,
+    body: FeatureScheduleRequest,
+    request: Request,
+    admin: AdminUser = Depends(require_admin(AdminUserRole.super_admin)),
+    db: Session = Depends(get_db),
+):
+    """Super Admin ONLY: Schedule automatic backend shutdown / restoration or cancel schedule."""
+    from ..services.feature_control import FEATURE_REGISTRY, PROTECTED_SECURITY_KEYS, invalidate_feature_cache
+    from ..database.models import PlatformFeatureHistory
+
+    key = feature_key.strip().lower()
+    if key in PROTECTED_SECURITY_KEYS or key not in FEATURE_REGISTRY:
+        raise HTTPException(status_code=404, detail={"error": {"code": "FEATURE_NOT_FOUND", "message": f"Unknown or protected feature '{feature_key}'."}})
+
+    meta = FEATURE_REGISTRY[key]
+    row = db.query(PlatformFeature).filter(PlatformFeature.key == key).first()
+    cfg = dict((row.config if row else None) or {})
+
+    if body.cancel:
+        cfg.pop("scheduled_shutdown_at", None)
+        cfg.pop("scheduled_restore_at", None)
+        cfg.pop("scheduled_target_state", None)
+        cfg.pop("scheduled_reason", None)
+        new_state = "ENABLED" if (row and row.state == "SCHEDULED") else (row.state if row else "ENABLED")
+    else:
+        if body.scheduled_shutdown_at:
+            cfg["scheduled_shutdown_at"] = body.scheduled_shutdown_at
+        if body.scheduled_restore_at:
+            cfg["scheduled_restore_at"] = body.scheduled_restore_at
+        cfg["scheduled_target_state"] = body.scheduled_target_state
+        cfg["scheduled_reason"] = body.reason.strip()
+        new_state = "SCHEDULED" if (not row or row.state == "ENABLED") else row.state
+
+    if not row:
+        row = PlatformFeature(
+            key=key, name=meta["name"], state=new_state, implemented=True,
+            config=cfg, revision=1, changed_by=admin.user_id, reason=body.reason.strip(),
+        )
+        db.add(row)
+    else:
+        row.state = new_state
+        row.config = cfg
+        row.revision = (row.revision or 1) + 1
+        row.changed_by = admin.user_id
+        row.reason = body.reason.strip()
+
+    db.add(PlatformFeatureHistory(
+        id=str(uuid.uuid4()), feature_key=key, state=row.state, config=cfg,
+        revision=row.revision, changed_by=admin.user_id, reason=row.reason,
+    ))
+    db.commit()
+    invalidate_feature_cache()
+
+    log_admin_action(db, admin, "SCHEDULE_FEATURE_CHANGE", "platform_features", key, {"cancel": body.cancel, "config": cfg, "reason": body.reason.strip()}, request)
+    return {"key": key, "status": row.state, "scheduled_shutdown_at": cfg.get("scheduled_shutdown_at"), "scheduled_restore_at": cfg.get("scheduled_restore_at")}
+
+
+@router.get("/features/{feature_key}/history")
+async def get_feature_history(
+    feature_key: str,
+    admin: AdminUser = Depends(require_admin(AdminUserRole.super_admin, AdminUserRole.admin, AdminUserRole.analyst)),
+    db: Session = Depends(get_db),
+):
+    rows = (
+        db.query(PlatformFeatureHistory)
+        .filter(PlatformFeatureHistory.feature_key == feature_key.strip().lower())
+        .order_by(PlatformFeatureHistory.changed_at.desc())
+        .limit(30)
+        .all()
+    )
+    return {
+        "feature_key": feature_key.strip().lower(),
+        "history": [
+            {
+                "id": r.id,
+                "state": r.state,
+                "revision": r.revision,
+                "changed_by": r.changed_by,
+                "changed_at": r.changed_at.isoformat() if r.changed_at else None,
+                "reason": r.reason,
+            }
+            for r in rows
+        ],
+    }
+
 
 
 
