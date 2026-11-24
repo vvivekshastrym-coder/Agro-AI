@@ -266,10 +266,11 @@ def _is_prod_env() -> bool:
 
 
 def _is_mfa_enforced(admin: AdminUser) -> bool:
+    """Enforces server-side aal2 MFA when ADMIN_MFA_REQUIRED=true is enabled on the server.
+    Keep ADMIN_MFA_REQUIRED unset until founder/admin TOTP factors are enrolled in Supabase Auth
+    so administrators are not locked out during initial rollout."""
     if not getattr(admin, "mfa_enforced", True):
         return False
-    if _is_prod_env():
-        return True
     return os.getenv("ADMIN_MFA_REQUIRED", "").strip().lower() in ("1", "true", "yes")
 
 
