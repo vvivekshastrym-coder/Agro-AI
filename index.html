@@ -1065,9 +1065,22 @@
 
       <div class="select-row">
         <select id="cropHint">
-          <option value="" id="diagCropHintOpt">Crop (optional — AI will detect)</option>
-          <option value="Tomato">Tomato</option><option value="Wheat">Wheat</option><option value="Rice / Paddy">Rice / Paddy</option>
-          <option value="Cotton">Cotton</option><option value="Sugarcane">Sugarcane</option><option value="Maize">Maize</option>
+          <option value="" id="diagCropHintOpt">Crop (optional — AI will verify from photo)</option>
+          <option value="Ragi">Ragi / Finger Millet</option>
+          <option value="Rice / Paddy">Rice / Paddy</option>
+          <option value="Sugarcane">Sugarcane</option>
+          <option value="Tomato">Tomato</option>
+          <option value="Coconut">Coconut</option>
+          <option value="Arecanut">Arecanut</option>
+          <option value="Maize">Maize</option>
+          <option value="Onion">Onion</option>
+          <option value="Potato">Potato</option>
+          <option value="Chilli">Chilli</option>
+          <option value="Cotton">Cotton</option>
+          <option value="Wheat">Wheat</option>
+          <option value="Tur">Tur / Red Gram</option>
+          <option value="Groundnut">Groundnut</option>
+          <option value="Banana">Banana</option>
         </select>
       </div>
 
@@ -5252,36 +5265,40 @@ async function runDiagnosis(){
 
       if (response.ok) {
         const data = await response.json();
-        if (data.status === 'low_confidence') {
-          area.innerHTML = `
-            <div class="card" style="margin-top:16px;border-color:var(--danger);">
-              <div style="font-weight:700;color:var(--danger);margin-bottom:6px;">⚠️ Image Needs More Detail</div>
-              <div class="muted">${data.message || 'The image details are insufficient for a reliable diagnosis.'} ${data.next_action || 'Please take a close-up photo in good lighting.'}</div>
-            </div>`;
+        if (['not_a_plant', 'needs_crop_confirmation', 'low_confidence'].includes(data.status)) {
+          renderDiagnosisNonDiagnostic(area, data);
           document.getElementById('analyzeBtn').disabled = false;
           return;
         }
 
-        const confPct = Math.round((data.confidence || 0) * (data.confidence <= 1.0 ? 100 : 1));
+        const confLabel = diagConfidenceLabel(data.confidence_category);
         const orgList = Array.isArray(data.organic_treatment) && data.organic_treatment.length ? data.organic_treatment : [];
-        const chemList = Array.isArray(data.chemical_treatment) && data.chemical_treatment.length ? data.chemical_treatment : [];
-        const prevList = Array.isArray(data.prevention) && data.prevention.length ? data.prevention.join(' · ') : (data.prevention || '');
+        const prevList = Array.isArray(data.prevention) && data.prevention.length ? data.prevention.join(' · ') : '';
 
         lastDiagnosedResult = {
-          crop: data.crop || cropHint,
-          disease: data.disease || 'Leaf Condition',
+          crop: data.crop || '',
+          disease: data.disease || '',
           pathogen: data.scientific_name || '',
-          severity: data.severity || 'Moderate',
-          confidence: confPct + '%',
+          severity: data.severity || 'uncertain',
+          confidence: confLabel,
+          confidence_category: data.confidence_category || 'LOW',
+          status: data.status,
+          plant_identification: data.plant_identification || null,
           evidence: data.evidence || [],
+          alternatives: data.alternatives || [],
+          missing_information: data.missing_information || [],
+          follow_up_questions: data.follow_up_questions || [],
+          affected_parts: data.affected_parts || [],
+          chemical_guidance: data.chemical_guidance || '',
+          withheld_quantity_items: data.withheld_quantity_items || 0,
           model: data.model || 'Unknown model',
           is_ai_vision: Boolean(data.is_ai_vision),
           date: new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }),
           organic_treatment: orgList,
-          chemical_treatment: chemList,
+          chemical_treatment: [],
           prevention: prevList,
-          spray_window: data.spray_window || '',
-          expected_recovery_days: data.expected_recovery_days || null
+          spray_window: '',
+          expected_recovery_days: null
         };
 
         renderDiagnosisCard(area, lastDiagnosedResult);
@@ -5328,38 +5345,113 @@ async function runDiagnosis(){
   document.getElementById('analyzeBtn').disabled = false;
 }
 
+const DIAG_TXT = {
+  en: { plant: 'Plant identified', cropConfirm: 'Please confirm the crop', pickCrop: 'Select the correct crop:', retake: 'Take a better photo', notPlant: 'Not a plant photo',
+        unable: 'Unable to identify confidently', alt: 'Other possibilities', missing: 'To be more certain, please share', conf: 'Confidence', moderateNote: 'Several problems are possible. This is a guide, not a confirmed diagnosis.',
+        chemNote: 'Chemical treatment', withheld: 'Quantities were withheld because no verified product label is connected. Follow the product label and your local KVK.',
+        aiOnly: 'AI image assessment only — not expert-confirmed', parts: 'Affected parts', questions: 'Questions to check', noOrganic: 'No diagnosis-specific measures to show.',
+        HIGH: 'High', MODERATE: 'Moderate', LOW: 'Low' },
+  kn: { plant: 'ಗುರುತಿಸಿದ ಸಸ್ಯ', cropConfirm: 'ದಯವಿಟ್ಟು ಬೆಳೆಯನ್ನು ದೃಢೀಕರಿಸಿ', pickCrop: 'ಸರಿಯಾದ ಬೆಳೆಯನ್ನು ಆಯ್ಕೆಮಾಡಿ:', retake: 'ಉತ್ತಮ ಫೋಟೋ ತೆಗೆಯಿರಿ', notPlant: 'ಸಸ್ಯದ ಫೋಟೋ ಅಲ್ಲ',
+        unable: 'ವಿಶ್ವಾಸದಿಂದ ಗುರುತಿಸಲು ಸಾಧ್ಯವಾಗಲಿಲ್ಲ', alt: 'ಇತರ ಸಾಧ್ಯತೆಗಳು', missing: 'ಹೆಚ್ಚು ಖಚಿತತೆಗಾಗಿ ದಯವಿಟ್ಟು ಹಂಚಿಕೊಳ್ಳಿ', conf: 'ವಿಶ್ವಾಸ ಮಟ್ಟ', moderateNote: 'ಹಲವು ಸಮಸ್ಯೆಗಳ ಸಾಧ್ಯತೆ ಇದೆ. ಇದು ಮಾರ್ಗದರ್ಶನ ಮಾತ್ರ, ದೃಢೀಕೃತ ರೋಗನಿರ್ಣಯವಲ್ಲ.',
+        chemNote: 'ರಾಸಾಯನಿಕ ಚಿಕಿತ್ಸೆ', withheld: 'ಪರಿಶೀಲಿತ ಉತ್ಪನ್ನ ಲೇಬಲ್ ಇಲ್ಲದ ಕಾರಣ ಪ್ರಮಾಣಗಳನ್ನು ತೋರಿಸಿಲ್ಲ. ಉತ್ಪನ್ನದ ಲೇಬಲ್ ಮತ್ತು ನಿಮ್ಮ ಸ್ಥಳೀಯ KVK ಅನುಸರಿಸಿ.',
+        aiOnly: 'AI ಚಿತ್ರ ಮೌಲ್ಯಮಾಪನ ಮಾತ್ರ — ತಜ್ಞರಿಂದ ದೃಢೀಕೃತವಲ್ಲ', parts: 'ಬಾಧಿತ ಭಾಗಗಳು', questions: 'ಪರಿಶೀಲಿಸಬೇಕಾದ ಪ್ರಶ್ನೆಗಳು', noOrganic: 'ತೋರಿಸಲು ರೋಗ-ನಿರ್ದಿಷ್ಟ ಕ್ರಮಗಳಿಲ್ಲ.',
+        HIGH: 'ಹೆಚ್ಚು', MODERATE: 'ಮಧ್ಯಮ', LOW: 'ಕಡಿಮೆ' },
+  hi: { plant: 'पहचाना गया पौधा', cropConfirm: 'कृपया फसल की पुष्टि करें', pickCrop: 'सही फसल चुनें:', retake: 'बेहतर फोटो लें', notPlant: 'यह पौधे की फोटो नहीं है',
+        unable: 'भरोसे से पहचान नहीं हो सकी', alt: 'अन्य संभावनाएँ', missing: 'अधिक निश्चितता के लिए कृपया साझा करें', conf: 'विश्वास स्तर', moderateNote: 'कई समस्याएँ संभव हैं। यह मार्गदर्शन है, पुष्ट निदान नहीं।',
+        chemNote: 'रासायनिक उपचार', withheld: 'सत्यापित उत्पाद लेबल उपलब्ध न होने से मात्राएँ नहीं दिखाई गईं। उत्पाद लेबल और स्थानीय KVK का पालन करें।',
+        aiOnly: 'केवल AI छवि आकलन — विशेषज्ञ द्वारा पुष्ट नहीं', parts: 'प्रभावित भाग', questions: 'जाँचने के प्रश्न', noOrganic: 'दिखाने के लिए रोग-विशिष्ट उपाय नहीं हैं।',
+        HIGH: 'उच्च', MODERATE: 'मध्यम', LOW: 'कम' }
+};
+function dTxt(){ return DIAG_TXT[currentLang] || DIAG_TXT.en; }
+function diagEsc(v){ return String(v == null ? '' : v).replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch])); }
+function diagConfidenceLabel(cat){ const t = dTxt(); return t[cat] || t.LOW; }
+
+function confirmDiagnosisCrop(cropName){
+  const sel = document.getElementById('cropHint');
+  if(sel){
+    if(![...sel.options].some(o => o.value === cropName)){
+      const opt = document.createElement('option'); opt.value = cropName; opt.textContent = cropName; sel.appendChild(opt);
+    }
+    sel.value = cropName;
+  }
+  runDiagnosis();
+}
+
+function renderDiagnosisNonDiagnostic(area, data){
+  const t = dTxt();
+  const status = data.status;
+  const title = status === 'needs_crop_confirmation' ? t.cropConfirm : (status === 'not_a_plant' ? t.notPlant : t.unable);
+  const cands = Array.isArray(data.crop_candidates) ? data.crop_candidates : [];
+  const missing = Array.isArray(data.missing_information) ? data.missing_information : [];
+  const alts = Array.isArray(data.alternatives) ? data.alternatives : [];
+  area.innerHTML = `
+    <div class="card" style="margin-top:16px;border-color:var(--saffron);">
+      <div style="font-weight:700;margin-bottom:6px;">⚠️ ${diagEsc(title)}</div>
+      <div class="muted" style="margin-bottom:8px;">${diagEsc(data.message || '')} ${diagEsc(data.next_action || '')}</div>
+      ${status === 'needs_crop_confirmation' && cands.length ? `
+        <div style="font-size:12px;font-weight:700;margin:8px 0 6px;">${diagEsc(t.pickCrop)}</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          ${cands.map(c => `<button class="btn btn-outline" style="min-height:44px;" onclick="confirmDiagnosisCrop('${diagEsc(c).replace(/'/g, '')}')">${diagEsc(c)}</button>`).join('')}
+        </div>` : ''}
+      ${alts.length ? `<div style="font-size:12px;font-weight:700;margin:10px 0 4px;">${diagEsc(t.alt)}</div>${alts.map(a => `<div style="font-size:12px;">• ${diagEsc(a.name)}${a.why ? ' — ' + diagEsc(a.why) : ''}</div>`).join('')}` : ''}
+      ${missing.length ? `<div style="font-size:12px;font-weight:700;margin:10px 0 4px;">${diagEsc(t.missing)}</div>${missing.map(m => `<div style="font-size:12px;">• ${diagEsc(m)}</div>`).join('')}` : ''}
+      <div class="muted" style="font-size:11px;margin-top:10px;">${diagEsc(t.aiOnly)}</div>
+    </div>`;
+}
+
 function renderDiagnosisCard(area, res){
   const dict = I18N[currentLang] || I18N.en;
+  const t = dTxt();
   const sevMap = {
-    'Mild': currentLang==='kn' ? 'ಸೌಮ್ಯ' : (currentLang==='hi' ? 'हल्का' : 'Mild'),
-    'Moderate': currentLang==='kn' ? 'ಮಧ್ಯಮ' : (currentLang==='hi' ? 'मध्यम' : 'Moderate'),
-    'Severe': currentLang==='kn' ? 'ತೀವ್ರ' : (currentLang==='hi' ? 'गंभीर' : 'Severe'),
-    'Critical': currentLang==='kn' ? 'ಗಂಭೀರ' : (currentLang==='hi' ? 'अति गंभीर' : 'Critical'),
-    'healthy': currentLang==='kn' ? 'ಆರೋಗ್ಯಕರ' : (currentLang==='hi' ? 'स्वस्थ' : 'Healthy')
+    'mild': currentLang==='kn' ? 'ಸೌಮ್ಯ' : (currentLang==='hi' ? 'हल्का' : 'Mild'),
+    'moderate': currentLang==='kn' ? 'ಮಧ್ಯಮ' : (currentLang==='hi' ? 'मध्यम' : 'Moderate'),
+    'severe': currentLang==='kn' ? 'ತೀವ್ರ' : (currentLang==='hi' ? 'गंभीर' : 'Severe'),
+    'critical': currentLang==='kn' ? 'ಗಂಭೀರ' : (currentLang==='hi' ? 'अति गंभीर' : 'Critical'),
+    'healthy': currentLang==='kn' ? 'ಆರೋಗ್ಯಕರ' : (currentLang==='hi' ? 'स्वस्थ' : 'Healthy'),
+    'uncertain': currentLang==='kn' ? 'ಅನಿಶ್ಚಿತ' : (currentLang==='hi' ? 'अनिश्चित' : 'Uncertain')
   };
-  const sevDisplay = sevMap[res.severity] || res.severity;
-  const agroVerifiedText = currentLang==='kn' ? 'ಕೃಷಿ ತಜ್ಞರ ದೃಢೀಕರಣ' : (currentLang==='hi' ? 'कृषि विशेषज्ञ द्वारा सत्यापित' : 'Agronomist Verified');
-  const daysText = currentLang==='kn' ? 'ದಿನಗಳು' : (currentLang==='hi' ? 'दिन' : 'days');
+  const sevKey = String(res.severity || 'uncertain').toLowerCase();
+  const sevDisplay = sevMap[sevKey] || res.severity;
+  const pid = res.plant_identification || {};
+  const isModerate = res.status === 'moderate_confidence';
+  const parts = Array.isArray(res.affected_parts) && res.affected_parts.length ? res.affected_parts.join(', ') : '';
 
   area.innerHTML = `
     <div class="card" style="margin-top:16px;">
-      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px;">
+      <div style="font-size:11px;font-weight:700;color:var(--forest);text-transform:uppercase;letter-spacing:.04em;margin-bottom:4px;">${diagEsc(t.plant)}</div>
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px;gap:10px;">
         <div>
-          <div style="font-weight:700;font-size:16px;">${res.crop} — ${res.disease}</div>
-          <div class="muted">${res.pathogen}</div>
+          <div style="font-weight:700;font-size:16px;">${diagEsc(res.crop)}${pid.scientific_name ? ` <span class="muted" style="font-weight:400;font-style:italic;">(${diagEsc(pid.scientific_name)})</span>` : ''}${pid.variety ? ` · ${diagEsc(pid.variety)}` : ''}</div>
+          <div style="font-weight:600;margin-top:6px;">${diagEsc(res.disease)}</div>
+          ${res.pathogen ? `<div class="muted" style="font-style:italic;">${diagEsc(res.pathogen)}</div>` : ''}
+          ${parts ? `<div class="muted" style="font-size:12px;">${diagEsc(t.parts)}: ${diagEsc(parts)}</div>` : ''}
         </div>
-        <span class="pill ${res.severity === 'healthy' ? 'pill-forest' : (res.severity === 'critical' ? 'pill-saffron' : 'pill-forest')}">${sevDisplay}</span>
+        <span class="pill pill-forest">${diagEsc(sevDisplay)}</span>
       </div>
 
       <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;">
-        <span class="pill pill-forest">${res.confidence} ${dict.diag_conf_label}</span>
-        <span class="pill" style="background:#E8F5E9;color:#2E7D32;">🌿 ${agroVerifiedText}</span>
+        <span class="pill pill-forest">${diagEsc(t.conf)}: ${diagEsc(res.confidence)}</span>
+        <span class="pill" style="background:#FFF3E0;color:#8A5A00;">🤖 ${diagEsc(t.aiOnly)}</span>
       </div>
+
+      ${isModerate ? `<div style="background:#FFF8E1;border:1px solid #FFE082;padding:10px 12px;border-radius:8px;margin-bottom:12px;font-size:12.5px;">${diagEsc(t.moderateNote)}</div>` : ''}
 
       ${res.evidence && res.evidence.length ? `
       <div style="background:#F9F7F1;padding:10px 14px;border-radius:8px;margin-bottom:14px;border:1px dashed #DDD;">
         <div style="font-weight:700;font-size:12px;margin-bottom:6px;color:var(--forest);">${dict.diag_evidence_title}</div>
-        ${res.evidence.map(e => `<div style="font-size:12px;color:#444;margin-bottom:3px;">• ${e}</div>`).join('')}
+        ${res.evidence.map(e => `<div style="font-size:12px;color:#444;margin-bottom:3px;">• ${diagEsc(e)}</div>`).join('')}
+      </div>` : ''}
+
+      ${res.alternatives && res.alternatives.length ? `
+      <div style="margin-bottom:12px;">
+        <div style="font-weight:700;font-size:12px;margin-bottom:4px;">${diagEsc(t.alt)}</div>
+        ${res.alternatives.map(a => `<div style="font-size:12px;color:#444;">• <strong>${diagEsc(a.name)}</strong>${a.why ? ' — ' + diagEsc(a.why) : ''}</div>`).join('')}
+      </div>` : ''}
+
+      ${res.missing_information && res.missing_information.length ? `
+      <div style="margin-bottom:12px;">
+        <div style="font-weight:700;font-size:12px;margin-bottom:4px;">${diagEsc(t.missing)}</div>
+        ${res.missing_information.map(m => `<div style="font-size:12px;color:#444;">• ${diagEsc(m)}</div>`).join('')}
       </div>` : ''}
 
       <div class="tabs">
@@ -5367,19 +5459,14 @@ function renderDiagnosisCard(area, res){
         <button class="tab-btn" onclick="switchTreat(this,'chemical')">${dict.diag_tab_chemical}</button>
       </div>
       <div id="treatOrganic">
-        ${res.organic_treatment.map(item => `<div class="treat-item">🌿 <div>${item}</div></div>`).join('')}
+        ${res.organic_treatment.length ? res.organic_treatment.map(item => `<div class="treat-item">🌿 <div>${diagEsc(item)}</div></div>`).join('') : `<div class="muted" style="font-size:12px;">${diagEsc(t.noOrganic)}</div>`}
+        ${res.withheld_quantity_items ? `<div class="muted" style="font-size:11.5px;margin-top:6px;">ℹ️ ${diagEsc(t.withheld)}</div>` : ''}
       </div>
       <div id="treatChemical" style="display:none;">
-        ${res.chemical_treatment.map(item => `<div class="treat-item">🧪 <div>${item}</div></div>`).join('')}
+        <div class="treat-item">🧪 <div>${diagEsc(res.chemical_guidance)}</div></div>
       </div>
 
-      <div class="section-title" style="margin-top:16px;">${dict.diag_prevention}</div>
-      <div class="muted">${res.prevention}</div>
-
-      <div style="display:flex;gap:10px;margin-top:16px;flex-wrap:wrap;">
-        <span class="pill pill-forest">${dict.diag_spray_window}: ${res.spray_window}</span>
-        <span class="pill pill-forest">${dict.diag_recovery}: ~${res.expected_recovery_days} ${daysText}</span>
-      </div>
+      ${res.prevention ? `<div class="section-title" style="margin-top:16px;">${dict.diag_prevention}</div><div class="muted">${diagEsc(res.prevention)}</div>` : ''}
 
       <div style="display:flex;gap:10px;margin-top:16px;">
         <button class="btn btn-outline" style="flex:1" onclick="saveDiagnosisReport()">${dict.diag_save_report}</button>
@@ -5405,7 +5492,7 @@ function saveDiagnosisReport(){
 
 function shareDiagnosisWhatsApp(){
   if(!lastDiagnosedResult) return;
-  const txt = `Agro AI Diagnosis Report%0ACrop: ${lastDiagnosedResult.crop}%0ADisease: ${lastDiagnosedResult.disease} (${lastDiagnosedResult.pathogen})%0ASeverity: ${lastDiagnosedResult.severity} (Confidence: ${lastDiagnosedResult.confidence})%0ATreatment: ${lastDiagnosedResult.organic_treatment[0] || 'Neem oil spray'}`;
+  const txt = `Agro AI Diagnosis Report%0ACrop: ${lastDiagnosedResult.crop}%0ADisease: ${lastDiagnosedResult.disease} (${lastDiagnosedResult.pathogen})%0ASeverity: ${lastDiagnosedResult.severity} (Confidence: ${lastDiagnosedResult.confidence})%0ATreatment: ${lastDiagnosedResult.organic_treatment[0] || 'Consult your local KVK before treating'}`;
   window.open(`https://api.whatsapp.com/send?text=${txt}`, '_blank');
 }
 

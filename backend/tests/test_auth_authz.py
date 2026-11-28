@@ -184,16 +184,18 @@ def test_weather_provider_failure_not_faked(monkeypatch):
     assert body["available"] is False and body["reason"] == "provider_error" and "temp" not in body
 
 
-def test_diagnosis_without_vision_provider_falls_back_to_local_cv(monkeypatch):
+def test_diagnosis_without_vision_provider_refuses_fake_fallback(monkeypatch):
     monkeypatch.setattr(ai_service, "get_gemini_api_key", lambda: "")
     monkeypatch.setattr(ai_service, "get_openai_api_key", lambda: "")
     monkeypatch.setattr(ai_service, "get_anthropic_api_key", lambda: "")
     uid = str(uuid.uuid4()); client.get("/api/auth/me", headers=auth(uid))
+    # Corrupt JPEG payload is rejected as unreadable/low_confidence (never invents a Tomato diagnosis)
     r = client.post("/api/diagnosis/analyze", files={"image": ("l.jpg", b"\xff\xd8\xff" + b"0" * 500, "image/jpeg")},
                     headers=auth(uid))
     assert r.status_code == 200
     data = r.json()
-    assert "disease" in data and "confidence" in data
+    assert data["status"] == "low_confidence"
+    assert "disease" not in data
 
 
 def test_diagnosis_rejects_bad_mime():
