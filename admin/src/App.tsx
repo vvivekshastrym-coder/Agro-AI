@@ -18,6 +18,7 @@ import { FeatureControlCentre } from './pages/FeatureControlCentre';
 import { DepartmentsTeams } from './pages/DepartmentsTeams';
 import { DataIntegrityCenter } from './pages/DataIntegrityCenter';
 import { DatasetIntelligenceCenter } from './pages/DatasetIntelligenceCenter';
+import { DroneOperations } from './pages/DroneOperations';
 
 const AdminAppShell: React.FC = () => {
   const { user, profile, mfaRequired, loading } = useAdminAuth();
@@ -50,6 +51,8 @@ const AdminAppShell: React.FC = () => {
         return <KnowledgeBaseManager />;
       case 'datasets_intelligence':
         return <DatasetIntelligenceCenter />;
+      case 'drone_operations':
+        return <DroneOperations />;
       case 'data_integrity':
         return <DataIntegrityCenter />;
       case 'system_health':

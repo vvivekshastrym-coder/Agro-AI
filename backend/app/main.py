@@ -47,6 +47,10 @@ elif _ACTIVE_DB_URL.startswith("sqlite"):
         pass
 else:
     logger.info("Production backend initialized on %s with managed PostgreSQL.", _deployment_environment or "production")
+    if _is_production_env:
+        from .database.drone_migration import apply_drone_migration
+        if apply_drone_migration(engine):
+            logger.info("Drone Services database migration applied.")
 
 # ─── Rate Limiter ─────────────────────────────────────────────
 limiter = Limiter(key_func=get_remote_address)
@@ -85,7 +89,7 @@ _default_origins = (
     "https://gen-lang-client-0224945015.web.app,https://gen-lang-client-0224945015.firebaseapp.com,"
     "http://localhost:8000,http://127.0.0.1:8000,http://localhost:8080,http://127.0.0.1:8080,"
     "http://localhost:3000,http://127.0.0.1:3000,http://localhost:5173,http://127.0.0.1:5173,"
-    "http://localhost:5500,http://127.0.0.1:5500,capacitor://localhost,ionic://localhost"
+    "http://localhost:5500,http://127.0.0.1:5500,capacitor://localhost,ionic://localhost,https://localhost"
 )
 _allowed_raw = os.getenv("ALLOWED_ORIGINS", _default_origins)
 ALLOWED_ORIGINS = [orig.strip() for orig in _allowed_raw.split(",") if orig.strip()]
@@ -178,7 +182,10 @@ async def enforce_app_only_features(request: Request, call_next):
                     "retryable": False,
                 }}},
             )
-        is_attested, attest_err = feature_access.verify_app_attestation(request.headers)
+        if request.url.path.lower().startswith("/api/drone"):
+            is_attested, attest_err = feature_access.verify_drone_app_attestation(request.headers)
+        else:
+            is_attested, attest_err = feature_access.verify_app_attestation(request.headers)
         if not is_attested:
             return JSONResponse(
                 status_code=403,
@@ -242,6 +249,7 @@ app.include_router(agro_gpt.router,    prefix='/api/agro-gpt',    tags=['Agro GP
 app.include_router(logistics.router,   prefix='/api/logistics',   tags=['Logistics'])
 app.include_router(marketplace.router, prefix='/api/market',      tags=['Input Marketplace'])
 app.include_router(drone.router,       prefix='/api/drone',       tags=['Drone Scout'])
+app.include_router(drone.admin_router, prefix='/api/admin/drone', tags=['Drone Operations Admin'])
 app.include_router(market.router,      prefix='/api/market',      tags=['Mandi Prices'])
 app.include_router(markets_router,     prefix='/api/markets',     tags=['Real-Time Mandi Markets'])
 app.include_router(weather.router,     prefix='/api/weather',     tags=['Weather'])

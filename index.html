@@ -957,7 +957,7 @@
         <div class="grid2">
           <button class="action-tile" onclick="openMoreItem('pest')"><span class="action-emoji">🦗</span><div class="action-label" id="homeTilePestTitle">Pest Radar</div><div class="action-sub" id="homeTilePestSub">Outbreak risk nearby</div></button>
           <button class="action-tile" onclick="go('logistics')"><span class="action-emoji">🚛</span><div class="action-label" id="homeTileLogisticsTitle">Logistics</div><div class="action-sub" id="homeTileLogisticsSub">Book verified transport</div></button>
-          <button class="action-tile" onclick="go('drone')"><span class="action-emoji">🛸</span><div class="action-label" id="homeTileDroneTitle">Drone</div><div class="action-sub" id="homeTileDroneSub">Spray / scout booking</div></button>
+
           <button class="action-tile" onclick="go('inputs')"><span class="action-emoji">🛒</span><div class="action-label" id="homeTileInputsTitle">Inputs</div><div class="action-sub" id="homeTileInputsSub">Compare shop prices</div></button>
         </div>
       </div>
@@ -1710,40 +1710,12 @@
           <button type="button" class="btn btn-outline" style="padding:10px;font-size:12.5px;" onclick="go('weather')" id="pestActionSpray">
             🌦️ Weather Spray Window
           </button>
-          <button type="button" class="btn btn-outline" style="padding:10px;font-size:12.5px;" onclick="go('drone')" id="pestActionDrone">
-            🛸 Book Drone Spray
-          </button>
+
         </div>
         <button type="button" class="btn btn-outline btn-block" style="padding:10px;font-size:12.5px;" onclick="go('inputs')" id="pestActionInputs">
           🛒 Compare Pesticide &amp; Fertilizer Prices
         </button>
       </div>
-    </section>
-
-    <!-- ============ DRONE SERVICES ============ -->
-    <section class="view" data-view="drone" style="display:none;">
-      <button class="backlink" onclick="go('home')" id="droneBackBtn">← Back</button>
-      <h2 class="display" style="font-size:22px;margin:0 0 4px;" id="droneTitle">Drone Services</h2>
-      <p class="muted" style="margin:0 0 16px;" id="droneSub">Book DGCA-approved drone pilots for spraying and surveying.</p>
-
-      <div class="card" style="margin-bottom:14px;">
-        <span class="field-label" id="droneAreaLabel">Farm size (acres)</span>
-        <div class="select-row">
-          <select id="droneAcresSel" onchange="loadDroneOperators()">
-            <option value="1">1 acre</option>
-            <option value="2">2 acres</option>
-            <option value="3">3 acres</option>
-            <option value="5" selected>5 acres</option>
-            <option value="10">10 acres</option>
-          </select>
-          <select id="droneServiceTypeSel" onchange="loadDroneOperators()">
-            <option value="spray" id="droneOptSpray">Pesticide / Nutrient Spray</option>
-            <option value="scout" id="droneOptScout">Crop Health Scouting</option>
-          </select>
-        </div>
-      </div>
-
-      <div id="droneOperatorsArea"></div>
     </section>
 
     <!-- ============ INPUTS COMPARE ============ -->
@@ -1931,7 +1903,7 @@
 
       <!-- Produce Search -->
       <div style="margin-bottom:12px;">
-        <input type="text" id="martSearchInput" placeholder="🔍 Search fresh tomatoes, greens, fruits..." 
+        <input type="text" id="martSearchInput" placeholder="🔍 Search fresh tomatoes, greens, fruits..."
                style="width:100%;padding:10px 14px;border:1.5px solid var(--line);border-radius:14px;font-size:13.5px;background:#fff;outline:none;"
                oninput="filterMartListings()">
       </div>
@@ -1993,7 +1965,7 @@
         </p>
         <div class="card" style="background:#f8fafc;border-color:#e2e8f0;padding:14px;text-align:left;margin-bottom:12px;">
           <div style="font-weight:700;font-size:13px;color:#0f172a;margin-bottom:6px;">🔔 Get notified when farms launch here</div>
-          <input type="tel" id="martWaitlistPhone" placeholder="Enter your mobile number" 
+          <input type="tel" id="martWaitlistPhone" placeholder="Enter your mobile number"
                  style="width:100%;padding:9px 12px;border:1px solid #cbd5e1;border-radius:10px;font-size:13px;margin-bottom:8px;outline:none;">
           <button class="btn btn-primary btn-block" style="padding:10px;font-size:13px;" onclick="submitMartWaitlist()">Notify Me on WhatsApp / SMS</button>
         </div>
@@ -2156,7 +2128,7 @@
       <!-- Delivery Address Input -->
       <div id="martAddressSection" style="margin-bottom:14px;">
         <label style="font-size:12px;font-weight:700;color:var(--ink);display:block;margin-bottom:4px;">Delivery Address:</label>
-        <input type="text" id="martAddressInput" placeholder="House/Flat, Street name, Landmark" 
+        <input type="text" id="martAddressInput" placeholder="House/Flat, Street name, Landmark"
                style="width:100%;padding:9px 12px;border:1.5px solid var(--line);border-radius:10px;font-size:13px;margin-bottom:6px;outline:none;">
         <div style="display:flex;gap:8px;">
           <input type="text" id="martCityInput" placeholder="City / Village" style="flex:1;padding:8px 10px;border:1px solid var(--line);border-radius:8px;font-size:12px;outline:none;">
@@ -2951,7 +2923,6 @@ const MORE_ITEMS_I18N = {
     {id:'pest', emoji:'🦗', t:'Pest Radar', s:'Village-level outbreak risk', body:"Pest Radar analyses nearby farmer reports to flag outbreak risk in your area. Real detection requires reports from verified farmers near your village."},
     {id:'inputs', emoji:'🛒', t:'Inputs Compare', s:'Seed, fertilizer, pesticide prices', body:"Compares prices for seeds, fertilizer and pesticide across nearby verified shops. Connect your location to see real vendor prices."},
     {id:'logistics', emoji:'🚚', t:'Logistics', s:'Book verified transport', body:"Matches you with a verified nearby truck or tractor for harvest transport, with real GPS tracking and road-network ETA."},
-    {id:'drone', emoji:'🛸', t:'Drone Marketplace', s:'Spray, scout, or NDVI mapping', body:"Connects you with verified drone operators near your field for spraying, scouting or NDVI mapping."},
     {id:'satellite', emoji:'🛰️', t:'Satellite Twin', s:'Digital twin of your field', body:"Builds a live satellite view of your field using Sentinel-2 imagery, tracking crop health (NDVI) over time."},
     {id:'carbon', emoji:'🌍', t:'Carbon Credits', s:'Passive income for low-input farming', body:"Tracks verified reductions in chemical/water use and estimates carbon credit income."},
     {id:'insurance', emoji:'🛡️', t:'Auto Insurance', s:'Weather-triggered, zero paperwork', body:"Parametric crop insurance that pays out automatically when verified weather/satellite conditions confirm damage."},
@@ -2969,7 +2940,6 @@ const MORE_ITEMS_I18N = {
     {id:'pest', emoji:'🦗', t:'ಕೀಟ ರೇಡಾರ್', s:'ಗ್ರಾಮ ಮಟ್ಟದ ಕೀಟ ಬಾಧೆ ಅಪಾಯ', body:"ಕೀಟ ರೇಡಾರ್ ನಿಮ್ಮ ಸುತ್ತಮುತ್ತಲಿನ ರೈತರ ವರದಿಗಳನ್ನು ವಿಶ್ಲೇಷಿಸಿ ಕೀಟ ಬಾಧೆಯ ಅಪಾಯವನ್ನು ಮುಂಚಿತವಾಗಿ ಎಚ್ಚರಿಸುತ್ತದೆ."},
     {id:'inputs', emoji:'🛒', t:'ಕೃಷಿ ಪರಿಕರಗಳ ಬೆಲೆ ಹೋಲಿಕೆ', s:'ಬೀಜ, ರಸಗೊಬ್ಬರ, ಕೀಟನಾಶಕ ದರಗಳು', body:"ನಿಮ್ಮ ಹತ್ತಿರದ ಅಂಗಡಿಗಳಲ್ಲಿ ಬೀಜ, ರಸಗೊಬ್ಬರ ಮತ್ತು ಕೀಟನಾಶಕಗಳ ಬೆಲೆಗಳನ್ನು ಹೋಲಿಕೆ ಮಾಡಿ ಉತ್ತಮ ದರ ಪಡೆಯಿರಿ."},
     {id:'logistics', emoji:'🚚', t:'ಕೃಷಿ ಸಾರಿಗೆ', s:'ದೃಢೀಕೃತ ವಾಹನ ಬುಕಿಂಗ್', body:"ಬೆಳೆ ಸಾಗಿಸಲು ನಿಮ್ಮ ಹತ್ತಿರದ ಪರಿಶೀಲಿಸಿದ ಟ್ರಕ್ ಅಥವಾ ಟ್ರಾಕ್ಟರ್ ಅನ್ನು ನೈಜ ಜಿಪಿಎಸ್ ಟ್ರ್ಯಾಕಿಂಗ್‌ನೊಂದಿಗೆ ಬುಕ್ ಮಾಡಿ."},
-    {id:'drone', emoji:'🛸', t:'ಡ್ರೋನ್ ಮಾರುಕಟ್ಟೆ', s:'ಸಿಂಪಡಣೆ & ಸಮೀಕ್ಷೆ ಬುಕಿಂಗ್', body:"ನಿಮ್ಮ ಹೊಲದಲ್ಲಿ ಕೀಟನಾಶಕ ಸಿಂಪಡಣೆ ಮತ್ತು ಬೆಳೆ ಸಮೀಕ್ಷೆಗೆ ಹತ್ತಿರದ ಪರಿಶೀಲಿಸಿದ ಡ್ರೋನ್ ಪೈಲಟ್‌ಗಳನ್ನು ಸಂಪರ್ಕಿಸಿ."},
     {id:'satellite', emoji:'🛰️', t:'ಉಪಗ್ರಹ ಕ್ಷೇತ್ರ ಚಿತ್ರಣ', s:'ನಿಮ್ಮ ಹೊಲದ ಡಿಜಿಟಲ್ ಅವಳಿ', body:"ಸೆಂಟಿನೆಲ್-2 ಉಪಗ್ರಹ ಚಿತ್ರಗಳನ್ನು ಬಳಸಿ ನಿಮ್ಮ ಜಮೀನಿನ ಬೆಳೆಯ ಆರೋಗ್ಯ (NDVI) ಮತ್ತು ತೇವಾಂಶವನ್ನು ಗಮನಿಸಿ."},
     {id:'carbon', emoji:'🌍', t:'ಕಾರ್ಬನ್ ಕ್ರೆಡಿಟ್‌ಗಳು', s:'ಕಡಿಮೆ ವೆಚ್ಚದ ಕೃಷಿಗೆ ಹೆಚ್ಚುವರಿ ಆದಾಯ', body:"ರಾಸಾಯನಿಕ ಮತ್ತು ನೀರಿನ ಬಳಕೆಯನ್ನು ಕಡಿಮೆ ಮಾಡುವ ಮೂಲಕ ಕಾರ್ಬನ್ ಕ್ರೆಡಿಟ್ ಆದಾಯ ಗಳಿಸಿ."},
     {id:'insurance', emoji:'🛡️', t:'ಸ್ವಯಂಚಾಲಿತ ಬೆಳೆ ವಿಮೆ', s:'ಹವಾಮಾನ ಆಧಾರಿತ, ಕಾಗದಪತ್ರಗಳಿಲ್ಲದೆ', body:"ಹವಾಮಾನ ಅಥವಾ ಉಪಗ್ರಹ ಡೇಟಾದಿಂದ ಬೆಳೆ ಹಾನಿ ದೃಢಪಟ್ಟಾಗ ಸ್ವಯಂಚಾಲಿತವಾಗಿ ಪರಿಹಾರ ಪಡೆಯುವ ವಿಮೆ."},
@@ -3195,7 +3165,7 @@ function go(view){
   if(view === 'market') initMandiMarketView();
   if(view === 'home') { loadRealWeather(); loadDailyFarmReport(); renderReportsList(); loadHomeBroadcasts(); loadHomePlansCard(); }
   if(view === 'pest') loadPestRadarView();
-  if(view === 'drone') loadDroneOperators();
+
   if(view === 'inputs') loadInputsProducts();
   if(view === 'plans') loadMembershipPlansView();
   if(view === 'schemes') loadGovernmentSchemesView();
@@ -3224,7 +3194,7 @@ async function loadMembershipPlansView() {
   const periodEl = document.getElementById('plansCurrentPeriod');
   const badgeEl = document.getElementById('plansActiveBadge');
   const statusEl = document.getElementById('plansCurrentStatus');
-  
+
   const qKisanEl = document.getElementById('quotaKisanChat');
   const qLeafEl = document.getElementById('quotaLeafDiag');
   const qMandiEl = document.getElementById('quotaMandiPrice');
@@ -4138,8 +4108,8 @@ function showGoogleAuthErrorModal(err = null){
 
   const isKn = (typeof currentLang !== 'undefined' && currentLang === 'kn');
   const title = isKn ? 'ಗೂಗಲ್ ಸೈನ್-ಇನ್ ಸೂಚನೆ' : 'Google Sign-In Notice';
-  
-  let desc = isKn 
+
+  let desc = isKn
     ? 'ಗೂಗಲ್ ಮೂಲಕ ಸೈನ್-ಇನ್ ಪೂರ್ಣಗೊಳಿಸಲು ಸಾಧ್ಯವಾಗುತ್ತಿಲ್ಲ. ನಿಮ್ಮ ಇಂಟರ್ನೆಟ್ ಸಂಪರ್ಕವನ್ನು ಪರಿಶೀಲಿಸಿ ಅಥವಾ ಫೋನ್ OTP ಬಳಸಿ ತಕ್ಷಣ ಲಾಗಿನ್ ಆಗಿ.'
     : 'Unable to complete sign-in with Google. Please check your internet connection or log in instantly using Phone OTP.';
 
@@ -4174,7 +4144,7 @@ function showGoogleAuthErrorModal(err = null){
       <p style="font-size:13px;color:var(--ink-soft);line-height:1.55;margin-bottom:20px;">
         ${desc}
       </p>
-      
+
       <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:14px;">
         <button class="btn btn-primary btn-block" style="font-weight:700;padding:12px;display:flex;align-items:center;justify-content:center;gap:8px;" onclick="closeGoogleAuthErrorModal(); triggerGoogleSignIn();">
           <span>🔄</span> <span>${isKn ? 'ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ' : 'Retry Google Sign-In'}</span>
@@ -5231,7 +5201,7 @@ async function runDiagnosis(cropConfirmed = false){
   const fileInput = document.getElementById('fileInput');
   const cropHint = document.getElementById('cropHint').value || (farmerProfile ? farmerProfile.crop : '');
   const area = document.getElementById('diagnoseResultArea');
-  
+
   area.innerHTML = `
     <div class="card" style="margin-top:16px;">
       <div class="skeleton" style="width:60%;height:18px;margin-bottom:12px;"></div>
@@ -7794,7 +7764,7 @@ function openMoreItem(id){
   if(id === 'mart'){ go('mart'); return; }
   if(id === 'martseller'){ go('mart-seller'); return; }
   if(id === 'reports'){ go('home'); document.getElementById('reportsContainer')?.scrollIntoView({behavior:'smooth'}); return; }
-  if(id === 'drone'){ go('drone'); return; }
+
   if(id === 'inputs'){ go('inputs'); return; }
   if(id === 'logistics'){ go('logistics'); return; }
   if(id === 'pest'){ go('pest'); return; }
@@ -8960,7 +8930,7 @@ async function loadCustomerMart() {
     if(martState.category && martState.category !== 'all') {
       url += `&category_id=${encodeURIComponent(martState.category)}`;
     }
-    
+
     // Fetch listings, surplus rescue offers, and harvest circle offers concurrently
     const [resListings, resSurplus, resOffers] = await Promise.all([
       fetch(url),
@@ -9078,7 +9048,7 @@ function renderMartListings() {
 
   let filtered = martState.listings || [];
   if(martState.search) {
-    filtered = filtered.filter(l => 
+    filtered = filtered.filter(l =>
       (l.title && l.title.toLowerCase().includes(martState.search)) ||
       (l.farm_name && l.farm_name.toLowerCase().includes(martState.search)) ||
       (l.item_name && l.item_name.toLowerCase().includes(martState.search))
@@ -9133,7 +9103,7 @@ function renderMartItemCard(item, isRail = false) {
   return `
     <div class="mart-item-card" style="${styleCard}" id="card_mart_${item.id}">
       ${isOrganic ? `<span class="mart-item-badge">🌿 ORGANIC</span>` : ''}
-      
+
       <div onclick="openMartProductDetailModal('${item.id}')" style="cursor:pointer;">
         ${photo ? `<img src="${photo}" class="mart-item-img" alt="${escHtml(item.title)}">` : `<div class="mart-item-img">${emoji}</div>`}
         <div>
@@ -9158,7 +9128,7 @@ function renderMartItemCard(item, isRail = false) {
           🛡️ Trust Passport
         </button>
       </div>
-      
+
       <div id="mart_btn_area_${item.id}">
         ${inCartQty > 0 ? `
           <div class="mart-stepper">
@@ -9203,7 +9173,7 @@ function changeMartQty(listingId, delta) {
   // Enforce 1-Farm-Per-Order Rule
   if(currentCart.sellerId && currentCart.sellerId !== listing.seller_id && Object.keys(currentCart.items).length > 0) {
     const changeFarm = confirm(
-      isKn 
+      isKn
         ? `ನಿಮ್ಮ ಕಾರ್ಟ್‌ನಲ್ಲಿ ಈಗಾಗಲೇ '${currentCart.farmName}' ತೋಟದ ಉತ್ಪನ್ನಗಳಿವೆ. ಆಗ್ರೋ AI ಮಾರ್ಟ್ ನೇರ ಕಟಾವಿನ ತಾಜಾತನಕ್ಕಾಗಿ 1 ಆರ್ಡರ್‌ನಲ್ಲಿ 1 ತೋಟವನ್ನು ಮಾತ್ರ ಅನುಮತಿಸುತ್ತದೆ.\n\nಕಾರ್ಟ್ ಖಾಲಿ ಮಾಡಿ '${listing.farm_name}' ತೋಟದಿಂದ ಹೊಸ ಆರ್ಡರ್ ಪ್ರಾರಂಭಿಸುವುದೇ?`
         : `Your cart already contains produce from '${currentCart.farmName}'. Agro AI Mart guarantees fresh farm produce by fulfilling 1 farm per order.\n\nClear current cart and start an order from '${listing.farm_name}'?`
     );
@@ -9640,7 +9610,7 @@ async function placeMartOrder() {
     updateMartCartUI();
     closeMartCartModal();
     showToast(isKn ? `🎉 ಆರ್ಡರ್ ಯಶಸ್ವಿಯಾಗಿದೆ! ಆರ್ಡರ್ #${data.order_number}` : `🎉 Order placed! Order #${data.order_number}`);
-    
+
     loadCustomerMart();
     openMartOrdersModal();
   } catch(e) {
@@ -10134,7 +10104,7 @@ async function renderSellerTabContent() {
               ✨ AI Draft Assistant
             </button>
           </div>
-          
+
           <div style="margin-bottom:8px;">
             <label style="font-size:11.5px;font-weight:700;display:block;margin-bottom:2px;">Select Crop / Produce Type:</label>
             <select id="newListingCatalogItem" style="width:100%;padding:8px 10px;border:1px solid #bbf7d0;border-radius:8px;font-size:12.5px;background:#fff;outline:none;box-sizing:border-box;">

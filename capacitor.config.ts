@@ -5,7 +5,7 @@ const serverUrl = process.env.CAPACITOR_SERVER_URL;
 const config: CapacitorConfig = {
   appId: "com.agroai.kisan",
   appName: "Agro AI",
-  webDir: "dist",
+  webDir: "agro-ai-app/dist",
   ...(serverUrl
     ? {
         server: {

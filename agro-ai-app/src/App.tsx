@@ -15,6 +15,7 @@ import Weather from "./pages/Weather";
 import Market from "./pages/Market";
 import PestRadar from "./pages/PestRadar";
 import More from "./pages/More";
+import DroneServices from "./pages/DroneServices";
 
 function hasOAuthUrlParams(): boolean {
   const search = window.location.search || "";
@@ -77,6 +78,7 @@ function MainLayout() {
             <Route path="/market" element={<Market />} />
             <Route path="/pest-radar" element={<PestRadar />} />
             <Route path="/more" element={<More />} />
+            <Route path="/drone-services" element={<DroneServices />} />
             <Route path="/profile" element={<FarmerProfile />} />
             <Route path="/login" element={<Navigate to="/" replace />} />
             <Route path="*" element={<Navigate to="/" replace />} />

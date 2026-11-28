@@ -19,7 +19,8 @@ import {
   Activity,
   Sliders,
   Building2,
-  Database
+  Database,
+  Plane
 } from 'lucide-react';
 
 interface NavItem {
@@ -43,6 +44,7 @@ const NAV_ITEMS: NavItem[] = [
   { id: 'agrogpt', moduleKey: 'overview', label: 'AgroGPT Control', icon: <Bot size={18} />, roles: ['super_admin', 'admin', 'analyst'] },
   { id: 'knowledge', moduleKey: 'overview', label: 'Knowledge Library', icon: <BookOpen size={18} />, roles: ['super_admin', 'admin', 'content_manager', 'analyst'] },
   { id: 'datasets_intelligence', moduleKey: 'overview', label: 'Datasets & AI Verify', icon: <Database size={18} />, roles: ['super_admin', 'admin', 'content_manager', 'analyst'] },
+  { id: 'drone_operations', moduleKey: 'drone_operations', label: 'Drone Operations', icon: <Plane size={18} />, roles: ['super_admin'] },
   { id: 'data_integrity', moduleKey: 'overview', label: 'Data Integrity', icon: <Database size={18} />, roles: ['super_admin', 'admin', 'analyst'] },
   { id: 'system_health', moduleKey: 'overview', label: 'System & Security', icon: <Activity size={18} />, roles: ['super_admin', 'admin', 'analyst'] },
   { id: 'mart', moduleKey: 'mart', label: 'Agro AI Mart', icon: <ShoppingBag size={18} />, roles: ['super_admin', 'admin', 'staff', 'plan_manager', 'payment_manager', 'support_agent', 'content_manager', 'listing_reviewer', 'seller_reviewer', 'analyst'] },

@@ -10,6 +10,8 @@ import os
 import time
 import hmac
 import hashlib
+import jwt
+from jwt import PyJWKClient
 
 # feature -> {"web": mode, "app": mode}; modes: full | basic | limited | preview |
 # information | redirect | blocked
@@ -26,7 +28,13 @@ FEATURE_ACCESS = {
 }
 
 # API path prefixes that web clients may not call at all (operational / GPS data).
-APP_ONLY_API_PREFIXES = ("/api/logistics",)
+APP_ONLY_API_PREFIXES = ("/api/logistics", "/api/drone")
+
+FIREBASE_PROJECT_NUMBER = os.getenv("FIREBASE_PROJECT_NUMBER", "390368260977").strip()
+FIREBASE_ANDROID_APP_ID = os.getenv(
+    "FIREBASE_ANDROID_APP_ID", "1:390368260977:android:049c62244936c6291dbcd0"
+).strip()
+_app_check_jwks: PyJWKClient | None = None
 
 _APP_CLIENT_VALUES = {"app", "android", "ios"}
 
@@ -80,6 +88,47 @@ def verify_app_attestation(headers) -> tuple[bool, str]:
         return True, "transitional_auth_gated"
 
     return False, "Missing required Firebase App Check token or Agro App Signature"
+
+
+def verify_drone_app_attestation(headers) -> tuple[bool, str]:
+    """Verify a real Firebase App Check JWT issued to the installed Android app.
+
+    The caller-controlled X-Agro-Client value is only a routing hint. It never
+    grants access. Drone endpoints require a signed, unexpired App Check token
+    whose audience, issuer and Firebase Android app ID all match this project.
+    """
+    global _app_check_jwks
+    if client_platform(headers) != "app":
+        return False, "Native app client required"
+    token = (headers.get("x-firebase-appcheck") or "").strip()
+    if not token:
+        return False, "Missing Firebase App Check token"
+    try:
+        header = jwt.get_unverified_header(token)
+        if header.get("alg") != "RS256" or header.get("typ") != "JWT":
+            return False, "Unsupported App Check token"
+        if _app_check_jwks is None:
+            _app_check_jwks = PyJWKClient(
+                "https://firebaseappcheck.googleapis.com/v1/jwks",
+                cache_keys=True,
+                lifespan=21600,
+                timeout=5,
+            )
+        signing_key = _app_check_jwks.get_signing_key_from_jwt(token).key
+        claims = jwt.decode(
+            token,
+            signing_key,
+            algorithms=["RS256"],
+            audience=f"projects/{FIREBASE_PROJECT_NUMBER}",
+            issuer=f"https://firebaseappcheck.googleapis.com/{FIREBASE_PROJECT_NUMBER}",
+            options={"require": ["exp", "iat", "sub", "aud", "iss"]},
+            leeway=30,
+        )
+        if claims.get("sub") != FIREBASE_ANDROID_APP_ID:
+            return False, "App Check token is for a different app"
+        return True, "verified_firebase_app_check"
+    except Exception:
+        return False, "Invalid or expired Firebase App Check token"
 
 
 def is_app_only_path(path: str) -> bool:

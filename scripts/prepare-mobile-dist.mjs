@@ -99,4 +99,4 @@ if (!pyRan) {
   }
 }
 
-console.log('✅ Prepared lightweight mobile web assets in ./dist for Capacitor Android/iOS build.');
+console.log('✅ Prepared the public website and admin assets in ./dist.');

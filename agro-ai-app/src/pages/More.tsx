@@ -9,7 +9,7 @@ const ITEMS = [
   { icon: "🛒", label: "Inputs Compare", tier: "Growth", desc: "Agri-shop price comparison for seeds, fertilizer and pesticide — cheapest vendor, savings %, dosage advice." },
   { icon: "🚚", label: "Logistics", tier: "Growth", desc: "“Ola for trucks” — harvest transport matching with pickup village, destination mandi, tonnage and ETA." },
   { icon: "💳", label: "Credit Score", tier: "Growth", desc: "Credit scoring for unbanked farmers using crop history, satellite NDVI and mandi sales." },
-  { icon: "🚁", label: "Drone Marketplace", tier: "Growth", desc: "Book drone pilots for spraying, scouting or NDVI mapping by acreage and service type." },
+  { icon: "🚁", label: "Drone Services", tier: "Mobile app · approved providers", to: "/drone-services" },
   { icon: "🛰️", label: "Satellite Twin", tier: "Growth", desc: "Digital twin of your field from Sentinel-2 NDVI — false-colour map, timeline, stress alerts." },
   { icon: "🌍", label: "Carbon Credits", tier: "Year 2", desc: "Passive income for sustainable practices — estimated tCO₂e/year and payout calculator." },
   { icon: "🛡️", label: "Auto Insurance", tier: "Year 2", desc: "Weather-triggered parametric crop insurance with zero claim friction and instant payout." },
