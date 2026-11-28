@@ -1541,6 +1541,112 @@ class DataSyncLog(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now(), index=True)
 
 
+class DatasetRegistry(Base):
+    """Versioned registry of uploaded agricultural datasets (CSV, XLSX, JSON, PDF, TXT, Image Datasets).
+    Never trusted automatically: starts as `pending_review` (`unverified_upload`) until admin approval."""
+    __tablename__ = 'dataset_registry'
+
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    name = Column(String(200), nullable=False)
+    slug = Column(String(120), nullable=False, index=True)
+    version = Column(Integer, default=1, nullable=False)
+    parent_dataset_id = Column(String, ForeignKey('dataset_registry.id', ondelete='SET NULL'), nullable=True)
+    file_format = Column(String(30), nullable=False)  # csv | xlsx | json | pdf | txt | image_dataset
+    subject = Column(String(60), nullable=False, default='general_agronomy', index=True)
+    crop = Column(String(100), nullable=True, index=True)
+    region = Column(String(120), nullable=False, default='India')
+    language = Column(String(20), nullable=False, default='en')
+    source_name = Column(String(200), nullable=True)
+    publisher = Column(String(200), nullable=True)
+    source_url = Column(String(500), nullable=True)
+    original_publication_date = Column(String(40), nullable=True)
+    trust_level = Column(String(40), nullable=False, default='unverified_upload')  # unverified_upload | community_curated | official_verified
+    approval_status = Column(String(30), nullable=False, default='pending_review', index=True)  # pending_review | approved | rejected | deactivated | replaced
+    ingestion_status = Column(String(30), nullable=False, default='parsed')  # parsed | indexed | failed
+    total_records = Column(Integer, default=0, nullable=False)
+    valid_records = Column(Integer, default=0, nullable=False)
+    duplicate_records = Column(Integer, default=0, nullable=False)
+    invalid_records = Column(Integer, default=0, nullable=False)
+    conflict_records = Column(Integer, default=0, nullable=False)
+    stale_records = Column(Integer, default=0, nullable=False)
+    schema_summary = Column(JSON, default=dict, nullable=False)
+    preview_rows = Column(JSON, default=list, nullable=False)
+    staged_records = Column(JSON, default=list, nullable=False)
+    validation_errors = Column(JSON, default=list, nullable=False)
+    conflicts_detected = Column(JSON, default=list, nullable=False)
+    review_notes = Column(Text, nullable=True)
+    uploaded_by = Column(String, ForeignKey('users.id', ondelete='SET NULL'), nullable=True)
+    reviewed_by = Column(String, ForeignKey('users.id', ondelete='SET NULL'), nullable=True)
+    reviewed_at = Column(DateTime(timezone=True), nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), index=True)
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+
+
+class KnowledgeChunk(Base):
+    """Structured + semantic RAG chunks indexed from approved datasets and verified KnowledgeSource entries."""
+    __tablename__ = 'knowledge_chunks'
+
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    dataset_id = Column(String, ForeignKey('dataset_registry.id', ondelete='CASCADE'), nullable=True, index=True)
+    knowledge_source_id = Column(String, ForeignKey('knowledge_sources.id', ondelete='CASCADE'), nullable=True, index=True)
+    title = Column(String(255), nullable=False)
+    content = Column(Text, nullable=False)
+    structured_payload = Column(JSON, default=dict, nullable=False)
+    subject = Column(String(60), nullable=False, default='general_agronomy', index=True)
+    crop = Column(String(80), nullable=True, index=True)
+    disease = Column(String(120), nullable=True, index=True)
+    state = Column(String(80), nullable=True, index=True)
+    district = Column(String(80), nullable=True, index=True)
+    season = Column(String(40), nullable=True)
+    language = Column(String(20), nullable=False, default='en', index=True)
+    source_name = Column(String(200), nullable=True)
+    publisher = Column(String(200), nullable=True)
+    source_url = Column(String(500), nullable=True)
+    publication_date = Column(String(40), nullable=True)
+    is_official = Column(Boolean, default=False, nullable=False)
+    trust_score = Column(Float, default=0.65, nullable=False)
+    embedding_vec = Column(JSON, default=list, nullable=False)
+    content_hash = Column(String(64), nullable=False, index=True)
+    is_active = Column(Boolean, default=True, nullable=False, index=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), index=True)
+
+
+class ExternalApiCallLog(Base):
+    """Telemetry for centralized External API Integration Engine (schema validation, freshness, latency, errors)."""
+    __tablename__ = 'external_api_call_logs'
+
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    provider_key = Column(String(60), nullable=False, index=True)
+    endpoint_category = Column(String(40), nullable=False, index=True)
+    http_status = Column(Integer, nullable=True)
+    schema_valid = Column(Boolean, default=False, nullable=False)
+    freshness_status = Column(String(30), nullable=False, default='UNAVAILABLE')
+    latency_ms = Column(Integer, nullable=True)
+    source_timestamp = Column(String(50), nullable=True)
+    error_code = Column(String(80), nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), index=True)
+
+
+class EvidenceVerificationLog(Base):
+    """Audit & telemetry record of evidence verification outcomes across AgroGPT and Leaf Diagnosis."""
+    __tablename__ = 'evidence_verification_logs'
+
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    channel = Column(String(30), nullable=False, index=True)  # agrogpt | leaf_diagnosis
+    request_id = Column(String(64), nullable=True, index=True)
+    crop = Column(String(80), nullable=True, index=True)
+    subject = Column(String(60), nullable=True)
+    evidence_status = Column(String(40), nullable=False, index=True)  # Verified | Partially verified | Conflicting information | Outdated | Unverified | Insufficient information
+    chunks_retrieved = Column(Integer, default=0, nullable=False)
+    official_sources_count = Column(Integer, default=0, nullable=False)
+    dataset_sources_count = Column(Integer, default=0, nullable=False)
+    api_sources_count = Column(Integer, default=0, nullable=False)
+    conflict_count = Column(Integer, default=0, nullable=False)
+    stale_count = Column(Integer, default=0, nullable=False)
+    latency_ms = Column(Integer, nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), index=True)
+
+
 
 
 

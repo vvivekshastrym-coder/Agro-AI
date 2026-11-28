@@ -1172,7 +1172,18 @@ def build_gpt_system_prompt(ctx: dict, language: str) -> str:
             w = ctx["weather"]
             prompt += f"- Live Weather: Temp={w.get('temp')}°C, Rain={w.get('rain_1h', 0)}mm, Condition={w.get('condition')}, Humidity={w.get('humidity')}%\n"
         if ctx.get("mandi_prices"):
-            prompt += f"- Mandi Prices: {json.dumps(ctx['mandi_prices'][:3])}\n"
+            prompt += f"- Mandi Prices (Validated): {json.dumps(ctx['mandi_prices'][:4])}\n"
+        if ctx.get("retrieved_evidence"):
+            prompt += "\nVERIFIED & APPROVED EVIDENCE CHUNKS (Prioritize official_kb over approved_dataset; report conflicts explicitly):\n"
+            for idx, ch in enumerate(ctx["retrieved_evidence"][:5], 1):
+                tag = "OFFICIAL" if ch.get("is_official") else "APPROVED_DATASET"
+                stale_note = " [STALE - OLDER RECORD]" if ch.get("is_stale") else ""
+                prompt += (
+                    f"  [{idx}] ({tag}{stale_note}) {ch.get('title')} | Source: {ch.get('publisher')} "
+                    f"({ch.get('publication_date') or 'undated'}): {ch.get('content', '')[:380]}\n"
+                )
+        if ctx.get("evidence_conflicts"):
+            prompt += f"\nCONFLICTS DETECTED (You MUST mention this conflict rather than silently picking one): {json.dumps(ctx['evidence_conflicts'][:3])}\n"
             
     prompt += "\nBEHAVIOR RULES:\n"
     prompt += "1. Answer naturally, practically and encouragingly for the farmer.\n"

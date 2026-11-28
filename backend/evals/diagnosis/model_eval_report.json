@@ -1,0 +1,391 @@
+{
+  "model_id": "agro-two-stage-mobilenetv3s-v1",
+  "evaluated_at_epoch_seconds": 3512.3,
+  "dataset": "jawadali1045/20k-multi-class-crop-disease-images",
+  "split_counts": {
+    "train": 10636,
+    "val": 2280,
+    "test": 2283
+  },
+  "zero_leakage_verified": {
+    "md5_exact": true,
+    "dhash_perceptual_8x8": true
+  },
+  "dataset_hygiene_audit": {
+    "raw_total_files": 18617,
+    "unique_clean_md5_hashes": 15199,
+    "exact_duplicate_files_removed": 3367,
+    "cross_class_conflict_hashes_removed": 4,
+    "cross_class_conflict_files_removed": 15,
+    "excluded_classes_by_hygiene_rule": {
+      "bollrot on Cotton (insufficient_samples_lt_20)": 4,
+      "bollworm on Cotton (ambiguous_overlap_with_american_and_pink_bollworm)": 32
+    },
+    "unmapped_folders": [],
+    "crop_has_healthy_class": {
+      "Cotton": true,
+      "Maize": true,
+      "Rice": false,
+      "Sugarcane": true,
+      "Wheat": true
+    },
+    "canonical_classes_retained": 40,
+    "per_class_clean_counts": {
+      "Cotton::American Bollworm": 52,
+      "Cotton::Anthracnose": 29,
+      "Cotton::Armyworm Damage": 326,
+      "Cotton::Bacterial Blight": 727,
+      "Cotton::Cotton Aphid": 266,
+      "Cotton::Cotton Leaf Curl Virus": 379,
+      "Cotton::Cotton Mealybug": 91,
+      "Cotton::Cotton Whitefly": 54,
+      "Cotton::Fusarium Wilt": 395,
+      "Cotton::Healthy": 560,
+      "Cotton::Pink Bollworm": 25,
+      "Cotton::Red Cotton Bug": 69,
+      "Cotton::Thrips Damage": 36,
+      "Maize::Common Rust": 1323,
+      "Maize::Fall Armyworm": 107,
+      "Maize::Gray Leaf Spot": 574,
+      "Maize::Healthy": 1181,
+      "Maize::Maize Ear Rot": 116,
+      "Maize::Maize Stem Borer": 95,
+      "Rice::Bacterial Leaf Blight": 1348,
+      "Rice::Brown Spot": 1248,
+      "Rice::Leaf Smut": 56,
+      "Rice::Rice Blast": 969,
+      "Rice::Rice Tungro Disease": 1308,
+      "Sugarcane::Brown / Orange Rust": 74,
+      "Sugarcane::Healthy": 488,
+      "Sugarcane::Red Rot": 589,
+      "Sugarcane::Sugarcane Mosaic Virus": 389,
+      "Sugarcane::Yellow Leaf / Rust": 494,
+      "Wheat::Black (Stem) Rust": 159,
+      "Wheat::Brown (Leaf) Rust": 105,
+      "Wheat::Flag / Loose Smut": 105,
+      "Wheat::Fusarium Head Blight (Scab)": 104,
+      "Wheat::Healthy": 321,
+      "Wheat::Leaf Blight": 176,
+      "Wheat::Powdery Mildew": 211,
+      "Wheat::Wheat Aphid": 194,
+      "Wheat::Wheat Mite": 192,
+      "Wheat::Wheat Stem Fly": 172,
+      "Wheat::Yellow (Stripe) Rust": 92
+    }
+  },
+  "calibration": {
+    "T_crop": 0.675,
+    "T_problem": 3.0,
+    "ood_cosine_threshold": 0.68,
+    "in_domain_mod_cosine": 0.914,
+    "in_domain_high_cosine": 0.954,
+    "crop_high_prob": 0.55,
+    "crop_mod_prob": 0.45,
+    "problem_high_prob": 0.55,
+    "problem_mod_prob": 0.42
+  },
+  "summary_metrics": {
+    "test_samples": 2283,
+    "stage_a_plant_id_accuracy": 0.9707,
+    "stage_a_crop_macro_f1": 0.9652,
+    "stage_a_crop_weighted_f1": 0.9708,
+    "stage_b_end_to_end_accuracy": 0.9181,
+    "stage_b_oracle_crop_accuracy": 0.9382,
+    "stage_b_macro_f1": 0.7627,
+    "stage_b_weighted_f1": 0.9181,
+    "false_diagnosis_rate_on_healthy": 0.0262,
+    "false_high_confidence_rate": 0.0678,
+    "high_confidence_coverage": 0.5558,
+    "ece_crop_before_temp_scaling": 0.0372,
+    "ece_crop_after_temp_scaling": 0.0078,
+    "ece_problem_before_temp_scaling": 0.0769,
+    "ece_problem_after_temp_scaling": 0.0638,
+    "ood_non_plant_test_count": 80,
+    "ood_non_plant_rejection_rate": 0.0,
+    "test_gate_status_distribution": {
+      "ok": 1269,
+      "moderate_confidence": 914,
+      "low_confidence": 11,
+      "needs_crop_confirmation": 89
+    }
+  },
+  "per_crop_test_metrics": {
+    "Cotton": {
+      "precision": 0.9586,
+      "recall": 0.9756,
+      "f1": 0.967,
+      "support": 451
+    },
+    "Maize": {
+      "precision": 0.98,
+      "recall": 0.9665,
+      "f1": 0.9732,
+      "support": 508
+    },
+    "Rice": {
+      "precision": 0.9905,
+      "recall": 0.9825,
+      "f1": 0.9865,
+      "support": 742
+    },
+    "Sugarcane": {
+      "precision": 0.9901,
+      "recall": 0.9868,
+      "f1": 0.9885,
+      "support": 304
+    },
+    "Wheat": {
+      "precision": 0.9014,
+      "recall": 0.9209,
+      "f1": 0.911,
+      "support": 278
+    }
+  },
+  "per_problem_test_metrics": {
+    "Cotton::American Bollworm": {
+      "precision": 0.1333,
+      "recall": 0.25,
+      "f1": 0.1739,
+      "support": 8
+    },
+    "Cotton::Anthracnose": {
+      "precision": 0.0,
+      "recall": 0.0,
+      "f1": 0.0,
+      "support": 4
+    },
+    "Cotton::Armyworm Damage": {
+      "precision": 0.9512,
+      "recall": 0.7959,
+      "f1": 0.8667,
+      "support": 49
+    },
+    "Cotton::Bacterial Blight": {
+      "precision": 0.8983,
+      "recall": 0.9725,
+      "f1": 0.9339,
+      "support": 109
+    },
+    "Cotton::Cotton Aphid": {
+      "precision": 0.8095,
+      "recall": 0.85,
+      "f1": 0.8293,
+      "support": 40
+    },
+    "Cotton::Cotton Leaf Curl Virus": {
+      "precision": 0.9643,
+      "recall": 0.9474,
+      "f1": 0.9558,
+      "support": 57
+    },
+    "Cotton::Cotton Mealybug": {
+      "precision": 0.7778,
+      "recall": 0.5,
+      "f1": 0.6087,
+      "support": 14
+    },
+    "Cotton::Cotton Whitefly": {
+      "precision": 0.4286,
+      "recall": 0.375,
+      "f1": 0.4,
+      "support": 8
+    },
+    "Cotton::Fusarium Wilt": {
+      "precision": 0.9048,
+      "recall": 0.9661,
+      "f1": 0.9344,
+      "support": 59
+    },
+    "Cotton::Healthy": {
+      "precision": 0.9535,
+      "recall": 0.9762,
+      "f1": 0.9647,
+      "support": 84
+    },
+    "Cotton::Pink Bollworm": {
+      "precision": 0.6667,
+      "recall": 0.5,
+      "f1": 0.5714,
+      "support": 4
+    },
+    "Cotton::Red Cotton Bug": {
+      "precision": 0.8182,
+      "recall": 0.9,
+      "f1": 0.8571,
+      "support": 10
+    },
+    "Cotton::Thrips Damage": {
+      "precision": 0.1429,
+      "recall": 0.2,
+      "f1": 0.1667,
+      "support": 5
+    },
+    "Maize::Common Rust": {
+      "precision": 0.98,
+      "recall": 0.9899,
+      "f1": 0.9849,
+      "support": 198
+    },
+    "Maize::Fall Armyworm": {
+      "precision": 0.5,
+      "recall": 0.375,
+      "f1": 0.4286,
+      "support": 16
+    },
+    "Maize::Gray Leaf Spot": {
+      "precision": 0.9762,
+      "recall": 0.9535,
+      "f1": 0.9647,
+      "support": 86
+    },
+    "Maize::Healthy": {
+      "precision": 1.0,
+      "recall": 0.9887,
+      "f1": 0.9943,
+      "support": 177
+    },
+    "Maize::Maize Ear Rot": {
+      "precision": 0.7273,
+      "recall": 0.9412,
+      "f1": 0.8205,
+      "support": 17
+    },
+    "Maize::Maize Stem Borer": {
+      "precision": 0.75,
+      "recall": 0.4286,
+      "f1": 0.5455,
+      "support": 14
+    },
+    "Rice::Bacterial Leaf Blight": {
+      "precision": 0.9854,
+      "recall": 0.9854,
+      "f1": 0.9854,
+      "support": 205
+    },
+    "Rice::Brown Spot": {
+      "precision": 0.9945,
+      "recall": 0.9733,
+      "f1": 0.9838,
+      "support": 187
+    },
+    "Rice::Leaf Smut": {
+      "precision": 0.5714,
+      "recall": 0.5,
+      "f1": 0.5333,
+      "support": 8
+    },
+    "Rice::Rice Blast": {
+      "precision": 0.9863,
+      "recall": 0.9863,
+      "f1": 0.9863,
+      "support": 146
+    },
+    "Rice::Rice Tungro Disease": {
+      "precision": 1.0,
+      "recall": 0.9949,
+      "f1": 0.9974,
+      "support": 196
+    },
+    "Sugarcane::Brown / Orange Rust": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0,
+      "support": 11
+    },
+    "Sugarcane::Healthy": {
+      "precision": 0.9324,
+      "recall": 0.9452,
+      "f1": 0.9388,
+      "support": 73
+    },
+    "Sugarcane::Red Rot": {
+      "precision": 0.9885,
+      "recall": 0.9773,
+      "f1": 0.9829,
+      "support": 88
+    },
+    "Sugarcane::Sugarcane Mosaic Virus": {
+      "precision": 0.8644,
+      "recall": 0.8793,
+      "f1": 0.8718,
+      "support": 58
+    },
+    "Sugarcane::Yellow Leaf / Rust": {
+      "precision": 0.9583,
+      "recall": 0.9324,
+      "f1": 0.9452,
+      "support": 74
+    },
+    "Wheat::Black (Stem) Rust": {
+      "precision": 0.8,
+      "recall": 0.8333,
+      "f1": 0.8163,
+      "support": 24
+    },
+    "Wheat::Brown (Leaf) Rust": {
+      "precision": 0.9286,
+      "recall": 0.8125,
+      "f1": 0.8667,
+      "support": 16
+    },
+    "Wheat::Flag / Loose Smut": {
+      "precision": 0.7895,
+      "recall": 0.8824,
+      "f1": 0.8333,
+      "support": 17
+    },
+    "Wheat::Fusarium Head Blight (Scab)": {
+      "precision": 0.7368,
+      "recall": 0.875,
+      "f1": 0.8,
+      "support": 16
+    },
+    "Wheat::Healthy": {
+      "precision": 0.8039,
+      "recall": 0.8542,
+      "f1": 0.8283,
+      "support": 48
+    },
+    "Wheat::Leaf Blight": {
+      "precision": 0.72,
+      "recall": 0.6923,
+      "f1": 0.7059,
+      "support": 26
+    },
+    "Wheat::Powdery Mildew": {
+      "precision": 0.7826,
+      "recall": 0.5625,
+      "f1": 0.6545,
+      "support": 32
+    },
+    "Wheat::Wheat Aphid": {
+      "precision": 0.4286,
+      "recall": 0.6207,
+      "f1": 0.507,
+      "support": 29
+    },
+    "Wheat::Wheat Mite": {
+      "precision": 0.6471,
+      "recall": 0.7586,
+      "f1": 0.6984,
+      "support": 29
+    },
+    "Wheat::Wheat Stem Fly": {
+      "precision": 0.7368,
+      "recall": 0.5185,
+      "f1": 0.6087,
+      "support": 27
+    },
+    "Wheat::Yellow (Stripe) Rust": {
+      "precision": 1.0,
+      "recall": 0.9286,
+      "f1": 0.963,
+      "support": 14
+    }
+  },
+  "known_limitations": [
+    "Covers 5 crops (Cotton, Maize, Rice, Sugarcane, Wheat) across 40 classes; photos of other crops (e.g. Tomato, Ragi, Chilli, Coconut) require Cloud Vision VLM or will request crop confirmation / abstain.",
+    "Raw Kaggle dataset has no 'Healthy Rice' folder; standalone local Rice predictions are capped at MODERATE confidence and include 'Healthy Rice leaf' as an explicit alternative.",
+    "Public Kaggle dataset contains community-curated photos (including occasional extension-slide overlays) rather than KVK-audited Karnataka field photos."
+  ]
+}

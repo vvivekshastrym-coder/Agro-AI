@@ -29,17 +29,40 @@ class ApiKeyConfigRequest(BaseModel):
 
 @router.get("/status")
 async def get_diagnosis_engine_status():
-    """Returns vision-provider readiness. There is no local fallback: without a provider, diagnosis is unavailable."""
+    """Returns vision-provider and calibrated local two-stage specialist readiness."""
+    from ..services.ai_service import get_anthropic_api_key
+    from ..services.local_specialist_vision import get_local_specialist_metadata, is_local_specialist_enabled
+
     gemini_key = get_gemini_api_key()
     openai_key = get_openai_api_key()
-    has_gemini = bool(gemini_key and len(gemini_key) > 10)
+    anthropic_key = get_anthropic_api_key()
+    has_gemini = bool(gemini_key and len(gemini_key) > 10 and not gemini_key.startswith("your-"))
     has_openai = bool(openai_key and len(openai_key) > 10)
-    has_cloud_vision = has_gemini or has_openai
+    has_anthropic = bool(anthropic_key and len(anthropic_key) > 10)
+    has_cloud_vision = has_gemini or has_openai or has_anthropic
+    has_local_specialist = is_local_specialist_enabled()
+    local_meta = get_local_specialist_metadata() if has_local_specialist else None
+
+    cloud_name = (
+        "Gemini Vision" if has_gemini
+        else ("OpenAI GPT-4o-mini Vision" if has_openai else ("Claude 3.5 Haiku Vision" if has_anthropic else None))
+    )
+    if cloud_name and local_meta:
+        active_engine = f"{cloud_name} + {local_meta.get('model_id')}"
+    elif cloud_name:
+        active_engine = cloud_name
+    elif local_meta:
+        active_engine = f"{local_meta.get('model_id')} (Local Two-Stage ONNX)"
+    else:
+        active_engine = None
+
     return {
         "has_cloud_vision": has_cloud_vision,
-        "active_engine": ("Gemini Vision" if has_gemini else ("OpenAI GPT-4o-mini Vision" if has_openai else None)),
+        "has_local_specialist": has_local_specialist,
+        "local_specialist": local_meta,
+        "active_engine": active_engine,
         "engine_version": "3.0-two-stage",
-        "diagnosis_available": has_cloud_vision,
+        "diagnosis_available": has_cloud_vision or has_local_specialist,
         "knowledge_base_verified": False,
         "chemical_recommendations": "not_available_no_verified_label_library",
     }
@@ -163,10 +186,12 @@ async def analyze_diagnosis(
     # Consume 1 diagnosis credit ONLY now that a valid diagnostic result was produced
     check_and_consume_entitlement(db, user.id, "diagnose_leaf", consume=True)
 
-    # Attach agronomist-approved Knowledge Library sources matching this crop (if any exist)
+    # Attach agronomist-approved Knowledge Library sources & approved RAG dataset evidence matching this crop/disease
     approved_sources = []
+    evidence_verification = {"evidence_status": "Unverified", "conflicts": [], "limitations": []}
     try:
         crop_q = (res.get("crop") or "").strip()
+        dis_q = (res.get("disease") or "").strip()
         if crop_q:
             kb_rows = (
                 db.query(KnowledgeSource)
@@ -184,10 +209,43 @@ async def analyze_diagnosis(
                 }
                 for k in kb_rows
             ]
+            from ..services.knowledge_rag import retrieve_hybrid_evidence
+            from ..services.evidence_verifier import evaluate_evidence_bundle
+            rag_chunks = retrieve_hybrid_evidence(
+                db=db,
+                query=f"{crop_q} {dis_q}",
+                crop=crop_q,
+                disease=dis_q if dis_q.lower() != "healthy" else None,
+                language=language or "en",
+                top_k=4,
+            )
+            evidence_verification = evaluate_evidence_bundle(
+                db=db,
+                channel="leaf_diagnosis",
+                crop=crop_q,
+                subject="crop_disease",
+                retrieved_chunks=rag_chunks,
+                has_model_answer=True,
+            )
+            for src_item in (evidence_verification.get("sources") or []):
+                if src_item.get("title") and not any(s.get("title") == src_item["title"] for s in approved_sources):
+                    approved_sources.append({
+                        "title": src_item["title"],
+                        "publisher": src_item.get("publisher") or "Approved Dataset",
+                        "source_url": src_item.get("source_url"),
+                        "last_verified_date": src_item.get("publication_date"),
+                    })
     except Exception:
-        approved_sources = []
-    if approved_sources:
-        res = {**res, "sources": approved_sources, "knowledge_base_verified": True}
+        pass
+    has_official_kb = bool(approved_sources) and evidence_verification.get("evidence_status") == "Verified"
+    res = {
+        **res,
+        "sources": approved_sources[:6],
+        "knowledge_base_verified": has_official_kb or bool(approved_sources),
+        "evidence_status": evidence_verification.get("evidence_status", "Unverified"),
+        "evidence_conflicts": evidence_verification.get("conflicts", []),
+        "evidence_limitations": evidence_verification.get("limitations", []),
+    }
 
     # 4. Store report. Numeric confidence is intentionally NULL: the model's self-reported number is
     # uncalibrated, so only the categorical level (HIGH / MODERATE) is kept in the API response.

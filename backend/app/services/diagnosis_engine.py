@@ -119,10 +119,14 @@ def assess_image_quality(image_bytes: bytes) -> Dict[str, Any]:
                            "issues": [], "reject": False}
     try:
         from PIL import Image, ImageFilter, ImageOps, ImageStat
-        im = ImageOps.exif_transpose(Image.open(io.BytesIO(image_bytes)))
+        raw = Image.open(io.BytesIO(image_bytes))
+        try:
+            im = ImageOps.exif_transpose(raw)
+        except Exception:
+            im = raw
         out["width"], out["height"] = im.size
         out["decodable"] = True
-        gray = im.convert("L")
+        gray = (im.convert("RGBA") if im.mode in ("P", "RGBA", "LA") else im).convert("L")
         gray.thumbnail((512, 512))
         out["sharpness"] = round(ImageStat.Stat(gray.filter(ImageFilter.FIND_EDGES)).var[0], 1)
         out["brightness"] = round(ImageStat.Stat(gray).mean[0], 1)
@@ -149,7 +153,12 @@ def prepare_image_for_vision(image_bytes: bytes, max_side: int = 1280) -> Tuple[
     """Orient by EXIF, convert to RGB and bound the long side so every provider sees a consistent image."""
     try:
         from PIL import Image, ImageOps
-        im = ImageOps.exif_transpose(Image.open(io.BytesIO(image_bytes))).convert("RGB")
+        raw = Image.open(io.BytesIO(image_bytes))
+        try:
+            im = ImageOps.exif_transpose(raw)
+        except Exception:
+            im = raw
+        im = (im.convert("RGBA") if im.mode in ("P", "RGBA", "LA") else im).convert("RGB")
         im.thumbnail((max_side, max_side))
         buf = io.BytesIO()
         im.save(buf, format="JPEG", quality=88)
@@ -304,6 +313,7 @@ def finalize_diagnosis(
     model_used: str,
     language: str = "en",
     crop_confirmed: bool = False,
+    confidence_basis: str = "categorical_uncalibrated",
 ) -> Dict[str, Any]:
     """Turns the raw two-stage model output into a safe, honest result. Pure function (unit-testable)."""
     plant = parsed.get("plant_identification") or {}
@@ -334,7 +344,7 @@ def finalize_diagnosis(
         "dosage": [],
         "chemical_guidance": CHEMICAL_GUIDANCE.get(language, CHEMICAL_GUIDANCE["en"]),
         "confidence": None,
-        "confidence_basis": "categorical_uncalibrated",
+        "confidence_basis": confidence_basis,
     }
 
     # Gate 1: not a plant at all
@@ -437,8 +447,56 @@ async def analyze_leaf_image_v3(
     hint_label = f"Farmer CONFIRMED crop: '{crop_hint}'" if (crop_confirmed and crop_hint) else f"Farmer's crop hint (UNVERIFIED claim, may be wrong): '{crop_hint or 'none given'}'"
     user_text = f"{hint_label}.\n{lang_note}\nReturn the JSON object only."
     parsed, model_used = await _call_providers(prepared, mime, TWO_STAGE_PROMPT, user_text)
+    confidence_basis = "categorical_uncalibrated"
+
+    from .local_specialist_vision import is_local_specialist_enabled, predict_with_local_specialist
+
+    if parsed and is_local_specialist_enabled() and not crop_confirmed:
+        # Stage 3 independent cross-verification: if calibrated local specialist strongly identifies
+        # a different crop species, require farmer confirmation instead of trusting a single model.
+        local_parsed, _ = predict_with_local_specialist(prepared, crop_hint=crop_hint, crop_confirmed=False)
+        if local_parsed:
+            lp = local_parsed.get("plant_identification") or {}
+            cp = parsed.get("plant_identification") or {}
+            local_crop = str(lp.get("crop") or "").strip()
+            cloud_crop = str(cp.get("crop") or "").strip()
+            if (
+                lp.get("is_plant") is True
+                and lp.get("identification_confidence") == "high"
+                and local_crop
+                and cloud_crop
+                and not crops_match(cloud_crop, local_crop)
+            ):
+                cands = list(dict.fromkeys([cloud_crop, local_crop] + list(cp.get("candidate_crops") or [])))
+                parsed = {
+                    **parsed,
+                    "plant_identification": {
+                        **cp,
+                        "identification_confidence": "low",
+                        "candidate_crops": cands[:5],
+                        "uncertain_reason": (
+                            f"Cloud vision suggested '{cloud_crop}' while the local crop classifier suggested "
+                            f"'{local_crop}'. Please confirm the crop."
+                        ),
+                    },
+                }
+
+    if not parsed and is_local_specialist_enabled():
+        parsed, model_used = predict_with_local_specialist(
+            prepared, crop_hint=crop_hint, crop_confirmed=crop_confirmed
+        )
+        confidence_basis = "calibrated_temperature_scaled_val"
+
     if not parsed:
         return {"status": "unavailable", "engine_version": ENGINE_VERSION,
                 "message": "The diagnosis service is temporarily unavailable. No diagnosis was generated.",
                 "next_action": "Please retry in a few minutes."}
-    return finalize_diagnosis(parsed, crop_hint, quality, model_used or "vision-model", language, crop_confirmed=crop_confirmed)
+    return finalize_diagnosis(
+        parsed,
+        crop_hint,
+        quality,
+        model_used or "vision-model",
+        language,
+        crop_confirmed=crop_confirmed,
+        confidence_basis=confidence_basis,
+    )

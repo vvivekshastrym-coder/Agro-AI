@@ -31,6 +31,9 @@ export const getAdminAuthHeaders = async (): Promise<Record<string, string>> => 
 
 export const adminFetch = async (url: string, options: RequestInit = {}): Promise<Response> => {
   const defaultHeaders = await getAdminAuthHeaders();
+  if (typeof FormData !== 'undefined' && options.body instanceof FormData) {
+    delete defaultHeaders['Content-Type'];
+  }
   return fetch(resolveAdminApiUrl(url), {
     ...options,
     headers: {

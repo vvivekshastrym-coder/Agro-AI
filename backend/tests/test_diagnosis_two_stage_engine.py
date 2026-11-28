@@ -187,10 +187,91 @@ def test_unconfigured_providers_return_503_unavailable_never_fake_tomato(monkeyp
     monkeypatch.delenv("OPENAI_API_KEY", raising=False)
     monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
     monkeypatch.delenv("CLAUDE_API_KEY", raising=False)
+    monkeypatch.setenv("AGRO_DISABLE_LOCAL_VISION", "1")
 
     r = client.post("/api/diagnosis/analyze", files={"image": ("leaf.jpg", _make_jpeg(), "image/jpeg")}, headers=hdr)
     assert r.status_code == 503
     assert r.json()["detail"]["error"]["code"] == "DIAGNOSIS_UNAVAILABLE"
+
+
+def test_local_specialist_onnx_rejects_non_plant_and_abstains_on_unsupported_crop(monkeypatch):
+    from app.services import local_specialist_vision as lsv
+
+    monkeypatch.delenv("GEMINI_API_KEY", raising=False)
+    monkeypatch.delenv("GOOGLE_API_KEY", raising=False)
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+    monkeypatch.delenv("CLAUDE_API_KEY", raising=False)
+    monkeypatch.setenv("AGRO_DISABLE_LOCAL_VISION", "0")
+
+    if not lsv.is_local_specialist_enabled():
+        return
+
+    uid, hdr = _farmer_headers()
+
+    # 1. Status endpoint reports real held-out test metrics and supported crops
+    st = client.get("/api/diagnosis/status")
+    assert st.status_code == 200
+    st_body = st.json()
+    assert st_body["has_local_specialist"] is True
+    assert st_body["diagnosis_available"] is True
+    assert set(st_body["local_specialist"]["supported_crops"]) == {"Cotton", "Maize", "Rice", "Sugarcane", "Wheat"}
+    assert "stage_a_plant_id_accuracy" in st_body["local_specialist"]["held_out_test_metrics"]
+
+    # 2. Solid non-plant square is rejected as not_a_plant (never forced into a crop/disease)
+    blank_buf = io.BytesIO()
+    Image.new("RGB", (400, 400), (210, 210, 215)).save(blank_buf, format="JPEG", quality=90)
+    r_blank = client.post("/api/diagnosis/analyze", files={"image": ("wall.jpg", blank_buf.getvalue(), "image/jpeg")}, headers=hdr)
+    assert r_blank.status_code == 200
+    assert r_blank.json()["status"] == "not_a_plant"
+
+    # 3. Synthetic drawing (_make_jpeg) never produces a fabricated Tomato blight report
+    r_synth = client.post("/api/diagnosis/analyze", files={"image": ("synth.jpg", _make_jpeg(), "image/jpeg")}, headers=hdr)
+    assert r_synth.status_code == 200
+    assert r_synth.json()["status"] in ("not_a_plant", "needs_crop_confirmation", "low_confidence")
+    db = SessionLocal()
+    assert db.query(DiagnosisReport).filter(DiagnosisReport.farmer_id == uid).count() == 0
+    db.close()
+
+    # 4. If farmer confirms an unsupported crop ('Tomato') on a non-blank image, Stage B abstains cleanly
+    r_unsup = client.post(
+        "/api/diagnosis/analyze",
+        data={"crop": "Tomato", "crop_confirmed": "true"},
+        files={"image": ("tomato.jpg", _make_jpeg(), "image/jpeg")},
+        headers=hdr,
+    )
+    assert r_unsup.status_code == 200
+    assert r_unsup.json()["status"] in ("not_a_plant", "low_confidence")
+    assert r_unsup.json().get("chemical_treatment", []) == []
+
+
+def test_stage3_cloud_and_local_crop_disagreement_requests_confirmation(monkeypatch):
+    from app.services import local_specialist_vision as lsv
+
+    uid, hdr = _farmer_headers()
+
+    async def fake_cloud_cotton(*_a, **_kw):
+        return ({
+            "plant_identification": {"is_plant": True, "crop": "Cotton", "identification_confidence": "high"},
+            "diagnosis": {"problem_name": "Bacterial Blight", "category": "bacterial", "confidence": "high", "severity": "moderate"},
+        }, "mock-cloud")
+
+    def fake_local_rice(*_a, **_kw):
+        return ({
+            "plant_identification": {"is_plant": True, "crop": "Rice", "identification_confidence": "high"},
+            "diagnosis": {"problem_name": "Rice Blast", "category": "fungal", "confidence": "medium", "severity": "moderate"},
+        }, "mock-local-onnx")
+
+    monkeypatch.setattr(de, "_call_providers", fake_cloud_cotton)
+    monkeypatch.setattr(lsv, "is_local_specialist_enabled", lambda: True)
+    monkeypatch.setattr(lsv, "predict_with_local_specialist", fake_local_rice)
+
+    r = client.post("/api/diagnosis/analyze", files={"image": ("ambig.jpg", _make_jpeg(), "image/jpeg")}, headers=hdr)
+    assert r.status_code == 200
+    body = r.json()
+    assert body["status"] == "needs_crop_confirmation"
+    assert "Cotton" in body["crop_candidates"]
+    assert "Rice" in body["crop_candidates"]
 
 
 def test_crop_confirmed_override_attaches_approved_kb_sources_and_non_diag_preserves_quota(monkeypatch):

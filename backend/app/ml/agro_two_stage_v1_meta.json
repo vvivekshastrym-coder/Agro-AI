@@ -1,0 +1,1106 @@
+{
+  "model_id": "agro-two-stage-mobilenetv3s-v1",
+  "architecture": "MobileNetV3-Small Dual-Head (Stage A Crop + Stage B Crop-Conditioned Disease/Pest/Healthy)",
+  "dataset": "jawadali1045/20k-multi-class-crop-disease-images",
+  "dataset_scope_note": "Trained on deduplicated 70/15/15 split of jawadali1045/20k-multi-class-crop-disease-images (5 crops, 40 classes). Community Kaggle dataset; Rice lacks a Healthy folder so standalone Rice predictions are capped at MODERATE confidence.",
+  "onnx_filename": "agro_two_stage_v1.onnx",
+  "onnx_size_mb": 4.71,
+  "input_size": 224,
+  "embedding_dim": 576,
+  "crops": [
+    "Cotton",
+    "Maize",
+    "Rice",
+    "Sugarcane",
+    "Wheat"
+  ],
+  "crop_scientific": {
+    "Cotton": "Gossypium hirsutum",
+    "Maize": "Zea mays",
+    "Rice": "Oryza sativa",
+    "Sugarcane": "Saccharum officinarum",
+    "Wheat": "Triticum aestivum"
+  },
+  "crop_visible_features": {
+    "Cotton": [
+      "Broad palmately lobed leaf blade with 3-5 lobes and palmate main veins"
+    ],
+    "Maize": [
+      "Broad ribbon-like grass leaf blade with prominent pale central midrib and wavy margins"
+    ],
+    "Rice": [
+      "Narrow linear grass leaf blade with parallel venation and rough scabrid margins"
+    ],
+    "Sugarcane": [
+      "Long broad strap-shaped grass leaf blade with thick white midrib"
+    ],
+    "Wheat": [
+      "Narrow flat cereal leaf blade or awned spikelet head with parallel venation"
+    ]
+  },
+  "crop_has_healthy_class": {
+    "Cotton": true,
+    "Maize": true,
+    "Rice": false,
+    "Sugarcane": true,
+    "Wheat": true
+  },
+  "crop_to_problem_indices": {
+    "Cotton": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12
+    ],
+    "Maize": [
+      13,
+      14,
+      15,
+      16,
+      17,
+      18
+    ],
+    "Rice": [
+      19,
+      20,
+      21,
+      22,
+      23
+    ],
+    "Sugarcane": [
+      24,
+      25,
+      26,
+      27,
+      28
+    ],
+    "Wheat": [
+      29,
+      30,
+      31,
+      32,
+      33,
+      34,
+      35,
+      36,
+      37,
+      38,
+      39
+    ]
+  },
+  "problems": [
+    {
+      "index": 0,
+      "canonical_key": "Cotton::American Bollworm",
+      "crop": "Cotton",
+      "crop_scientific": "Gossypium hirsutum",
+      "problem": "American Bollworm",
+      "category": "pest",
+      "scientific_name": "Helicoverpa armigera",
+      "affected_parts": [
+        "boll",
+        "leaf"
+      ],
+      "typical_symptoms": [
+        "Circular bore holes on squares or bolls with larva feeding"
+      ],
+      "organic_measures": [
+        "Hand-pick and destroy visible egg masses, webbed leaves, or gregarious larvae during scouting",
+        "Install pheromone traps or bird perches to monitor pest activity and encourage natural predators",
+        "Conserve beneficial insects such as ladybird beetles, lacewings, and spiders"
+      ],
+      "prevention": [
+        "Deep summer plowing after harvest helps expose resting pupae in the soil",
+        "Remove alternate weed hosts on bunds and practice timely synchronous sowing"
+      ]
+    },
+    {
+      "index": 1,
+      "canonical_key": "Cotton::Anthracnose",
+      "crop": "Cotton",
+      "crop_scientific": "Gossypium hirsutum",
+      "problem": "Anthracnose",
+      "category": "fungal",
+      "scientific_name": "Colletotrichum gossypii",
+      "affected_parts": [
+        "leaf",
+        "boll",
+        "stem"
+      ],
+      "typical_symptoms": [
+        "Sunken reddish-brown circular spots on bolls or foliage"
+      ],
+      "organic_measures": [
+        "Remove and destroy heavily infected leaves or plant debris away from the field border",
+        "Avoid overhead irrigation late in the afternoon so foliage dries quickly",
+        "Improve airflow through timely weeding and avoiding excessive nitrogen top-dressing"
+      ],
+      "prevention": [
+        "Use certified disease-free seed or planting material suited to your agro-climatic zone",
+        "Practice seasonal crop rotation with non-host crops and clear volunteer plants after harvest"
+      ]
+    },
+    {
+      "index": 2,
+      "canonical_key": "Cotton::Armyworm Damage",
+      "crop": "Cotton",
+      "crop_scientific": "Gossypium hirsutum",
+      "problem": "Armyworm Damage",
+      "category": "pest",
+      "scientific_name": "Spodoptera litura",
+      "affected_parts": [
+        "leaf"
+      ],
+      "typical_symptoms": [
+        "Skeletonized leaf patches and irregular defoliation with caterpillar presence"
+      ],
+      "organic_measures": [
+        "Hand-pick and destroy visible egg masses, webbed leaves, or gregarious larvae during scouting",
+        "Install pheromone traps or bird perches to monitor pest activity and encourage natural predators",
+        "Conserve beneficial insects such as ladybird beetles, lacewings, and spiders"
+      ],
+      "prevention": [
+        "Deep summer plowing after harvest helps expose resting pupae in the soil",
+        "Remove alternate weed hosts on bunds and practice timely synchronous sowing"
+      ]
+    },
+    {
+      "index": 3,
+      "canonical_key": "Cotton::Bacterial Blight",
+      "crop": "Cotton",
+      "crop_scientific": "Gossypium hirsutum",
+      "problem": "Bacterial Blight",
+      "category": "bacterial",
+      "scientific_name": "Xanthomonas citri pv. malvacearum",
+      "affected_parts": [
+        "leaf",
+        "boll"
+      ],
+      "typical_symptoms": [
+        "Angular water-soaked to dark brown lesions bounded by leaf veins"
+      ],
+      "organic_measures": [
+        "Avoid working in or walking through the crop while foliage is wet with dew or rain",
+        "Remove severely blighted plant debris and keep field drainage channels clear",
+        "Avoid excess nitrogen application which promotes soft, susceptible foliar growth"
+      ],
+      "prevention": [
+        "Sow clean, certified seed of locally recommended tolerant varieties",
+        "Plow under or remove infected crop residue after harvest and rotate crops"
+      ]
+    },
+    {
+      "index": 4,
+      "canonical_key": "Cotton::Cotton Aphid",
+      "crop": "Cotton",
+      "crop_scientific": "Gossypium hirsutum",
+      "problem": "Cotton Aphid",
+      "category": "pest",
+      "scientific_name": "Aphis gossypii",
+      "affected_parts": [
+        "leaf",
+        "shoot"
+      ],
+      "typical_symptoms": [
+        "Curling tender leaves with clustered aphids on undersides and honeydew sheen"
+      ],
+      "organic_measures": [
+        "Hand-pick and destroy visible egg masses, webbed leaves, or gregarious larvae during scouting",
+        "Install pheromone traps or bird perches to monitor pest activity and encourage natural predators",
+        "Conserve beneficial insects such as ladybird beetles, lacewings, and spiders"
+      ],
+      "prevention": [
+        "Deep summer plowing after harvest helps expose resting pupae in the soil",
+        "Remove alternate weed hosts on bunds and practice timely synchronous sowing"
+      ]
+    },
+    {
+      "index": 5,
+      "canonical_key": "Cotton::Cotton Leaf Curl Virus",
+      "crop": "Cotton",
+      "crop_scientific": "Gossypium hirsutum",
+      "problem": "Cotton Leaf Curl Virus",
+      "category": "viral",
+      "scientific_name": "Cotton leaf curl virus",
+      "affected_parts": [
+        "leaf",
+        "whole_plant"
+      ],
+      "typical_symptoms": [
+        "Upward or downward cupping of leaves with thickened veins and enations"
+      ],
+      "organic_measures": [
+        "Rogue out clearly stunted or virus-infected plants early to reduce field inoculum",
+        "Remove weed hosts along bunds and field borders that shelter sap-sucking insect vectors",
+        "Use yellow or blue sticky traps for monitoring sap-sucking vector populations"
+      ],
+      "prevention": [
+        "Select virus-tolerant hybrids or varieties recommended by your state agricultural university",
+        "Maintain clean bunds and avoid staggered sowing next to older infected plots"
+      ]
+    },
+    {
+      "index": 6,
+      "canonical_key": "Cotton::Cotton Mealybug",
+      "crop": "Cotton",
+      "crop_scientific": "Gossypium hirsutum",
+      "problem": "Cotton Mealybug",
+      "category": "pest",
+      "scientific_name": "Phenacoccus solenopsis",
+      "affected_parts": [
+        "stem",
+        "shoot",
+        "leaf"
+      ],
+      "typical_symptoms": [
+        "White waxy mealybug colonies clustered along stems and petioles"
+      ],
+      "organic_measures": [
+        "Hand-pick and destroy visible egg masses, webbed leaves, or gregarious larvae during scouting",
+        "Install pheromone traps or bird perches to monitor pest activity and encourage natural predators",
+        "Conserve beneficial insects such as ladybird beetles, lacewings, and spiders"
+      ],
+      "prevention": [
+        "Deep summer plowing after harvest helps expose resting pupae in the soil",
+        "Remove alternate weed hosts on bunds and practice timely synchronous sowing"
+      ]
+    },
+    {
+      "index": 7,
+      "canonical_key": "Cotton::Cotton Whitefly",
+      "crop": "Cotton",
+      "crop_scientific": "Gossypium hirsutum",
+      "problem": "Cotton Whitefly",
+      "category": "pest",
+      "scientific_name": "Bemisia tabaci",
+      "affected_parts": [
+        "leaf"
+      ],
+      "typical_symptoms": [
+        "Tiny white winged insects on leaf undersides with chlorotic stippling or sooty mold"
+      ],
+      "organic_measures": [
+        "Hand-pick and destroy visible egg masses, webbed leaves, or gregarious larvae during scouting",
+        "Install pheromone traps or bird perches to monitor pest activity and encourage natural predators",
+        "Conserve beneficial insects such as ladybird beetles, lacewings, and spiders"
+      ],
+      "prevention": [
+        "Deep summer plowing after harvest helps expose resting pupae in the soil",
+        "Remove alternate weed hosts on bunds and practice timely synchronous sowing"
+      ]
+    },
+    {
+      "index": 8,
+      "canonical_key": "Cotton::Fusarium Wilt",
+      "crop": "Cotton",
+      "crop_scientific": "Gossypium hirsutum",
+      "problem": "Fusarium Wilt",
+      "category": "fungal",
+      "scientific_name": "Fusarium oxysporum f. sp. vasinfectum",
+      "affected_parts": [
+        "leaf",
+        "whole_plant"
+      ],
+      "typical_symptoms": [
+        "Marginal yellowing, zonal necrosis, and drooping of leaves"
+      ],
+      "organic_measures": [
+        "Remove and destroy heavily infected leaves or plant debris away from the field border",
+        "Avoid overhead irrigation late in the afternoon so foliage dries quickly",
+        "Improve airflow through timely weeding and avoiding excessive nitrogen top-dressing"
+      ],
+      "prevention": [
+        "Use certified disease-free seed or planting material suited to your agro-climatic zone",
+        "Practice seasonal crop rotation with non-host crops and clear volunteer plants after harvest"
+      ]
+    },
+    {
+      "index": 9,
+      "canonical_key": "Cotton::Healthy",
+      "crop": "Cotton",
+      "crop_scientific": "Gossypium hirsutum",
+      "problem": "Healthy",
+      "category": "healthy",
+      "scientific_name": null,
+      "affected_parts": [
+        "leaf"
+      ],
+      "typical_symptoms": [
+        "Uniform green palmate leaf blade without necrotic lesions or pest feeding"
+      ],
+      "organic_measures": [],
+      "prevention": [
+        "Continue routine weekly field scouting across inner and border rows",
+        "Maintain balanced soil nutrition and avoid waterlogging or prolonged drought stress"
+      ]
+    },
+    {
+      "index": 10,
+      "canonical_key": "Cotton::Pink Bollworm",
+      "crop": "Cotton",
+      "crop_scientific": "Gossypium hirsutum",
+      "problem": "Pink Bollworm",
+      "category": "pest",
+      "scientific_name": "Pectinophora gossypiella",
+      "affected_parts": [
+        "boll",
+        "flower"
+      ],
+      "typical_symptoms": [
+        "Rosetted flowers, stained lint, and internal boll feeding"
+      ],
+      "organic_measures": [
+        "Hand-pick and destroy visible egg masses, webbed leaves, or gregarious larvae during scouting",
+        "Install pheromone traps or bird perches to monitor pest activity and encourage natural predators",
+        "Conserve beneficial insects such as ladybird beetles, lacewings, and spiders"
+      ],
+      "prevention": [
+        "Deep summer plowing after harvest helps expose resting pupae in the soil",
+        "Remove alternate weed hosts on bunds and practice timely synchronous sowing"
+      ]
+    },
+    {
+      "index": 11,
+      "canonical_key": "Cotton::Red Cotton Bug",
+      "crop": "Cotton",
+      "crop_scientific": "Gossypium hirsutum",
+      "problem": "Red Cotton Bug",
+      "category": "pest",
+      "scientific_name": "Dysdercus cingulatus",
+      "affected_parts": [
+        "boll",
+        "leaf"
+      ],
+      "typical_symptoms": [
+        "Reddish-orange nymphs and adults with black wing markings feeding on bolls"
+      ],
+      "organic_measures": [
+        "Hand-pick and destroy visible egg masses, webbed leaves, or gregarious larvae during scouting",
+        "Install pheromone traps or bird perches to monitor pest activity and encourage natural predators",
+        "Conserve beneficial insects such as ladybird beetles, lacewings, and spiders"
+      ],
+      "prevention": [
+        "Deep summer plowing after harvest helps expose resting pupae in the soil",
+        "Remove alternate weed hosts on bunds and practice timely synchronous sowing"
+      ]
+    },
+    {
+      "index": 12,
+      "canonical_key": "Cotton::Thrips Damage",
+      "crop": "Cotton",
+      "crop_scientific": "Gossypium hirsutum",
+      "problem": "Thrips Damage",
+      "category": "pest",
+      "scientific_name": "Thrips tabaci",
+      "affected_parts": [
+        "leaf"
+      ],
+      "typical_symptoms": [
+        "Silvery-bronze rasping streaks and crinkled upward-curled young leaves"
+      ],
+      "organic_measures": [
+        "Hand-pick and destroy visible egg masses, webbed leaves, or gregarious larvae during scouting",
+        "Install pheromone traps or bird perches to monitor pest activity and encourage natural predators",
+        "Conserve beneficial insects such as ladybird beetles, lacewings, and spiders"
+      ],
+      "prevention": [
+        "Deep summer plowing after harvest helps expose resting pupae in the soil",
+        "Remove alternate weed hosts on bunds and practice timely synchronous sowing"
+      ]
+    },
+    {
+      "index": 13,
+      "canonical_key": "Maize::Common Rust",
+      "crop": "Maize",
+      "crop_scientific": "Zea mays",
+      "problem": "Common Rust",
+      "category": "fungal",
+      "scientific_name": "Puccinia sorghi",
+      "affected_parts": [
+        "leaf"
+      ],
+      "typical_symptoms": [
+        "Cinnamon-brown oval to elongated pustules scattered across leaf surfaces"
+      ],
+      "organic_measures": [
+        "Remove and destroy heavily infected leaves or plant debris away from the field border",
+        "Avoid overhead irrigation late in the afternoon so foliage dries quickly",
+        "Improve airflow through timely weeding and avoiding excessive nitrogen top-dressing"
+      ],
+      "prevention": [
+        "Use certified disease-free seed or planting material suited to your agro-climatic zone",
+        "Practice seasonal crop rotation with non-host crops and clear volunteer plants after harvest"
+      ]
+    },
+    {
+      "index": 14,
+      "canonical_key": "Maize::Fall Armyworm",
+      "crop": "Maize",
+      "crop_scientific": "Zea mays",
+      "problem": "Fall Armyworm",
+      "category": "pest",
+      "scientific_name": "Spodoptera frugiperda",
+      "affected_parts": [
+        "leaf",
+        "whorl"
+      ],
+      "typical_symptoms": [
+        "Ragged elongated windowpane feeding holes in the whorl with moist frass"
+      ],
+      "organic_measures": [
+        "Hand-pick and destroy visible egg masses, webbed leaves, or gregarious larvae during scouting",
+        "Install pheromone traps or bird perches to monitor pest activity and encourage natural predators",
+        "Conserve beneficial insects such as ladybird beetles, lacewings, and spiders"
+      ],
+      "prevention": [
+        "Deep summer plowing after harvest helps expose resting pupae in the soil",
+        "Remove alternate weed hosts on bunds and practice timely synchronous sowing"
+      ]
+    },
+    {
+      "index": 15,
+      "canonical_key": "Maize::Gray Leaf Spot",
+      "crop": "Maize",
+      "crop_scientific": "Zea mays",
+      "problem": "Gray Leaf Spot",
+      "category": "fungal",
+      "scientific_name": "Cercospora zeae-maydis",
+      "affected_parts": [
+        "leaf"
+      ],
+      "typical_symptoms": [
+        "Rectangular tan to grey necrotic lesions restricted strictly between parallel veins"
+      ],
+      "organic_measures": [
+        "Remove and destroy heavily infected leaves or plant debris away from the field border",
+        "Avoid overhead irrigation late in the afternoon so foliage dries quickly",
+        "Improve airflow through timely weeding and avoiding excessive nitrogen top-dressing"
+      ],
+      "prevention": [
+        "Use certified disease-free seed or planting material suited to your agro-climatic zone",
+        "Practice seasonal crop rotation with non-host crops and clear volunteer plants after harvest"
+      ]
+    },
+    {
+      "index": 16,
+      "canonical_key": "Maize::Healthy",
+      "crop": "Maize",
+      "crop_scientific": "Zea mays",
+      "problem": "Healthy",
+      "category": "healthy",
+      "scientific_name": null,
+      "affected_parts": [
+        "leaf"
+      ],
+      "typical_symptoms": [
+        "Uniform green maize blade with clean central midrib and intact margins"
+      ],
+      "organic_measures": [],
+      "prevention": [
+        "Continue routine weekly field scouting across inner and border rows",
+        "Maintain balanced soil nutrition and avoid waterlogging or prolonged drought stress"
+      ]
+    },
+    {
+      "index": 17,
+      "canonical_key": "Maize::Maize Ear Rot",
+      "crop": "Maize",
+      "crop_scientific": "Zea mays",
+      "problem": "Maize Ear Rot",
+      "category": "fungal",
+      "scientific_name": "Fusarium verticillioides",
+      "affected_parts": [
+        "fruit"
+      ],
+      "typical_symptoms": [
+        "White, pinkish, or powdery mold growth on kernels of the maize cob"
+      ],
+      "organic_measures": [
+        "Remove and destroy heavily infected leaves or plant debris away from the field border",
+        "Avoid overhead irrigation late in the afternoon so foliage dries quickly",
+        "Improve airflow through timely weeding and avoiding excessive nitrogen top-dressing"
+      ],
+      "prevention": [
+        "Use certified disease-free seed or planting material suited to your agro-climatic zone",
+        "Practice seasonal crop rotation with non-host crops and clear volunteer plants after harvest"
+      ]
+    },
+    {
+      "index": 18,
+      "canonical_key": "Maize::Maize Stem Borer",
+      "crop": "Maize",
+      "crop_scientific": "Zea mays",
+      "problem": "Maize Stem Borer",
+      "category": "pest",
+      "scientific_name": "Chilo partellus",
+      "affected_parts": [
+        "stem",
+        "leaf"
+      ],
+      "typical_symptoms": [
+        "Shot-hole rows across unfolding leaves and dead-heart or stalk tunneling"
+      ],
+      "organic_measures": [
+        "Hand-pick and destroy visible egg masses, webbed leaves, or gregarious larvae during scouting",
+        "Install pheromone traps or bird perches to monitor pest activity and encourage natural predators",
+        "Conserve beneficial insects such as ladybird beetles, lacewings, and spiders"
+      ],
+      "prevention": [
+        "Deep summer plowing after harvest helps expose resting pupae in the soil",
+        "Remove alternate weed hosts on bunds and practice timely synchronous sowing"
+      ]
+    },
+    {
+      "index": 19,
+      "canonical_key": "Rice::Bacterial Leaf Blight",
+      "crop": "Rice",
+      "crop_scientific": "Oryza sativa",
+      "problem": "Bacterial Leaf Blight",
+      "category": "bacterial",
+      "scientific_name": "Xanthomonas oryzae pv. oryzae",
+      "affected_parts": [
+        "leaf"
+      ],
+      "typical_symptoms": [
+        "Water-soaked yellowish stripes along leaf tips and margins drying to straw-white"
+      ],
+      "organic_measures": [
+        "Avoid working in or walking through the crop while foliage is wet with dew or rain",
+        "Remove severely blighted plant debris and keep field drainage channels clear",
+        "Avoid excess nitrogen application which promotes soft, susceptible foliar growth"
+      ],
+      "prevention": [
+        "Sow clean, certified seed of locally recommended tolerant varieties",
+        "Plow under or remove infected crop residue after harvest and rotate crops"
+      ]
+    },
+    {
+      "index": 20,
+      "canonical_key": "Rice::Brown Spot",
+      "crop": "Rice",
+      "crop_scientific": "Oryza sativa",
+      "problem": "Brown Spot",
+      "category": "fungal",
+      "scientific_name": "Bipolaris oryzae",
+      "affected_parts": [
+        "leaf",
+        "grain"
+      ],
+      "typical_symptoms": [
+        "Small oval to sesame-shaped dark brown spots often with a yellow halo"
+      ],
+      "organic_measures": [
+        "Remove and destroy heavily infected leaves or plant debris away from the field border",
+        "Avoid overhead irrigation late in the afternoon so foliage dries quickly",
+        "Improve airflow through timely weeding and avoiding excessive nitrogen top-dressing"
+      ],
+      "prevention": [
+        "Use certified disease-free seed or planting material suited to your agro-climatic zone",
+        "Practice seasonal crop rotation with non-host crops and clear volunteer plants after harvest"
+      ]
+    },
+    {
+      "index": 21,
+      "canonical_key": "Rice::Leaf Smut",
+      "crop": "Rice",
+      "crop_scientific": "Oryza sativa",
+      "problem": "Leaf Smut",
+      "category": "fungal",
+      "scientific_name": "Entyloma oryzae",
+      "affected_parts": [
+        "leaf"
+      ],
+      "typical_symptoms": [
+        "Small slightly raised angular black spots scattered along the rice leaf blade"
+      ],
+      "organic_measures": [
+        "Remove and destroy heavily infected leaves or plant debris away from the field border",
+        "Avoid overhead irrigation late in the afternoon so foliage dries quickly",
+        "Improve airflow through timely weeding and avoiding excessive nitrogen top-dressing"
+      ],
+      "prevention": [
+        "Use certified disease-free seed or planting material suited to your agro-climatic zone",
+        "Practice seasonal crop rotation with non-host crops and clear volunteer plants after harvest"
+      ]
+    },
+    {
+      "index": 22,
+      "canonical_key": "Rice::Rice Blast",
+      "crop": "Rice",
+      "crop_scientific": "Oryza sativa",
+      "problem": "Rice Blast",
+      "category": "fungal",
+      "scientific_name": "Magnaporthe oryzae",
+      "affected_parts": [
+        "leaf",
+        "stem"
+      ],
+      "typical_symptoms": [
+        "Diamond or spindle-shaped lesions with grey-white centers and dark brown borders"
+      ],
+      "organic_measures": [
+        "Remove and destroy heavily infected leaves or plant debris away from the field border",
+        "Avoid overhead irrigation late in the afternoon so foliage dries quickly",
+        "Improve airflow through timely weeding and avoiding excessive nitrogen top-dressing"
+      ],
+      "prevention": [
+        "Use certified disease-free seed or planting material suited to your agro-climatic zone",
+        "Practice seasonal crop rotation with non-host crops and clear volunteer plants after harvest"
+      ]
+    },
+    {
+      "index": 23,
+      "canonical_key": "Rice::Rice Tungro Disease",
+      "crop": "Rice",
+      "crop_scientific": "Oryza sativa",
+      "problem": "Rice Tungro Disease",
+      "category": "viral",
+      "scientific_name": "Rice tungro bacilliform/spherical virus",
+      "affected_parts": [
+        "leaf",
+        "whole_plant"
+      ],
+      "typical_symptoms": [
+        "Yellow-orange discolouration starting from leaf tips with stunted tillers"
+      ],
+      "organic_measures": [
+        "Rogue out clearly stunted or virus-infected plants early to reduce field inoculum",
+        "Remove weed hosts along bunds and field borders that shelter sap-sucking insect vectors",
+        "Use yellow or blue sticky traps for monitoring sap-sucking vector populations"
+      ],
+      "prevention": [
+        "Select virus-tolerant hybrids or varieties recommended by your state agricultural university",
+        "Maintain clean bunds and avoid staggered sowing next to older infected plots"
+      ]
+    },
+    {
+      "index": 24,
+      "canonical_key": "Sugarcane::Brown / Orange Rust",
+      "crop": "Sugarcane",
+      "crop_scientific": "Saccharum officinarum",
+      "problem": "Brown / Orange Rust",
+      "category": "fungal",
+      "scientific_name": "Puccinia melanocephala",
+      "affected_parts": [
+        "leaf"
+      ],
+      "typical_symptoms": [
+        "Elongated reddish-brown to orange pustules erupting on leaf undersides"
+      ],
+      "organic_measures": [
+        "Remove and destroy heavily infected leaves or plant debris away from the field border",
+        "Avoid overhead irrigation late in the afternoon so foliage dries quickly",
+        "Improve airflow through timely weeding and avoiding excessive nitrogen top-dressing"
+      ],
+      "prevention": [
+        "Use certified disease-free seed or planting material suited to your agro-climatic zone",
+        "Practice seasonal crop rotation with non-host crops and clear volunteer plants after harvest"
+      ]
+    },
+    {
+      "index": 25,
+      "canonical_key": "Sugarcane::Healthy",
+      "crop": "Sugarcane",
+      "crop_scientific": "Saccharum officinarum",
+      "problem": "Healthy",
+      "category": "healthy",
+      "scientific_name": null,
+      "affected_parts": [
+        "leaf"
+      ],
+      "typical_symptoms": [
+        "Clean green sugarcane leaf blade with prominent white midrib"
+      ],
+      "organic_measures": [],
+      "prevention": [
+        "Continue routine weekly field scouting across inner and border rows",
+        "Maintain balanced soil nutrition and avoid waterlogging or prolonged drought stress"
+      ]
+    },
+    {
+      "index": 26,
+      "canonical_key": "Sugarcane::Red Rot",
+      "crop": "Sugarcane",
+      "crop_scientific": "Saccharum officinarum",
+      "problem": "Red Rot",
+      "category": "fungal",
+      "scientific_name": "Colletotrichum falcatum",
+      "affected_parts": [
+        "leaf",
+        "stem"
+      ],
+      "typical_symptoms": [
+        "Reddish lesions along the midrib or internal stalk reddening with white patches"
+      ],
+      "organic_measures": [
+        "Remove and destroy heavily infected leaves or plant debris away from the field border",
+        "Avoid overhead irrigation late in the afternoon so foliage dries quickly",
+        "Improve airflow through timely weeding and avoiding excessive nitrogen top-dressing"
+      ],
+      "prevention": [
+        "Use certified disease-free seed or planting material suited to your agro-climatic zone",
+        "Practice seasonal crop rotation with non-host crops and clear volunteer plants after harvest"
+      ]
+    },
+    {
+      "index": 27,
+      "canonical_key": "Sugarcane::Sugarcane Mosaic Virus",
+      "crop": "Sugarcane",
+      "crop_scientific": "Saccharum officinarum",
+      "problem": "Sugarcane Mosaic Virus",
+      "category": "viral",
+      "scientific_name": "Sugarcane mosaic virus",
+      "affected_parts": [
+        "leaf"
+      ],
+      "typical_symptoms": [
+        "Irregular pale green to yellowish chlorotic islands mottling the green blade"
+      ],
+      "organic_measures": [
+        "Rogue out clearly stunted or virus-infected plants early to reduce field inoculum",
+        "Remove weed hosts along bunds and field borders that shelter sap-sucking insect vectors",
+        "Use yellow or blue sticky traps for monitoring sap-sucking vector populations"
+      ],
+      "prevention": [
+        "Select virus-tolerant hybrids or varieties recommended by your state agricultural university",
+        "Maintain clean bunds and avoid staggered sowing next to older infected plots"
+      ]
+    },
+    {
+      "index": 28,
+      "canonical_key": "Sugarcane::Yellow Leaf / Rust",
+      "crop": "Sugarcane",
+      "crop_scientific": "Saccharum officinarum",
+      "problem": "Yellow Leaf / Rust",
+      "category": "fungal",
+      "scientific_name": null,
+      "affected_parts": [
+        "leaf"
+      ],
+      "typical_symptoms": [
+        "Yellowing of midrib and lamina spreading toward leaf margins"
+      ],
+      "organic_measures": [
+        "Remove and destroy heavily infected leaves or plant debris away from the field border",
+        "Avoid overhead irrigation late in the afternoon so foliage dries quickly",
+        "Improve airflow through timely weeding and avoiding excessive nitrogen top-dressing"
+      ],
+      "prevention": [
+        "Use certified disease-free seed or planting material suited to your agro-climatic zone",
+        "Practice seasonal crop rotation with non-host crops and clear volunteer plants after harvest"
+      ]
+    },
+    {
+      "index": 29,
+      "canonical_key": "Wheat::Black (Stem) Rust",
+      "crop": "Wheat",
+      "crop_scientific": "Triticum aestivum",
+      "problem": "Black (Stem) Rust",
+      "category": "fungal",
+      "scientific_name": "Puccinia graminis",
+      "affected_parts": [
+        "stem",
+        "leaf"
+      ],
+      "typical_symptoms": [
+        "Dark reddish-brown to black elongated erumpent pustules on stems and sheaths"
+      ],
+      "organic_measures": [
+        "Remove and destroy heavily infected leaves or plant debris away from the field border",
+        "Avoid overhead irrigation late in the afternoon so foliage dries quickly",
+        "Improve airflow through timely weeding and avoiding excessive nitrogen top-dressing"
+      ],
+      "prevention": [
+        "Use certified disease-free seed or planting material suited to your agro-climatic zone",
+        "Practice seasonal crop rotation with non-host crops and clear volunteer plants after harvest"
+      ]
+    },
+    {
+      "index": 30,
+      "canonical_key": "Wheat::Brown (Leaf) Rust",
+      "crop": "Wheat",
+      "crop_scientific": "Triticum aestivum",
+      "problem": "Brown (Leaf) Rust",
+      "category": "fungal",
+      "scientific_name": "Puccinia triticina",
+      "affected_parts": [
+        "leaf"
+      ],
+      "typical_symptoms": [
+        "Small circular orange-brown pustules scattered on the upper leaf surface"
+      ],
+      "organic_measures": [
+        "Remove and destroy heavily infected leaves or plant debris away from the field border",
+        "Avoid overhead irrigation late in the afternoon so foliage dries quickly",
+        "Improve airflow through timely weeding and avoiding excessive nitrogen top-dressing"
+      ],
+      "prevention": [
+        "Use certified disease-free seed or planting material suited to your agro-climatic zone",
+        "Practice seasonal crop rotation with non-host crops and clear volunteer plants after harvest"
+      ]
+    },
+    {
+      "index": 31,
+      "canonical_key": "Wheat::Flag / Loose Smut",
+      "crop": "Wheat",
+      "crop_scientific": "Triticum aestivum",
+      "problem": "Flag / Loose Smut",
+      "category": "fungal",
+      "scientific_name": null,
+      "affected_parts": [
+        "head",
+        "leaf"
+      ],
+      "typical_symptoms": [
+        "Dark brown to black powdery spore masses replacing spikelets or forming leaf streaks"
+      ],
+      "organic_measures": [
+        "Remove and destroy heavily infected leaves or plant debris away from the field border",
+        "Avoid overhead irrigation late in the afternoon so foliage dries quickly",
+        "Improve airflow through timely weeding and avoiding excessive nitrogen top-dressing"
+      ],
+      "prevention": [
+        "Use certified disease-free seed or planting material suited to your agro-climatic zone",
+        "Practice seasonal crop rotation with non-host crops and clear volunteer plants after harvest"
+      ]
+    },
+    {
+      "index": 32,
+      "canonical_key": "Wheat::Fusarium Head Blight (Scab)",
+      "crop": "Wheat",
+      "crop_scientific": "Triticum aestivum",
+      "problem": "Fusarium Head Blight (Scab)",
+      "category": "fungal",
+      "scientific_name": "Fusarium graminearum",
+      "affected_parts": [
+        "head"
+      ],
+      "typical_symptoms": [
+        "Prematurely bleached tan spikelets on an otherwise green wheat head"
+      ],
+      "organic_measures": [
+        "Remove and destroy heavily infected leaves or plant debris away from the field border",
+        "Avoid overhead irrigation late in the afternoon so foliage dries quickly",
+        "Improve airflow through timely weeding and avoiding excessive nitrogen top-dressing"
+      ],
+      "prevention": [
+        "Use certified disease-free seed or planting material suited to your agro-climatic zone",
+        "Practice seasonal crop rotation with non-host crops and clear volunteer plants after harvest"
+      ]
+    },
+    {
+      "index": 33,
+      "canonical_key": "Wheat::Healthy",
+      "crop": "Wheat",
+      "crop_scientific": "Triticum aestivum",
+      "problem": "Healthy",
+      "category": "healthy",
+      "scientific_name": null,
+      "affected_parts": [
+        "leaf",
+        "head"
+      ],
+      "typical_symptoms": [
+        "Healthy green wheat foliage or clean developing cereal spike"
+      ],
+      "organic_measures": [],
+      "prevention": [
+        "Continue routine weekly field scouting across inner and border rows",
+        "Maintain balanced soil nutrition and avoid waterlogging or prolonged drought stress"
+      ]
+    },
+    {
+      "index": 34,
+      "canonical_key": "Wheat::Leaf Blight",
+      "crop": "Wheat",
+      "crop_scientific": "Triticum aestivum",
+      "problem": "Leaf Blight",
+      "category": "fungal",
+      "scientific_name": "Bipolaris sorokiniana",
+      "affected_parts": [
+        "leaf"
+      ],
+      "typical_symptoms": [
+        "Oval to irregular tan-brown necrotic blotches coalescing across the leaf blade"
+      ],
+      "organic_measures": [
+        "Remove and destroy heavily infected leaves or plant debris away from the field border",
+        "Avoid overhead irrigation late in the afternoon so foliage dries quickly",
+        "Improve airflow through timely weeding and avoiding excessive nitrogen top-dressing"
+      ],
+      "prevention": [
+        "Use certified disease-free seed or planting material suited to your agro-climatic zone",
+        "Practice seasonal crop rotation with non-host crops and clear volunteer plants after harvest"
+      ]
+    },
+    {
+      "index": 35,
+      "canonical_key": "Wheat::Powdery Mildew",
+      "crop": "Wheat",
+      "crop_scientific": "Triticum aestivum",
+      "problem": "Powdery Mildew",
+      "category": "fungal",
+      "scientific_name": "Blumeria graminis",
+      "affected_parts": [
+        "leaf",
+        "stem"
+      ],
+      "typical_symptoms": [
+        "Fluffy white to grey powdery fungal patches on upper leaf surfaces"
+      ],
+      "organic_measures": [
+        "Remove and destroy heavily infected leaves or plant debris away from the field border",
+        "Avoid overhead irrigation late in the afternoon so foliage dries quickly",
+        "Improve airflow through timely weeding and avoiding excessive nitrogen top-dressing"
+      ],
+      "prevention": [
+        "Use certified disease-free seed or planting material suited to your agro-climatic zone",
+        "Practice seasonal crop rotation with non-host crops and clear volunteer plants after harvest"
+      ]
+    },
+    {
+      "index": 36,
+      "canonical_key": "Wheat::Wheat Aphid",
+      "crop": "Wheat",
+      "crop_scientific": "Triticum aestivum",
+      "problem": "Wheat Aphid",
+      "category": "pest",
+      "scientific_name": "Sitobion avenae",
+      "affected_parts": [
+        "leaf",
+        "head"
+      ],
+      "typical_symptoms": [
+        "Clusters of green to dark aphids feeding along wheat blades and spikes"
+      ],
+      "organic_measures": [
+        "Hand-pick and destroy visible egg masses, webbed leaves, or gregarious larvae during scouting",
+        "Install pheromone traps or bird perches to monitor pest activity and encourage natural predators",
+        "Conserve beneficial insects such as ladybird beetles, lacewings, and spiders"
+      ],
+      "prevention": [
+        "Deep summer plowing after harvest helps expose resting pupae in the soil",
+        "Remove alternate weed hosts on bunds and practice timely synchronous sowing"
+      ]
+    },
+    {
+      "index": 37,
+      "canonical_key": "Wheat::Wheat Mite",
+      "crop": "Wheat",
+      "crop_scientific": "Triticum aestivum",
+      "problem": "Wheat Mite",
+      "category": "pest",
+      "scientific_name": "Petrobia latens",
+      "affected_parts": [
+        "leaf"
+      ],
+      "typical_symptoms": [
+        "Fine pale stippling and bronzing/yellowing of wheat leaves from mite feeding"
+      ],
+      "organic_measures": [
+        "Hand-pick and destroy visible egg masses, webbed leaves, or gregarious larvae during scouting",
+        "Install pheromone traps or bird perches to monitor pest activity and encourage natural predators",
+        "Conserve beneficial insects such as ladybird beetles, lacewings, and spiders"
+      ],
+      "prevention": [
+        "Deep summer plowing after harvest helps expose resting pupae in the soil",
+        "Remove alternate weed hosts on bunds and practice timely synchronous sowing"
+      ]
+    },
+    {
+      "index": 38,
+      "canonical_key": "Wheat::Wheat Stem Fly",
+      "crop": "Wheat",
+      "crop_scientific": "Triticum aestivum",
+      "problem": "Wheat Stem Fly",
+      "category": "pest",
+      "scientific_name": "Atherigona naqvii",
+      "affected_parts": [
+        "stem",
+        "whole_plant"
+      ],
+      "typical_symptoms": [
+        "Dead-heart drying of central shoot in young wheat seedlings"
+      ],
+      "organic_measures": [
+        "Hand-pick and destroy visible egg masses, webbed leaves, or gregarious larvae during scouting",
+        "Install pheromone traps or bird perches to monitor pest activity and encourage natural predators",
+        "Conserve beneficial insects such as ladybird beetles, lacewings, and spiders"
+      ],
+      "prevention": [
+        "Deep summer plowing after harvest helps expose resting pupae in the soil",
+        "Remove alternate weed hosts on bunds and practice timely synchronous sowing"
+      ]
+    },
+    {
+      "index": 39,
+      "canonical_key": "Wheat::Yellow (Stripe) Rust",
+      "crop": "Wheat",
+      "crop_scientific": "Triticum aestivum",
+      "problem": "Yellow (Stripe) Rust",
+      "category": "fungal",
+      "scientific_name": "Puccinia striiformis",
+      "affected_parts": [
+        "leaf"
+      ],
+      "typical_symptoms": [
+        "Bright yellow-orange pustules arranged in narrow linear stripes along veins"
+      ],
+      "organic_measures": [
+        "Remove and destroy heavily infected leaves or plant debris away from the field border",
+        "Avoid overhead irrigation late in the afternoon so foliage dries quickly",
+        "Improve airflow through timely weeding and avoiding excessive nitrogen top-dressing"
+      ],
+      "prevention": [
+        "Use certified disease-free seed or planting material suited to your agro-climatic zone",
+        "Practice seasonal crop rotation with non-host crops and clear volunteer plants after harvest"
+      ]
+    }
+  ],
+  "prototypes_fp16_b64": "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",
+  "calibration": {
+    "T_crop": 0.675,
+    "T_problem": 3.0,
+    "ood_cosine_threshold": 0.68,
+    "in_domain_mod_cosine": 0.914,
+    "in_domain_high_cosine": 0.954,
+    "crop_high_prob": 0.55,
+    "crop_mod_prob": 0.45,
+    "problem_high_prob": 0.55,
+    "problem_mod_prob": 0.42
+  },
+  "held_out_test_metrics": {
+    "test_samples": 2283,
+    "stage_a_plant_id_accuracy": 0.9707,
+    "stage_a_crop_macro_f1": 0.9652,
+    "stage_a_crop_weighted_f1": 0.9708,
+    "stage_b_end_to_end_accuracy": 0.9181,
+    "stage_b_oracle_crop_accuracy": 0.9382,
+    "stage_b_macro_f1": 0.7627,
+    "stage_b_weighted_f1": 0.9181,
+    "false_diagnosis_rate_on_healthy": 0.0262,
+    "false_high_confidence_rate": 0.0678,
+    "high_confidence_coverage": 0.5558,
+    "ece_crop_before_temp_scaling": 0.0372,
+    "ece_crop_after_temp_scaling": 0.0078,
+    "ece_problem_before_temp_scaling": 0.0769,
+    "ece_problem_after_temp_scaling": 0.0638,
+    "ood_non_plant_test_count": 80,
+    "ood_non_plant_rejection_rate": 0.0,
+    "test_gate_status_distribution": {
+      "ok": 1269,
+      "moderate_confidence": 914,
+      "low_confidence": 11,
+      "needs_crop_confirmation": 89
+    }
+  }
+}

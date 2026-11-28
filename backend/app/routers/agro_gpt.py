@@ -82,8 +82,14 @@ async def agro_gpt_chat(req: ChatRequest, db: Session = Depends(get_db), user: U
         except Exception:
             db.rollback()
 
-    # 2. Retrieve Farmer Context from DB or request context
-    context_data = await fetch_farmer_context(db, farmer_id, req.context)
+    # 2. Retrieve Farmer Context + Hybrid RAG Evidence + Validated Live APIs
+    context_data = await fetch_farmer_context(db, farmer_id, req.context, user_query=req.message, language=req.language or "en")
+    evidence_meta = context_data.get("_evidence_verification") or {
+        "evidence_status": "Unverified",
+        "sources": [],
+        "conflicts": [],
+        "limitations": [],
+    }
     
     # 3. Retrieve Previous Messages for Memory
     past_msgs = []
@@ -109,18 +115,39 @@ async def agro_gpt_chat(req: ChatRequest, db: Session = Depends(get_db), user: U
     except Exception:
         db.rollback()
 
-    # 4. Generate AI Response (routed + deterministic safety guard)
+    # 4. Generate AI Response (routed + deterministic safety guard + insufficient-evidence check)
     request_id = str(uuid.uuid4())[:8]
     t0 = time.time()
-    try:
-        result = await generate_guarded_agro_gpt_response(message_history, context_data, req.language or "en")
-    except Exception as e:
-        logger.error(f"[{request_id}] Error in Agro GPT chat: {type(e).__name__}")
-        from ..services.answer_guard import guard_reply
-        from ..services.ai_service import get_contextual_gpt_reply
-        fb = get_contextual_gpt_reply(message_history, context_data, req.language or "en")
-        txt, flags = guard_reply(fb, req.language or "en", "rule_based_fallback")
-        result = {"text": txt, "tier": "rule_based_fallback", "task": None, "model": None, "guard_flags": flags}
+    if evidence_meta.get("evidence_status") == "Insufficient information" and context_data.get("_requires_live_api"):
+        from ..services.evidence_verifier import get_insufficient_evidence_message
+        result = {
+            "text": get_insufficient_evidence_message(req.language or "en"),
+            "tier": "verified_insufficient_evidence",
+            "task": "current_data",
+            "model": None,
+            "guard_flags": ["insufficient_live_evidence"],
+        }
+    else:
+        try:
+            result = await generate_guarded_agro_gpt_response(message_history, context_data, req.language or "en")
+            # When cloud LLM keys are absent (rule_based_fallback) and approved RAG chunks exist, ground reply in retrieved evidence
+            if result.get("tier") == "rule_based_fallback" and context_data.get("retrieved_evidence"):
+                from ..services.answer_guard import guard_reply
+                top_chunks = context_data["retrieved_evidence"][:2]
+                ev_lines = [f"• {c['title']} ({c['publisher']}, {c.get('publication_date') or 'recorded'}): {c['content'][:260]}" for c in top_chunks]
+                conflict_line = ""
+                if evidence_meta.get("conflicts"):
+                    conflict_line = f"\n\n⚠️ Conflict Notice: {evidence_meta['conflicts'][0].get('detail', '')}"
+                grounded = "Based on Agro AI's approved agricultural records:\n" + "\n".join(ev_lines) + conflict_line
+                txt, flags = guard_reply(grounded, req.language or "en", "approved_knowledge_rag")
+                result = {"text": txt, "tier": "approved_knowledge_rag", "task": result.get("task"), "model": None, "guard_flags": flags}
+        except Exception as e:
+            logger.error(f"[{request_id}] Error in Agro GPT chat: {type(e).__name__}")
+            from ..services.answer_guard import guard_reply
+            from ..services.ai_service import get_contextual_gpt_reply
+            fb = get_contextual_gpt_reply(message_history, context_data, req.language or "en")
+            txt, flags = guard_reply(fb, req.language or "en", "rule_based_fallback")
+            result = {"text": txt, "tier": "rule_based_fallback", "task": None, "model": None, "guard_flags": flags}
     latency_ms = int((time.time() - t0) * 1000)
     reply_text = result["text"]
     logger.info("[%s] agrogpt tier=%s task=%s model=%s flags=%s latency_ms=%d", request_id, result["tier"], result["task"],
@@ -154,7 +181,11 @@ async def agro_gpt_chat(req: ChatRequest, db: Session = Depends(get_db), user: U
             role="assistant",
             content=reply_text,
             language=req.language or "en",
-            context_references={"active_diagnosis_id": context_data.get("latest_diagnosis", {}).get("report_id")}
+            context_references={
+                "active_diagnosis_id": context_data.get("latest_diagnosis", {}).get("report_id"),
+                "evidence_status": evidence_meta.get("evidence_status"),
+                "sources_count": len(evidence_meta.get("sources") or []),
+            }
         )
         db.add(assistant_msg)
         db.commit()
@@ -172,6 +203,10 @@ async def agro_gpt_chat(req: ChatRequest, db: Session = Depends(get_db), user: U
         "source_tier": result["tier"],
         "ai_unavailable": result["tier"] == "rule_based_fallback",
         "guard_flags": result["guard_flags"],
+        "evidence_status": evidence_meta.get("evidence_status", "Unverified"),
+        "sources": evidence_meta.get("sources", []),
+        "conflicts": evidence_meta.get("conflicts", []),
+        "limitations": evidence_meta.get("limitations", []),
     }
 
 
@@ -229,7 +264,13 @@ async def agro_gpt_chat_stream(req: ChatRequest, db: Session = Depends(get_db), 
         except Exception:
             db.rollback()
 
-    context_data = await fetch_farmer_context(db, farmer_id, req.context)
+    context_data = await fetch_farmer_context(db, farmer_id, req.context, user_query=req.message, language=req.language or "en")
+    evidence_meta = context_data.get("_evidence_verification") or {
+        "evidence_status": "Unverified",
+        "sources": [],
+        "conflicts": [],
+        "limitations": [],
+    }
     past_msgs = db.query(AgroGPTMessage).filter(AgroGPTMessage.conversation_id == conversation_id).order_by(AgroGPTMessage.created_at.asc()).all()
     message_history = [{"role": m.role, "content": m.content} for m in past_msgs]
     message_history.append({"role": "user", "content": req.message})
@@ -243,15 +284,23 @@ async def agro_gpt_chat_stream(req: ChatRequest, db: Session = Depends(get_db), 
     async def event_generator():
         yield f"data: {json.dumps({'conversation_id': conversation_id, 'type': 'start'})}\n\n"
         # Safety first: the guard needs the whole answer, so generate, validate, then emit in chunks.
-        try:
-            result = await generate_guarded_agro_gpt_response(message_history, context_data, req.language or "en")
-        except Exception as e:
-            logger.error(f"Agro GPT stream error: {type(e).__name__}")
-            from ..services.answer_guard import guard_reply
-            from ..services.ai_service import get_contextual_gpt_reply
-            txt, flags = guard_reply(get_contextual_gpt_reply(message_history, context_data, req.language or "en"),
-                                     req.language or "en", "rule_based_fallback")
-            result = {"text": txt, "tier": "rule_based_fallback", "guard_flags": flags}
+        if evidence_meta.get("evidence_status") == "Insufficient information" and context_data.get("_requires_live_api"):
+            from ..services.evidence_verifier import get_insufficient_evidence_message
+            result = {
+                "text": get_insufficient_evidence_message(req.language or "en"),
+                "tier": "verified_insufficient_evidence",
+                "guard_flags": ["insufficient_live_evidence"],
+            }
+        else:
+            try:
+                result = await generate_guarded_agro_gpt_response(message_history, context_data, req.language or "en")
+            except Exception as e:
+                logger.error(f"Agro GPT stream error: {type(e).__name__}")
+                from ..services.answer_guard import guard_reply
+                from ..services.ai_service import get_contextual_gpt_reply
+                txt, flags = guard_reply(get_contextual_gpt_reply(message_history, context_data, req.language or "en"),
+                                         req.language or "en", "rule_based_fallback")
+                result = {"text": txt, "tier": "rule_based_fallback", "guard_flags": flags}
         full_reply = result["text"]
         words = full_reply.split(" ")
         for i in range(0, len(words), 4):
@@ -262,14 +311,24 @@ async def agro_gpt_chat_stream(req: ChatRequest, db: Session = Depends(get_db), 
             db.commit()
         except Exception:
             db.rollback()
-        yield f"data: {json.dumps({'type': 'end', 'full_text': full_reply, 'source_tier': result['tier'], 'guard_flags': result['guard_flags']})}\n\n"
+        yield f"data: {json.dumps({'type': 'end', 'full_text': full_reply, 'source_tier': result['tier'], 'guard_flags': result['guard_flags'], 'evidence_status': evidence_meta.get('evidence_status', 'Unverified'), 'sources': evidence_meta.get('sources', [])})}\n\n"
 
     return StreamingResponse(event_generator(), media_type="text/event-stream")
 
-async def fetch_farmer_context(db: Session, farmer_id: str, req_context: Optional[dict] = None) -> dict:
-    """Helper to pull genuine farmer profile, farm, crop, and latest diagnosis context from DB."""
-    ctx = {}
-    
+_MANDI_INTENT_RE = re.compile(r"\b(mandi|apmc|modal\s*price|crop\s*price|market\s*rate|market\s*price|quintal)\b|ಬೆಲೆ|ಮಾರುಕಟ್ಟೆ|ಮಂಡಿ|मंडी|भाव", re.I)
+_WEATHER_INTENT_RE = re.compile(r"\b(weather|rain|rainfall|forecast|temperature|humidity)\b|ಮಳೆ|ಹವಾಮಾನ|मौसम|बारिश", re.I)
+
+async def fetch_farmer_context(
+    db: Session,
+    farmer_id: str,
+    req_context: Optional[dict] = None,
+    user_query: Optional[str] = None,
+    language: str = "en",
+) -> dict:
+    """Pulls genuine farmer profile, farm, latest diagnosis, Hybrid RAG chunks, and validated live APIs."""
+    ctx: Dict[str, Any] = {}
+    t0 = time.time()
+
     # 1. User/Farmer Profile
     user = db.query(User).filter(User.id == farmer_id).first()
     if user:
@@ -308,15 +367,82 @@ async def fetch_farmer_context(db: Session, farmer_id: str, req_context: Optiona
                 "chemical_treatment": diag.chemical_treatment or []
             }
 
-    # 4. Fetch Live Weather for Farmer's Location
+    # 4. Centralized Validated Live Weather
     loc = ctx.get("village") or _safe_location(req_context.get("location") if req_context else None) or "Mandya"
+    weather_api = None
     try:
-        from .weather import get_current_weather
-        w_data = await get_current_weather(q=loc)
-        if w_data.get("available"):
-            ctx["weather"] = w_data
+        from ..services.external_api_engine import fetch_validated_weather
+        weather_api = await fetch_validated_weather(loc, db=db)
+        if weather_api.get("available"):
+            ctx["weather"] = {
+                "temp": weather_api["temp_c"],
+                "humidity": weather_api["humidity_pct"],
+                "wind_speed": weather_api["wind_kmh"],
+                "rain_1h": weather_api["rain_1h_mm"],
+                "condition": weather_api["condition"],
+                "city": weather_api["city"],
+                "source": weather_api["source"],
+                "source_timestamp": weather_api["source_timestamp"],
+            }
     except Exception as e:
-        logger.warning(f"Could not load weather for farmer context: {e}")
+        logger.warning(f"Could not load validated weather for farmer context: {e}")
+
+    # 5. Hybrid RAG + Live Mandi API + Evidence Verification when answering a user question
+    if user_query:
+        from ..services.knowledge_rag import detect_crop_in_text, retrieve_hybrid_evidence
+        from ..services.external_api_engine import fetch_validated_mandi_prices
+        from ..services.evidence_verifier import evaluate_evidence_bundle
+
+        q_crop = (
+            detect_crop_in_text(user_query)
+            or (ctx.get("latest_diagnosis") or {}).get("crop")
+            or ctx.get("current_crop")
+        )
+        requires_live = None
+        mandi_api = None
+        if _MANDI_INTENT_RE.search(user_query):
+            requires_live = "mandi"
+            mandi_api = await fetch_validated_mandi_prices(
+                db, commodity=q_crop, state=ctx.get("state") or "Karnataka", limit=5
+            )
+            if mandi_api.get("available"):
+                ctx["mandi_prices"] = mandi_api["records"]
+        elif _WEATHER_INTENT_RE.search(user_query):
+            requires_live = "weather"
+
+        rag_chunks = retrieve_hybrid_evidence(
+            db=db,
+            query=user_query,
+            crop=q_crop,
+            disease=(ctx.get("latest_diagnosis") or {}).get("disease"),
+            state=ctx.get("state"),
+            district=ctx.get("district"),
+            language=language,
+            top_k=5,
+        )
+        if rag_chunks:
+            ctx["retrieved_evidence"] = rag_chunks
+            # If an approved mandi dataset chunk answers a price query, don't force Insufficient information
+            if requires_live == "mandi" and not (mandi_api and mandi_api.get("available")):
+                if any(c.get("subject") == "mandi_prices" for c in rag_chunks):
+                    requires_live = None
+
+        ctx["_requires_live_api"] = requires_live
+        ev = evaluate_evidence_bundle(
+            db=db,
+            channel="agrogpt",
+            crop=q_crop,
+            subject="mandi_prices" if requires_live == "mandi" else ("weather_rainfall" if requires_live == "weather" else "general_agronomy"),
+            retrieved_chunks=rag_chunks,
+            weather_api=weather_api if requires_live == "weather" else None,
+            mandi_api=mandi_api,
+            requires_live_api=requires_live,
+            has_model_answer=True,
+            latency_ms=int((time.time() - t0) * 1000),
+        )
+        ctx["_evidence_verification"] = ev
+        if ev.get("conflicts"):
+            ctx["evidence_conflicts"] = ev["conflicts"]
 
     return ctx
 

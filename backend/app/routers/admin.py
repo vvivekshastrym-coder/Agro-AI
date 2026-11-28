@@ -4260,6 +4260,352 @@ async def sync_data_source(
     return res
 
 
+# ── DATASET MANAGEMENT, HYBRID RAG & API INTELLIGENCE CENTRE ───────────────
+
+MAX_DATASET_UPLOAD_BYTES = 15 * 1024 * 1024  # 15 MB
+
+
+class DatasetDecisionRequest(BaseModel):
+    action: str = Field(..., pattern=r"^(approve|reject|deactivate|reprocess)$")
+    trust_level: Optional[str] = Field("community_curated", pattern=r"^(unverified_upload|community_curated|official_verified)$")
+    review_notes: Optional[str] = Field(None, max_length=500)
+
+
+class RagTestQueryRequest(BaseModel):
+    query: str = Field(..., min_length=2, max_length=500)
+    crop: Optional[str] = Field(None, max_length=80)
+    state: Optional[str] = Field("Karnataka", max_length=80)
+    language: Optional[str] = Field("en", max_length=10)
+
+
+def _serialize_dataset_row(d, include_details: bool = False) -> Dict[str, Any]:
+    out = {
+        "id": d.id,
+        "name": d.name,
+        "slug": d.slug,
+        "version": d.version,
+        "parent_dataset_id": d.parent_dataset_id,
+        "file_format": d.file_format,
+        "subject": d.subject,
+        "crop": d.crop,
+        "region": d.region,
+        "language": d.language,
+        "source_name": d.source_name,
+        "publisher": d.publisher,
+        "source_url": d.source_url,
+        "original_publication_date": d.original_publication_date,
+        "trust_level": d.trust_level,
+        "approval_status": d.approval_status,
+        "ingestion_status": d.ingestion_status,
+        "total_records": d.total_records,
+        "valid_records": d.valid_records,
+        "duplicate_records": d.duplicate_records,
+        "invalid_records": d.invalid_records,
+        "conflict_records": d.conflict_records,
+        "stale_records": d.stale_records,
+        "schema_summary": d.schema_summary or {},
+        "review_notes": d.review_notes,
+        "created_at": d.created_at.isoformat() if d.created_at else None,
+        "reviewed_at": d.reviewed_at.isoformat() if d.reviewed_at else None,
+    }
+    if include_details:
+        out["preview_rows"] = (d.preview_rows or [])[:20]
+        out["validation_errors"] = (d.validation_errors or [])[:30]
+        out["conflicts_detected"] = (d.conflicts_detected or [])[:30]
+    else:
+        out["preview_rows"] = (d.preview_rows or [])[:5]
+        out["validation_errors"] = (d.validation_errors or [])[:5]
+        out["conflicts_detected"] = (d.conflicts_detected or [])[:5]
+    return out
+
+
+@router.get("/intelligence/overview")
+async def get_dataset_and_api_intelligence_overview(
+    admin: AdminUser = Depends(require_admin(
+        AdminUserRole.super_admin, AdminUserRole.admin, AdminUserRole.content_manager, AdminUserRole.analyst
+    )),
+    db: Session = Depends(get_db),
+):
+    """Unified Dataset Management, Hybrid RAG, API Reliability, Diagnosis Eval & Evidence Verification overview."""
+    import pathlib
+    from ..database.models import (
+        AgroGPTUsageLog,
+        DatasetRegistry,
+        EvidenceVerificationLog,
+        ExternalApiCallLog,
+        KnowledgeChunk,
+    )
+    from ..services.data_integrity import get_data_integrity_overview
+    from ..services.dataset_ingestion import ensure_builtin_kaggle_dataset_registered
+    from ..services.external_api_engine import get_circuit_breaker_snapshot
+    from ..services.knowledge_rag import sync_approved_knowledge_sources_to_chunks
+    from ..services.local_specialist_vision import get_local_specialist_metadata
+
+    ensure_builtin_kaggle_dataset_registered(db)
+    sync_approved_knowledge_sources_to_chunks(db)
+
+    datasets = db.query(DatasetRegistry).order_by(DatasetRegistry.created_at.desc()).limit(100).all()
+
+    active_chunks = db.query(KnowledgeChunk).filter(KnowledgeChunk.is_active.is_(True)).all()
+    official_chunks = sum(1 for c in active_chunks if c.is_official)
+    dataset_chunks = len(active_chunks) - official_chunks
+
+    # API Call Telemetry
+    recent_api_calls = db.query(ExternalApiCallLog).order_by(ExternalApiCallLog.created_at.desc()).limit(100).all()
+    valid_api_calls = sum(1 for c in recent_api_calls if c.schema_valid)
+    avg_api_latency = (
+        round(sum(c.latency_ms or 0 for c in recent_api_calls) / len(recent_api_calls), 1)
+        if recent_api_calls else None
+    )
+
+    # Evidence Verification Telemetry
+    ev_logs = db.query(EvidenceVerificationLog).order_by(EvidenceVerificationLog.created_at.desc()).limit(250).all()
+    status_counts: Dict[str, int] = {}
+    channel_counts: Dict[str, int] = {}
+    for ev in ev_logs:
+        status_counts[ev.evidence_status] = status_counts.get(ev.evidence_status, 0) + 1
+        channel_counts[ev.channel] = channel_counts.get(ev.channel, 0) + 1
+
+    # AgroGPT Model Routing Performance
+    gpt_logs = db.query(AgroGPTUsageLog).order_by(AgroGPTUsageLog.created_at.desc()).limit(200).all()
+    model_counts: Dict[str, int] = {}
+    for g in gpt_logs:
+        key = f"{g.provider or 'local'}:{g.model or g.source_tier}"
+        model_counts[key] = model_counts.get(key, 0) + 1
+
+    # Real Held-out Leaf Diagnosis Model Evaluation Report (never invented!)
+    eval_report = None
+    report_path = pathlib.Path(__file__).resolve().parent.parent.parent / "evals" / "diagnosis" / "model_eval_report.json"
+    if report_path.is_file():
+        try:
+            raw_rep = json.loads(report_path.read_text(encoding="utf-8"))
+            eval_report = {
+                "model_id": raw_rep.get("model_id"),
+                "dataset": raw_rep.get("dataset"),
+                "split_counts": raw_rep.get("split_counts"),
+                "zero_leakage_verified": raw_rep.get("zero_leakage_verified"),
+                "summary_metrics": raw_rep.get("summary_metrics"),
+                "per_crop_test_metrics": raw_rep.get("per_crop_test_metrics"),
+                "calibration": raw_rep.get("calibration"),
+                "known_limitations": raw_rep.get("known_limitations", []),
+            }
+        except Exception:
+            eval_report = None
+
+    allowed_depts = None if admin.role == AdminUserRole.super_admin else (getattr(admin, "departments", None) or None)
+    integrity_data = get_data_integrity_overview(db, allowed_departments=allowed_depts)
+
+    return {
+        "checked_at": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+        "datasets": [_serialize_dataset_row(d, include_details=False) for d in datasets],
+        "dataset_totals": {
+            "count": len(datasets),
+            "approved": sum(1 for d in datasets if d.approval_status == "approved"),
+            "pending_review": sum(1 for d in datasets if d.approval_status == "pending_review"),
+            "total_valid_records": sum(d.valid_records or 0 for d in datasets),
+            "total_duplicates_blocked": sum(d.duplicate_records or 0 for d in datasets),
+            "total_conflicts_flagged": sum(d.conflict_records or 0 for d in datasets),
+        },
+        "knowledge_index": {
+            "active_chunks": len(active_chunks),
+            "official_kb_chunks": official_chunks,
+            "approved_dataset_chunks": dataset_chunks,
+        },
+        "api_intelligence": {
+            **integrity_data,
+            "circuit_breakers": get_circuit_breaker_snapshot(),
+            "recent_call_sample": len(recent_api_calls),
+            "schema_valid_rate": round(valid_api_calls / len(recent_api_calls), 4) if recent_api_calls else None,
+            "avg_latency_ms": avg_api_latency,
+        },
+        "evidence_verification": {
+            "total_evaluated": len(ev_logs),
+            "by_status": status_counts,
+            "by_channel": channel_counts,
+            "avg_chunks_retrieved": round(sum(e.chunks_retrieved for e in ev_logs) / len(ev_logs), 2) if ev_logs else 0.0,
+        },
+        "models_and_diagnosis": {
+            "local_specialist_loaded": get_local_specialist_metadata(),
+            "diagnosis_eval_report": eval_report,
+            "agrogpt_recent_routing": model_counts,
+        },
+    }
+
+
+@router.post("/datasets/upload", status_code=201)
+async def upload_agricultural_dataset(
+    request: Request,
+    file: UploadFile = File(...),
+    name: Optional[str] = Form(None),
+    subject: Optional[str] = Form(None),
+    crop: Optional[str] = Form(None),
+    region: Optional[str] = Form(None),
+    language: Optional[str] = Form(None),
+    source_name: Optional[str] = Form(None),
+    publisher: Optional[str] = Form(None),
+    source_url: Optional[str] = Form(None),
+    original_publication_date: Optional[str] = Form(None),
+    replace_dataset_id: Optional[str] = Form(None),
+    admin: AdminUser = Depends(require_admin(
+        AdminUserRole.super_admin, AdminUserRole.admin, AdminUserRole.content_manager
+    )),
+    db: Session = Depends(get_db),
+):
+    """Ingests, cleans, deduplicates, checks conflicts, and stages a dataset as `pending_review` (never auto-trusted)."""
+    from ..services.dataset_ingestion import validate_and_stage_dataset
+
+    raw = await file.read()
+    if not raw:
+        raise HTTPException(status_code=400, detail={"error": {"code": "EMPTY_FILE", "message": "Uploaded file is empty."}})
+    if len(raw) > MAX_DATASET_UPLOAD_BYTES:
+        raise HTTPException(status_code=413, detail={"error": {"code": "FILE_TOO_LARGE", "message": "Dataset file exceeds 15 MB limit."}})
+
+    fname = file.filename or "dataset.csv"
+    ds_name = (name or fname.rsplit(".", 1)[0]).strip()
+    try:
+        ds = validate_and_stage_dataset(
+            db=db,
+            name=ds_name,
+            filename=fname,
+            raw_bytes=raw,
+            uploaded_by=admin.user_id,
+            subject_override=subject.strip() if subject else None,
+            crop_override=crop.strip() if crop else None,
+            region_override=region.strip() if region else None,
+            language_override=language.strip() if language else None,
+            source_name=source_name.strip() if source_name else None,
+            publisher=publisher.strip() if publisher else None,
+            source_url=source_url.strip() if source_url else None,
+            original_publication_date=original_publication_date.strip() if original_publication_date else None,
+            parent_dataset_id=replace_dataset_id.strip() if replace_dataset_id else None,
+        )
+    except ValueError as ve:
+        raise HTTPException(status_code=422, detail={"error": {"code": "INVALID_DATASET_FORMAT", "message": str(ve)}})
+    except Exception as exc:
+        logger.error("Dataset ingestion failed: %s", exc)
+        raise HTTPException(status_code=422, detail={"error": {"code": "DATASET_PARSE_ERROR", "message": f"Failed to parse dataset: {type(exc).__name__}"}})
+
+    log_admin_action(
+        db,
+        admin,
+        "UPLOAD_DATASET",
+        "dataset_registry",
+        ds.id,
+        {
+            "name": ds.name,
+            "format": ds.file_format,
+            "version": ds.version,
+            "valid_records": ds.valid_records,
+            "duplicates": ds.duplicate_records,
+            "conflicts": ds.conflict_records,
+        },
+        request,
+    )
+    return _serialize_dataset_row(ds, include_details=True)
+
+
+@router.get("/datasets/{dataset_id}")
+async def get_dataset_detail(
+    dataset_id: str,
+    admin: AdminUser = Depends(require_admin(
+        AdminUserRole.super_admin, AdminUserRole.admin, AdminUserRole.content_manager, AdminUserRole.analyst
+    )),
+    db: Session = Depends(get_db),
+):
+    from ..database.models import DatasetRegistry
+    ds = db.query(DatasetRegistry).filter(DatasetRegistry.id == dataset_id).first()
+    if not ds:
+        raise HTTPException(status_code=404, detail={"error": {"code": "DATASET_NOT_FOUND", "message": "Dataset not found."}})
+    return _serialize_dataset_row(ds, include_details=True)
+
+
+@router.post("/datasets/{dataset_id}/decide")
+async def decide_dataset_lifecycle(
+    dataset_id: str,
+    body: DatasetDecisionRequest,
+    request: Request,
+    admin: AdminUser = Depends(require_admin(AdminUserRole.super_admin, AdminUserRole.admin)),
+    db: Session = Depends(get_db),
+):
+    """Approve (index into Hybrid RAG), reject, deactivate, or reprocess an imported dataset."""
+    from ..database.models import DatasetRegistry
+    from ..services.dataset_ingestion import approve_dataset, set_dataset_lifecycle_status
+
+    ds = db.query(DatasetRegistry).filter(DatasetRegistry.id == dataset_id).first()
+    if not ds:
+        raise HTTPException(status_code=404, detail={"error": {"code": "DATASET_NOT_FOUND", "message": "Dataset not found."}})
+
+    trust = body.trust_level or "community_curated"
+    if trust == "official_verified" and admin.role != AdminUserRole.super_admin:
+        raise HTTPException(
+            status_code=403,
+            detail={"error": {"code": "SUPER_ADMIN_REQUIRED", "message": "Only Super Admin can mark a dataset as official_verified."}},
+        )
+
+    try:
+        if body.action in ("approve", "reprocess"):
+            updated = approve_dataset(
+                db=db,
+                dataset_id=dataset_id,
+                reviewer_user_id=admin.user_id,
+                trust_level=trust if body.action == "approve" else ds.trust_level,
+                review_notes=body.review_notes,
+            )
+        else:
+            mapped = "rejected" if body.action == "reject" else "deactivated"
+            updated = set_dataset_lifecycle_status(
+                db=db,
+                dataset_id=dataset_id,
+                new_status=mapped,
+                reviewer_user_id=admin.user_id,
+                review_notes=body.review_notes,
+            )
+    except ValueError as ve:
+        raise HTTPException(status_code=400, detail={"error": {"code": "INVALID_DATASET_DECISION", "message": str(ve)}})
+
+    log_admin_action(
+        db,
+        admin,
+        f"DATASET_{body.action.upper()}",
+        "dataset_registry",
+        dataset_id,
+        {"status": updated.approval_status, "trust_level": updated.trust_level, "notes": body.review_notes},
+        request,
+    )
+    return _serialize_dataset_row(updated, include_details=True)
+
+
+@router.post("/intelligence/search-test")
+async def test_hybrid_rag_and_verification(
+    body: RagTestQueryRequest,
+    admin: AdminUser = Depends(require_admin(
+        AdminUserRole.super_admin, AdminUserRole.admin, AdminUserRole.content_manager, AdminUserRole.analyst
+    )),
+    db: Session = Depends(get_db),
+):
+    """Interactive Hybrid RAG & Evidence Verification tester for administrators."""
+    from ..services.evidence_verifier import evaluate_evidence_bundle
+    from ..services.knowledge_rag import retrieve_hybrid_evidence
+
+    chunks = retrieve_hybrid_evidence(
+        db=db,
+        query=body.query,
+        crop=body.crop,
+        state=body.state,
+        language=body.language or "en",
+        top_k=5,
+    )
+    ev = evaluate_evidence_bundle(
+        db=db,
+        channel="agrogpt",
+        crop=body.crop,
+        subject="admin_rag_test",
+        retrieved_chunks=chunks,
+        has_model_answer=bool(chunks),
+    )
+    return {"query": body.query, "retrieved_chunks": chunks, "verification": ev}
+
+
 
 
 
