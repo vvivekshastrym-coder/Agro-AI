@@ -34,6 +34,18 @@ class _FakeJWKS:
         return K()
 
 
+@pytest.fixture(scope="module", autouse=True)
+def _reset_admin_bootstrap_state():
+    """Ensure clean zero-admin state at module start so farmer_rajesh first-caller bootstrap is deterministic."""
+    db = SessionLocal()
+    try:
+        db.query(AdminUser).delete()
+        db.query(SubscriptionUsage).filter(SubscriptionUsage.user_id == "farmer_quota_test").delete()
+        db.commit()
+    finally:
+        db.close()
+
+
 @pytest.fixture(autouse=True)
 def _patch_jwks(monkeypatch):
     monkeypatch.setattr(deps, "_get_jwks_client", lambda: _FakeJWKS())

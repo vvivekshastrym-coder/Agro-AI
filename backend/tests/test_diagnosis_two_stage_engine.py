@@ -191,3 +191,54 @@ def test_unconfigured_providers_return_503_unavailable_never_fake_tomato(monkeyp
     r = client.post("/api/diagnosis/analyze", files={"image": ("leaf.jpg", _make_jpeg(), "image/jpeg")}, headers=hdr)
     assert r.status_code == 503
     assert r.json()["detail"]["error"]["code"] == "DIAGNOSIS_UNAVAILABLE"
+
+
+def test_crop_confirmed_override_attaches_approved_kb_sources_and_non_diag_preserves_quota(monkeypatch):
+    from app.database.models import KnowledgeSource, SubscriptionUsage
+    uid, hdr = _farmer_headers()
+
+    # Seed an approved KnowledgeSource for Ragi and an unapproved draft (draft must NOT appear)
+    db = SessionLocal()
+    approved_id = str(uuid.uuid4())
+    draft_id = str(uuid.uuid4())
+    db.add(KnowledgeSource(id=approved_id, title="UAS Bengaluru Ragi Blast Advisory", publisher="UAS Bengaluru", crop="Ragi", review_status="approved", last_verified_date="2026-11-20"))
+    db.add(KnowledgeSource(id=draft_id, title="Unreviewed Draft Ragi Note", publisher="Draft", crop="Ragi", review_status="draft"))
+    db.commit()
+    db.close()
+
+    try:
+        # Provider sees low plant-ID confidence on close-up leaf, moderate disease confidence
+        async def fake_closeup(*_a, **_kw):
+            return ({
+                "plant_identification": {"is_plant": True, "crop": "", "identification_confidence": "low", "candidate_crops": ["Ragi", "Paddy"]},
+                "diagnosis": {"problem_name": "Leaf Blast", "category": "fungal", "confidence": "high", "severity": "moderate"},
+                "organic_and_cultural_measures": ["Remove heavily infected leaves and avoid excess nitrogen"],
+            }, "mock-vision")
+
+        monkeypatch.setattr(de, "_call_providers", fake_closeup)
+
+        # 1. Without crop_confirmed -> asks farmer to confirm crop AND consumes 0 quota credits
+        r1 = client.post("/api/diagnosis/analyze", data={"crop": "Ragi"}, files={"image": ("l.jpg", _make_jpeg(), "image/jpeg")}, headers=hdr)
+        assert r1.status_code == 200
+        assert r1.json()["status"] == "needs_crop_confirmation"
+        db = SessionLocal()
+        used_after_non_diag = sum(u.used for u in db.query(SubscriptionUsage).filter(SubscriptionUsage.user_id == uid, SubscriptionUsage.feature_key == "diagnose_leaf").all())
+        db.close()
+        assert used_after_non_diag == 0
+
+        # 2. Farmer taps Ragi confirmation button (crop_confirmed=true) -> proceeds capped at MODERATE + attaches ONLY approved KB source!
+        r2 = client.post("/api/diagnosis/analyze", data={"crop": "Ragi", "crop_confirmed": "true"}, files={"image": ("l.jpg", _make_jpeg(), "image/jpeg")}, headers=hdr)
+        assert r2.status_code == 200
+        b2 = r2.json()
+        assert b2["status"] == "moderate_confidence"
+        assert b2["crop"] == "Ragi"
+        assert b2["knowledge_base_verified"] is True
+        titles = [s["title"] for s in b2["sources"]]
+        assert "UAS Bengaluru Ragi Blast Advisory" in titles
+        assert "Unreviewed Draft Ragi Note" not in titles
+    finally:
+        db = SessionLocal()
+        db.query(KnowledgeSource).filter(KnowledgeSource.id.in_([approved_id, draft_id])).delete(synchronize_session=False)
+        db.commit()
+        db.close()
+

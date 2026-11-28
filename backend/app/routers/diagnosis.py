@@ -6,7 +6,7 @@ from datetime import datetime
 import uuid
 import logging
 from ..database.connection import get_db
-from ..database.models import DiagnosisReport, DiagnosisImage, User, Farm
+from ..database.models import DiagnosisReport, DiagnosisImage, User, Farm, KnowledgeSource
 from ..auth.deps import get_current_user, get_optional_current_user
 from ..auth.entitlements import check_and_consume_entitlement
 from ..services.ai_service import (
@@ -56,6 +56,7 @@ async def set_diagnosis_api_key_retired():
 async def analyze_diagnosis(
     image: UploadFile = File(...),
     crop: Optional[str] = Form(None),
+    crop_confirmed: Optional[str] = Form(None),
     language: Optional[str] = Form("en"),
     farmer_id: Optional[str] = Form(None),
     farm_id: Optional[str] = Form(None),
@@ -68,8 +69,8 @@ async def analyze_diagnosis(
     Two-stage analysis: (A) plant identification, (B) problem identification, followed by a deterministic
     safety gate. Returns an honest non-diagnostic status instead of guessing.
     """
-    # 0. Enforce server-side entitlement
-    check_and_consume_entitlement(db, user.id, "diagnose_leaf", consume=True)
+    # 0. Check server-side entitlement WITHOUT consuming yet (quota is consumed only on a completed diagnosis)
+    check_and_consume_entitlement(db, user.id, "diagnose_leaf", consume=False)
 
     if farm_id and user:
         owned = db.query(Farm).filter(Farm.id == farm_id, Farm.user_id == user.id).first()
@@ -103,13 +104,17 @@ async def analyze_diagnosis(
         )
 
     # 3. Call Vision AI Model Service on Backend
+    is_confirmed_crop = str(crop_confirmed or "").strip().lower() in ("1", "true", "yes")
     try:
-        res = await analyze_leaf_image(
+        call_kwargs = dict(
             image_bytes=contents,
             mime_type=image.content_type,
             crop_hint=crop or "",
-            language=language or "en"
+            language=language or "en",
         )
+        if is_confirmed_crop:
+            call_kwargs["crop_confirmed"] = True
+        res = await analyze_leaf_image(**call_kwargs)
     except Exception as e:
         logger.error(f"Error calling AI vision model: {e}")
         raise HTTPException(
@@ -154,6 +159,35 @@ async def analyze_diagnosis(
 
     model_name = res.get("model_used", "vision-model")
     conf_val = res.get("confidence") if isinstance(res.get("confidence"), (int, float)) and not isinstance(res.get("confidence"), bool) else None
+
+    # Consume 1 diagnosis credit ONLY now that a valid diagnostic result was produced
+    check_and_consume_entitlement(db, user.id, "diagnose_leaf", consume=True)
+
+    # Attach agronomist-approved Knowledge Library sources matching this crop (if any exist)
+    approved_sources = []
+    try:
+        crop_q = (res.get("crop") or "").strip()
+        if crop_q:
+            kb_rows = (
+                db.query(KnowledgeSource)
+                .filter(KnowledgeSource.review_status == "approved", KnowledgeSource.crop.ilike(f"%{crop_q}%"))
+                .order_by(KnowledgeSource.created_at.desc())
+                .limit(5)
+                .all()
+            )
+            approved_sources = [
+                {
+                    "title": k.title,
+                    "publisher": k.publisher,
+                    "source_url": k.source_url,
+                    "last_verified_date": k.last_verified_date,
+                }
+                for k in kb_rows
+            ]
+    except Exception:
+        approved_sources = []
+    if approved_sources:
+        res = {**res, "sources": approved_sources, "knowledge_base_verified": True}
 
     # 4. Store report. Numeric confidence is intentionally NULL: the model's self-reported number is
     # uncalibrated, so only the categorical level (HIGH / MODERATE) is kept in the API response.

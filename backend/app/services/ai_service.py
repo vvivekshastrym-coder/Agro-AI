@@ -625,14 +625,14 @@ def get_expert_fallback_diagnosis(crop_hint: str = '', language: str = 'en', ima
     return base_diag
 
 
-async def analyze_leaf_image(image_bytes: bytes, mime_type: str, crop_hint: str = '', language: str = 'en') -> dict:
+async def analyze_leaf_image(image_bytes: bytes, mime_type: str, crop_hint: str = '', language: str = 'en', crop_confirmed: bool = False) -> dict:
     """Two-stage (plant identification -> problem identification) leaf analysis with deterministic safety gating.
 
     Implemented in services/diagnosis_engine.py. There is no local colour-heuristic fallback: when no vision
     provider answers, the result is an honest 'unavailable' state rather than an invented diagnosis.
     """
     from .diagnosis_engine import analyze_leaf_image_v3
-    return await analyze_leaf_image_v3(image_bytes, mime_type, crop_hint=crop_hint, language=language)
+    return await analyze_leaf_image_v3(image_bytes, mime_type, crop_hint=crop_hint, language=language, crop_confirmed=crop_confirmed)
 
 
 def get_contextual_gpt_reply(messages: list, context_data: dict, language: str = "en") -> str:

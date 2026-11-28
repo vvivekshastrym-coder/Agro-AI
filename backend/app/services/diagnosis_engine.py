@@ -297,7 +297,14 @@ def _level(value: Any) -> int:
     return _LEVEL.get(str(value or "").strip().lower(), 0)
 
 
-def finalize_diagnosis(parsed: dict, crop_hint: str, quality: Dict[str, Any], model_used: str, language: str = "en") -> Dict[str, Any]:
+def finalize_diagnosis(
+    parsed: dict,
+    crop_hint: str,
+    quality: Dict[str, Any],
+    model_used: str,
+    language: str = "en",
+    crop_confirmed: bool = False,
+) -> Dict[str, Any]:
     """Turns the raw two-stage model output into a safe, honest result. Pure function (unit-testable)."""
     plant = parsed.get("plant_identification") or {}
     diag = parsed.get("diagnosis") or {}
@@ -312,10 +319,10 @@ def finalize_diagnosis(parsed: dict, crop_hint: str, quality: Dict[str, Any], mo
         "image_quality": {"issues": issues, "width": quality.get("width"), "height": quality.get("height")},
         "plant_identification": {
             "is_plant": plant.get("is_plant") is not False,
-            "crop": crop or None,
+            "crop": (hint if (crop_confirmed and hint) else crop) or None,
             "scientific_name": str(plant.get("scientific_name") or "") or None,
             "variety": str(plant.get("variety") or "") or None,
-            "identification_confidence": _CATEGORY[_level(plant.get("identification_confidence"))],
+            "identification_confidence": "FARMER_CONFIRMED" if (crop_confirmed and hint) else _CATEGORY[_level(plant.get("identification_confidence"))],
             "visible_features": _clean_list(plant.get("visible_features"))[0],
             "candidate_crops": [str(c)[:60] for c in (plant.get("candidate_crops") or [])[:5] if str(c).strip()],
             "uncertain_reason": str(plant.get("uncertain_reason") or "") or None,
@@ -337,9 +344,13 @@ def finalize_diagnosis(parsed: dict, crop_hint: str, quality: Dict[str, Any], mo
                 "next_action": "Take a clear, close photo of one affected leaf with the whole leaf in frame."}
 
     # Gate 2: crop unknown, uncertain, or contradicting the farmer's selection -> ask, never guess
+    # (Unless the farmer explicitly confirmed the crop after a prompt, in which case we proceed capped at MODERATE.)
     plant_level = _level(plant.get("identification_confidence"))
     mismatch = bool(hint and crop and not crops_match(hint, crop))
-    if not crop or plant_level == 0 or mismatch:
+    if crop_confirmed and hint:
+        crop = hint
+        plant_level = min(max(plant_level, 1), 1)
+    elif not crop or plant_level == 0 or mismatch:
         if mismatch:
             msg = (f"You selected '{hint}', but the photo looks more like '{crop}'. "
                    "Treatment depends on the exact crop, so please confirm which crop this is.")
@@ -406,7 +417,13 @@ def finalize_diagnosis(parsed: dict, crop_hint: str, quality: Dict[str, Any], mo
 
 
 # --------------------------------------------------------------------------- public entry
-async def analyze_leaf_image_v3(image_bytes: bytes, mime_type: str, crop_hint: str = "", language: str = "en") -> Dict[str, Any]:
+async def analyze_leaf_image_v3(
+    image_bytes: bytes,
+    mime_type: str,
+    crop_hint: str = "",
+    language: str = "en",
+    crop_confirmed: bool = False,
+) -> Dict[str, Any]:
     quality = assess_image_quality(image_bytes)
     if quality["reject"]:
         reason = "The image could not be read." if "unreadable_image" in quality["issues"] else "The photo resolution is too low."
@@ -417,11 +434,11 @@ async def analyze_leaf_image_v3(image_bytes: bytes, mime_type: str, crop_hint: s
     prepared, mime = prepare_image_for_vision(image_bytes)
     lang_note = {"kn": "Write all free-text strings in Kannada (ಕನ್ನಡ) script.",
                  "hi": "Write all free-text strings in Hindi (हिंदी) script."}.get(language, "Write in English.")
-    user_text = (f"Farmer's crop hint (UNVERIFIED claim, may be wrong): '{crop_hint or 'none given'}'.\n{lang_note}\n"
-                 "Return the JSON object only.")
+    hint_label = f"Farmer CONFIRMED crop: '{crop_hint}'" if (crop_confirmed and crop_hint) else f"Farmer's crop hint (UNVERIFIED claim, may be wrong): '{crop_hint or 'none given'}'"
+    user_text = f"{hint_label}.\n{lang_note}\nReturn the JSON object only."
     parsed, model_used = await _call_providers(prepared, mime, TWO_STAGE_PROMPT, user_text)
     if not parsed:
         return {"status": "unavailable", "engine_version": ENGINE_VERSION,
                 "message": "The diagnosis service is temporarily unavailable. No diagnosis was generated.",
                 "next_action": "Please retry in a few minutes."}
-    return finalize_diagnosis(parsed, crop_hint, quality, model_used or "vision-model", language)
+    return finalize_diagnosis(parsed, crop_hint, quality, model_used or "vision-model", language, crop_confirmed=crop_confirmed)
