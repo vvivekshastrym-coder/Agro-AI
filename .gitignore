@@ -49,3 +49,7 @@ android/app/build/
 
 # Local signed mobile release artifacts & keystores
 releases/
+
+# Local evaluation datasets and machine-specific manifests
+backend/evals/diagnosis/*_manifest.json
+backend/evals/diagnosis/benchmark_results.json
