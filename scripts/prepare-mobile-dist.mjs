@@ -56,7 +56,18 @@ for (const dir of dirsToCopy) {
 const adminDistSrc = path.join(root, 'admin', 'dist');
 const adminPubSrc = path.join(pub, 'admin');
 
-if (fs.existsSync(adminDistSrc)) {
+// Git may contain admin/dist/index.html without its ignored build assets.
+// Only replace public/admin when the built entry point's referenced assets exist.
+const adminDistIndex = path.join(adminDistSrc, 'index.html');
+const adminDistHtml = fs.existsSync(adminDistIndex)
+  ? fs.readFileSync(adminDistIndex, 'utf8')
+  : '';
+const adminAssetRefs = [...adminDistHtml.matchAll(/(?:src|href)=["']\/admin\/([^"']+)["']/g)]
+  .map((match) => path.join(adminDistSrc, match[1]));
+const hasCompleteAdminDist = fs.existsSync(adminDistIndex)
+  && adminAssetRefs.every((assetPath) => fs.existsSync(assetPath));
+
+if (hasCompleteAdminDist) {
   if (fs.existsSync(adminPubSrc)) {
     fs.rmSync(adminPubSrc, { recursive: true, force: true });
   }
